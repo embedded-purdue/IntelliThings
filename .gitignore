@@ -70,12 +70,12 @@ dist/
 *.log
 
 # ---- Home Assistant ----
-smart-home/home-assistant/.storage/
-smart-home/home-assistant/*.db
-smart-home/home-assistant/*.db-*
-smart-home/home-assistant/home-assistant.log*
-smart-home/home-assistant/.cloud/
-smart-home/home-assistant/tts/
+ai/home-assistant/.storage/
+ai/home-assistant/*.db
+ai/home-assistant/*.db-*
+ai/home-assistant/home-assistant.log*
+ai/home-assistant/.cloud/
+ai/home-assistant/tts/
 
 # ---- Editors ----
 .vscode/

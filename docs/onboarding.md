@@ -40,7 +40,7 @@ Fill in what you need. `.env` is gitignored — keep it that way.
 
 ---
 
-## Software / Firmware
+## Software
 
 **Stack:** Embedded C · ESP-IDF · FreeRTOS · ESP32-C5
 
@@ -62,7 +62,7 @@ Verify:
 idf.py --version
 ```
 
-Then see [`../firmware/README.md`](../firmware/README.md).
+Then see [`../software/README.md`](../software/README.md).
 
 ---
 
@@ -80,9 +80,14 @@ especially the design review rule. We have five prototype fabs, total.
 
 ---
 
-## Smart Home
+## AI
 
-**Stack:** Home Assistant OS · Raspberry Pi 5 · MQTT · Matter
+**Stack:** Home Assistant OS · Raspberry Pi 5 · MQTT · Matter · cloud LLM · MCP
+
+This subteam spans the hub and the agent. Pick whichever end you're starting on —
+most people end up touching both.
+
+### Home Assistant side
 
 You don't need physical hardware to start. Run HA locally:
 
@@ -90,7 +95,7 @@ You don't need physical hardware to start. Run HA locally:
 docker run -d --name homeassistant \
   --privileged --restart=unless-stopped \
   -e TZ=America/Indiana/Indianapolis \
-  -v "$(pwd)/smart-home/home-assistant:/config" \
+  -v "$(pwd)/ai/home-assistant:/config" \
   --network=host \
   ghcr.io/home-assistant/home-assistant:stable
 ```
@@ -102,16 +107,10 @@ Worth reading early:
 - Home Assistant **AI Task** (newer feature — docs are thin, expect to experiment)
 - Home Assistant **MCP Server** integration
 
-Then see [`../smart-home/README.md`](../smart-home/README.md).
-
----
-
-## LLM
-
-**Stack:** cloud LLM API · MCP · prompt engineering + evals
+### Agent side
 
 ```bash
-cd llm
+cd ai
 python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt   # once it exists
 ```
@@ -122,7 +121,7 @@ Useful background:
 - Model Context Protocol: https://modelcontextprotocol.io
 - Home Assistant MCP Server integration docs
 
-Then see [`../llm/README.md`](../llm/README.md).
+Then see [`../ai/README.md`](../ai/README.md).
 
 ---
 

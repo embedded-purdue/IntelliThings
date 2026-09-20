@@ -45,7 +45,7 @@ Additional distributed nodes extend coverage for multi-node spatial awareness.
 **Output:** IR blaster (universal remote), 7" display.
 
 Firmware is Embedded C on ESP-IDF with FreeRTOS. Sensor drivers speak I2C. See
-[`../firmware/`](../firmware/).
+[`../software/`](../software/).
 
 ### 2. Transport
 
@@ -66,7 +66,7 @@ Responsibilities:
 - **HA MCP Server** — exposes Home Assistant as callable tools for the agent
 - Real-time dashboard, including a 3D floor-plan view
 
-See [`../smart-home/`](../smart-home/).
+See [`../ai/`](../ai/).
 
 ### 4. Cloud AI agent
 
@@ -75,7 +75,7 @@ A cost-effective cloud LLM acting as the decision engine. It:
 - decides which devices to actuate, and calls them via MCP tools
 - generates the proactive status statements shown on the companion display
 
-Prompt design, MCP wiring, and evals live in [`../llm/`](../llm/).
+Prompt design, MCP wiring, and evals live in [`../ai/`](../ai/).
 
 ### 5. Actuation
 
@@ -101,7 +101,7 @@ sensor read (I2C)
 
 ## Known risks
 
-**Smart Home is the structural bottleneck.** Home Assistant, Matter, and the MCP
+**The AI / Home Assistant layer is the structural bottleneck.** Home Assistant, Matter, and the MCP
 integration are the least-documented parts of the stack and the thinnest on
 experience. Start the Pi 5 hub in week 1, not week 6.
 
