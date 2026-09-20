@@ -18,7 +18,7 @@ assignees: ''
 
 ## Where
 
-- [ ] Software / firmware (which board? which sensor?)
+- [ ] Software (which board? which sensor?)
 - [ ] Hardware
 - [ ] AI — Home Assistant / Pi 5
 - [ ] AI — cloud agent

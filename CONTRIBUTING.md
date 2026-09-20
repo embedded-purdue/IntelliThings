@@ -113,7 +113,7 @@ delete it in a follow-up commit — it stays in git history forever.
 
 ## Code style
 
-- **Firmware (C):** follow the ESP-IDF style guide. 4-space indent, snake_case, no tabs.
+- **Embedded C:** follow the ESP-IDF style guide. 4-space indent, snake_case, no tabs.
 - **Python:** PEP 8. Format with `black` if you have it.
 - **YAML (Home Assistant):** 2-space indent.
 - Comment the *why*, not the *what*. The code already says what it does.
@@ -122,5 +122,4 @@ delete it in a follow-up commit — it stays in git history forever.
 
 - Meetings: Sundays 1–4 PM. Recaps go to Discord.
 - Blocked mid-week? Post in your subteam's Discord channel — don't sit on it until Sunday.
-- Subteam assignments are advisory. Nine of eighteen of us have written firmware; if
-  you want to help another team, do.
+- Subteam assignments are advisory, not walls. If you want to help another subteam, do.

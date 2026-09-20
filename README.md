@@ -80,7 +80,7 @@ Full workflow in [`CONTRIBUTING.md`](CONTRIBUTING.md).
 
 ## Tech stack
 
-**Firmware** Embedded C · ESP-IDF · FreeRTOS · ESP32-C5
+**Embedded** Embedded C · ESP-IDF · FreeRTOS · ESP32-C5
 **Protocols** Wi-Fi · MQTT · Matter · MCP
 **Platform** Home Assistant OS on Raspberry Pi 5
 **AI** Cloud LLM agent via Home Assistant AI Task + MCP Server
