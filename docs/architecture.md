@@ -57,7 +57,7 @@ Nodes publish sensor readings to the broker; Home Assistant subscribes.
 ### 3. Home Assistant hub
 
 Raspberry Pi 5 running Home Assistant OS. This is the integration point where
-hardware, firmware, and the LLM all have to land.
+hardware, software, and the reasoning layer all have to land.
 
 Responsibilities:
 - MQTT broker, ingesting node telemetry
