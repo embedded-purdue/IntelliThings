@@ -1,3 +1,9 @@
+----
+
+# **Placeholder**
+
+----
+
 # IntelliThings
 
 **An LLM-powered smart home companion system — from IoT to AIoT.**

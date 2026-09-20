@@ -1,3 +1,9 @@
+----
+
+# **Placeholder**
+
+----
+
 # Software — Software & Data Processing Subteam
 
 ESP-IDF firmware for the desktop companion, the distributed sensor nodes, and the demo

@@ -1,3 +1,9 @@
+----
+
+# **Placeholder**
+
+----
+
 # Contributing to IntelliThings
 
 Welcome aboard. This doc covers how we branch, commit, and review.
