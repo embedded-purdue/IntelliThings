@@ -1,20 +1,12 @@
-# CODEOWNERS — auto-requests review from the right subteam lead.
+# CODEOWNERS — auto-requests review from the subteam lead when a PR touches
+# their area.
 #
-# Owners must have write access to the repo. Invites are pending for most of the
-# team; review requests start working once they accept.
+# Owners must have write access to the repo. Invites are still pending for most
+# of the team; review requests start working once they accept.
 #
-# Syntax: <path pattern>  <@owner> [@owner...]
+# Syntax: <path pattern>  <@owner>
 
-# Default — anything not matched below
-*                   @rakkicow
+/software/    @LukeTuthill
+/hardware/    @LiamWatson-Purdue
 
-# Subteams
-/software/          @rakkicow          # TODO: replace with Software lead
-/hardware/          @LiamWatson-Purdue
-/ai/                @LukeTuthill @ssarurka
-
-# Shared — leads should see changes to process and architecture
-/docs/              @rakkicow
-/.github/           @rakkicow
-/README.md          @rakkicow
-/CONTRIBUTING.md    @rakkicow
+# /ai/ — no lead assigned yet
