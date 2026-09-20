@@ -25,10 +25,10 @@ feature       ●──●     ●─────●                     your wo
 Prefix with your subteam so it's obvious who owns what:
 
 ```
-firmware/i2c-sht40-driver
+software/i2c-sht40-driver
 hardware/companion-pcb-rev-a
-smart-home/mqtt-broker-setup
-llm/status-statement-prompts
+ai/mqtt-broker-setup
+ai/status-statement-prompts
 docs/architecture-update
 ```
 
@@ -42,14 +42,14 @@ git checkout dev
 git pull origin dev
 
 # 2. Cut your branch
-git checkout -b firmware/i2c-sht40-driver
+git checkout -b software/i2c-sht40-driver
 
 # 3. Work, committing as you go
 git add <files>
-git commit -m "firmware: add SHT40 temperature/humidity driver"
+git commit -m "software: add SHT40 temperature/humidity driver"
 
 # 4. Push and open a PR into dev
-git push -u origin firmware/i2c-sht40-driver
+git push -u origin software/i2c-sht40-driver
 ```
 
 Then open a pull request on GitHub targeting **`dev`**.
@@ -60,7 +60,7 @@ If `dev` has moved since you branched:
 
 ```bash
 git checkout dev && git pull origin dev
-git checkout firmware/i2c-sht40-driver
+git checkout software/i2c-sht40-driver
 git merge dev          # resolve any conflicts here, not in the PR
 ```
 
@@ -69,10 +69,10 @@ git merge dev          # resolve any conflicts here, not in the PR
 Format: `<area>: <what changed>`
 
 ```
-firmware: add SHT40 temperature/humidity driver
+software: add SHT40 temperature/humidity driver
 hardware: route power plane on companion PCB rev A
-smart-home: add MQTT broker config for Pi 5 hub
-llm: tighten proactive status statement prompt
+ai: add MQTT broker config for Pi 5 hub
+ai: tighten proactive status statement prompt
 docs: correct BOM cost for CO2 sensor
 ```
 
@@ -113,7 +113,7 @@ delete it in a follow-up commit — it stays in git history forever.
 
 ## Code style
 
-- **Firmware (C):** follow the ESP-IDF style guide. 4-space indent, snake_case, no tabs.
+- **Embedded C:** follow the ESP-IDF style guide. 4-space indent, snake_case, no tabs.
 - **Python:** PEP 8. Format with `black` if you have it.
 - **YAML (Home Assistant):** 2-space indent.
 - Comment the *why*, not the *what*. The code already says what it does.
@@ -122,5 +122,4 @@ delete it in a follow-up commit — it stays in git history forever.
 
 - Meetings: Sundays 1–4 PM. Recaps go to Discord.
 - Blocked mid-week? Post in your subteam's Discord channel — don't sit on it until Sunday.
-- Subteam assignments are advisory. Nine of eighteen of us have written firmware; if
-  you want to help another team, do.
+- Subteam assignments are advisory, not walls. If you want to help another subteam, do.

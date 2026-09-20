@@ -9,7 +9,7 @@ bill of materials, and order development hardware.
 
 - [ ] Architecture locked well enough to order parts
 - [ ] BOM finalized and ordered (long lead times bite first)
-- [ ] Repo, branches, and toolchains set up for all four subteams
+- [ ] Repo, branches, and toolchains set up for all three subteams
 - [ ] **Pi 5 hub stood up with Home Assistant** — start this now, not in week 6
 
 ## Weeks 4–5 · Hardware & Firmware Prototyping

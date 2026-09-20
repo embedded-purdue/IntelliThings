@@ -13,10 +13,9 @@
 
 ## Subteam
 
-- [ ] Firmware
+- [ ] Software
 - [ ] Hardware
-- [ ] Smart Home
-- [ ] LLM
+- [ ] AI
 - [ ] Docs
 
 ## Checklist

@@ -55,10 +55,9 @@ See [`docs/architecture.md`](docs/architecture.md) for the full breakdown.
 
 | Path | Subteam | Scope |
 |---|---|---|
-| [`firmware/`](firmware/) | Software / Firmware | ESP-IDF + FreeRTOS firmware, sensor drivers, MQTT client, display UI, OTA |
+| [`software/`](software/) | Software | ESP-IDF + FreeRTOS firmware, sensor drivers, MQTT client, display UI, OTA, data processing |
 | [`hardware/`](hardware/) | Hardware | Schematics, PCB layout, enclosure CAD, BOM, wiring |
-| [`smart-home/`](smart-home/) | Smart Home | Home Assistant config, Pi 5 hub, MQTT broker, Matter, virtual devices |
-| [`llm/`](llm/) | LLM | Cloud agent, prompt engineering, MCP wiring, evals |
+| [`ai/`](ai/) | AI | Home Assistant + Pi 5 hub, MQTT broker, cloud agent, prompts, MCP, dashboard |
 | [`docs/`](docs/) | Everyone | Architecture, timeline, onboarding |
 
 ## Getting started
@@ -81,7 +80,7 @@ Full workflow in [`CONTRIBUTING.md`](CONTRIBUTING.md).
 
 ## Tech stack
 
-**Firmware** Embedded C · ESP-IDF · FreeRTOS · ESP32-C5
+**Embedded** Embedded C · ESP-IDF · FreeRTOS · ESP32-C5
 **Protocols** Wi-Fi · MQTT · Matter · MCP
 **Platform** Home Assistant OS on Raspberry Pi 5
 **AI** Cloud LLM agent via Home Assistant AI Task + MCP Server
@@ -101,7 +100,13 @@ Full workflow in [`CONTRIBUTING.md`](CONTRIBUTING.md).
 
 ## Team
 
-18 members across 4 subteams — Hardware (5), Software/Firmware (6), Smart Home (4), LLM (3).
+Three subteams:
+
+| Subteam | Owns |
+|---|---|
+| **Software** | ESP-32 firmware, sensor drivers, MQTT publish path, data validation |
+| **Hardware** | Sensor wiring, PCB design, display + power integration, enclosure |
+| **AI** | Home Assistant + AI Task, cloud agent, MCP server, virtual devices, dashboard |
 
 Subteam assignments are advisory, not walls. If a subteam stalls, reinforce it.
 
