@@ -1,3 +1,9 @@
+----
+
+# **Placeholder**
+
+----
+
 # AI — AI Agent & Smart Home Subteam
 
 The Home Assistant hub on the Raspberry Pi 5, the cloud AI agent, and everything
