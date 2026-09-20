@@ -1,0 +1,89 @@
+# ---- Secrets: never commit these ----
+.env
+.env.*
+!.env.example
+secrets.yaml
+*.key
+*.pem
+credentials.json
+sdkconfig.local
+
+# ---- ESP-IDF / firmware ----
+build/
+sdkconfig.old
+managed_components/
+dependencies.lock
+*.bin
+*.elf
+*.map
+compile_commands.json
+.embuild/
+
+# ---- PlatformIO ----
+.pio/
+.pioenvs/
+.piolibdeps/
+
+# ---- KiCad ----
+*-backups/
+*.kicad_prl
+*.kicad_pcb-bak
+*.sch-bak
+*.bak
+*.lck
+fp-info-cache
+~*.*
+
+# ---- Altium ----
+History/
+Project\ Logs*/
+__Previews/
+*.PcbDoc.*
+*.SchDoc.*
+
+# ---- CAD ----
+*.f3d.lock
+*.SLDPRT.bak
+*.SLDASM.bak
+
+# ---- Generated fabrication output (re-exportable) ----
+gerbers/
+*.gbr
+*.drl
+*.stl
+*.gcode
+
+# ---- Python ----
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+env/
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# ---- Node ----
+node_modules/
+dist/
+*.log
+
+# ---- Home Assistant ----
+smart-home/home-assistant/.storage/
+smart-home/home-assistant/*.db
+smart-home/home-assistant/*.db-*
+smart-home/home-assistant/home-assistant.log*
+smart-home/home-assistant/.cloud/
+smart-home/home-assistant/tts/
+
+# ---- Editors ----
+.vscode/
+!.vscode/extensions.json
+.idea/
+*.swp
+
+# ---- OS ----
+.DS_Store
+Thumbs.db
+desktop.ini
