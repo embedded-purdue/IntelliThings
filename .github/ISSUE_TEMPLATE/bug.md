@@ -18,10 +18,10 @@ assignees: ''
 
 ## Where
 
-- [ ] Firmware (which board? which sensor?)
+- [ ] Software / firmware (which board? which sensor?)
 - [ ] Hardware
-- [ ] Home Assistant / Pi 5
-- [ ] LLM agent
+- [ ] AI — Home Assistant / Pi 5
+- [ ] AI — cloud agent
 
 ## Logs / output
 

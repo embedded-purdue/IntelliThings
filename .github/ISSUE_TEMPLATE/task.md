@@ -10,7 +10,7 @@ assignees: ''
 
 ## Subteam
 
-<!-- Firmware / Hardware / Smart Home / LLM / Docs -->
+<!-- Software / Hardware / AI / Docs -->
 
 ## Timeline phase
 

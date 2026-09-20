@@ -9,10 +9,9 @@
 *                   @rakkicow
 
 # Subteams
-/firmware/          @rakkicow          # TODO: replace with Software/FW lead
+/software/          @rakkicow          # TODO: replace with Software lead
 /hardware/          @LiamWatson-Purdue
-/smart-home/        @LukeTuthill
-/llm/               @ssarurka
+/ai/                @LukeTuthill @ssarurka
 
 # Shared — leads should see changes to process and architecture
 /docs/              @rakkicow
