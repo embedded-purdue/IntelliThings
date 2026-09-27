@@ -38,7 +38,7 @@ No cameras. No local compute box. No ecosystem lock-in. Built on open protocols.
            │  Wi-Fi / MQTT / Matter
            ▼
 ┌──────────────────────┐
-│  Home Assistant Hub  │  Raspberry Pi 5 running HAOS
+│  Home Assistant Hub  │  Raspberry Pi 5 running Home Assistant Container
 │                      │  HA AI Task · MCP Server · virtual + real devices
 └──────────┬───────────┘
            │  Model Context Protocol
@@ -88,7 +88,8 @@ Full workflow in [`CONTRIBUTING.md`](CONTRIBUTING.md).
 
 **Embedded** Embedded C · ESP-IDF · FreeRTOS · ESP32-C5
 **Protocols** Wi-Fi · MQTT · Matter · MCP
-**Platform** Home Assistant OS on Raspberry Pi 5
+**Platform** Home Assistant Container on Raspberry Pi 5, with a separate
+[Mosquitto container](ai/mosquitto/README.md) for MQTT
 **AI** Cloud LLM agent via Home Assistant AI Task + MCP Server
 **Hardware** KiCad / Altium · Fusion 360 / SolidWorks · 3D printing
 
