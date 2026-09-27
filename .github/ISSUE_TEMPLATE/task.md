@@ -6,21 +6,16 @@ labels: ''
 assignees: ''
 ---
 
-----
-
-# **Placeholder**
-
-----
-
 ## What needs doing
 
 ## Subteam
 
 <!-- Software / Hardware / AI / Docs -->
 
-## Timeline phase
+## Target session
 
-<!-- Weeks 1-3 Planning · 4-5 Prototyping · 6-7 Integration · 8-10 PCB & Pipeline · 11-13 Assembly -->
+<!-- Sep 27 · Oct 4 · Oct 18 · Oct 25 · Nov 1 · Nov 8 · Nov 15 · Dec 6
+     (see Project Guideline §9) -->
 
 ## Done when
 
@@ -28,4 +23,4 @@ assignees: ''
 
 ## Blocked by
 
-<!-- Other issues, parts on order, another subteam -->
+<!-- Other issues, parts on order, an unfinished contract in docs/interfaces/, another subteam -->

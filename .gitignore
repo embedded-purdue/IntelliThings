@@ -1,7 +1,6 @@
 # ---- Secrets: never commit these ----
 .env
 .env.*
-!.env.example
 secrets.yaml
 *.key
 *.pem
@@ -87,3 +86,6 @@ ai/home-assistant/tts/
 .DS_Store
 Thumbs.db
 desktop.ini
+
+# ---- Claude Code ----
+CLAUDE.md
