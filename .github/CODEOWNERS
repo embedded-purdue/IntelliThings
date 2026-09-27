@@ -1,12 +1,25 @@
-# CODEOWNERS — auto-requests review from the subteam lead when a PR touches
-# their area.
+# CODEOWNERS — auto-requests review from the owners when a PR touches their
+# area. Any one listed owner's approval satisfies a required code-owner review.
 #
 # Owners must have write access to the repo. Invites are still pending for most
 # of the team; review requests start working once they accept.
 #
-# Syntax: <path pattern>  <@owner>
+# Syntax: <path pattern>  <@owner> ...
+# The LAST matching pattern wins, so the two PMs, @spicybutter and @rakkicow,
+# are repeated on every line to keep them owners of the whole repo.
 
-/software/    @LukeTuthill
-/hardware/    @LiamWatson-Purdue
+# Default: everything not matched below.
+*                    @spicybutter @rakkicow
 
-# /ai/ — no lead assigned yet
+/software/           @LukeTuthill @spicybutter @rakkicow
+/hardware/           @LiamWatson-Purdue @spicybutter @rakkicow
+
+# Cloud AI Lead. The Local AI Lead is still undecided — add them here once named.
+/ai/                 @ProgrammingJohn @spicybutter @rakkicow
+
+# Emulator ESP32 — part of the AI subteam, owned by @spicybutter (PM).
+/ai/emulator/        @spicybutter @rakkicow
+
+# Cross-team contracts: every lead is requested, since a contract change needs
+# sign-off from each affected team.
+/docs/interfaces/    @LukeTuthill @LiamWatson-Purdue @ProgrammingJohn @spicybutter @rakkicow
