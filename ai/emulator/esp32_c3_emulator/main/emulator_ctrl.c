@@ -578,6 +578,9 @@ static void on_ctrl_event(void *arg, esp_event_base_t base, int32_t id, void *da
         if (ev->current_data_offset + ev->data_len < ev->total_data_len) {
             break;  // more chunks to come
         }
+        if (ev->total_data_len == 0) {
+            break;  // empty publish = clearing a retained command (-r -n); nothing to run
+        }
         if (s_rx_retained) {
             // A retained command would re-run on every reconnect; refuse it.
             ESP_LOGW(TAG, "Ignoring retained message on %s (publish commands without -r)",

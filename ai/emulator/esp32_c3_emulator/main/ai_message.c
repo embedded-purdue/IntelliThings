@@ -80,6 +80,13 @@ void ai_message_handle(const vnode_t *node, const char *payload, size_t len, boo
     // One printf call so the banner can't interleave with log lines from other tasks.
     char room[24];
     upper_copy(room, sizeof(room), node->profile->label);
+    // Truncation usually breaks the JSON as well, so report it rather than "not JSON".
+    char note[64] = "";
+    if (truncated) {
+        snprintf(note, sizeof(note), "(payload over %d bytes; truncated)\n", AI_MSG_MAX_LEN);
+    } else if (e.raw) {
+        strlcpy(note, "(payload was not {\"text\":...} JSON; shown raw)\n", sizeof(note));
+    }
     char banner[TEXT_MAX + 320];
     snprintf(banner, sizeof(banner),
              "\n==================================================\n"
@@ -89,8 +96,7 @@ void ai_message_handle(const vnode_t *node, const char *payload, size_t len, boo
              "==================================================\n",
              room, node->id, retained ? "  [retained]" : "", e.text,
              e.ts[0] ? "ts: " : "", e.ts, e.ts[0] ? "\n" : "",
-             e.raw ? "(payload was not {\"text\":...} JSON; shown raw)\n"
-                   : (truncated ? "(message truncated)\n" : ""));
+             note);
     printf("%s", banner);
     fflush(stdout);
 
