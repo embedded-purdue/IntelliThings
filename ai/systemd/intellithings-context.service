@@ -1,0 +1,10 @@
+[Unit]
+Description=Collect Home Assistant MCP live context
+
+[Service]
+Type=oneshot
+WorkingDirectory=%h/IntelliThings
+ExecStart=%h/IntelliThings/.venv/bin/python %h/IntelliThings/ai/main.py
+TimeoutStartSec=90
+UMask=0077
+NoNewPrivileges=true

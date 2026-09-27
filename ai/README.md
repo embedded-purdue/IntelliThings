@@ -15,7 +15,7 @@ have to land.
 ## Scope
 
 **Home Assistant / hub**
-- Home Assistant OS on the Raspberry Pi 5
+- Home Assistant Container on the Raspberry Pi 5
 - MQTT broker — ingest telemetry from the sensor nodes
 - Matter for local device interop
 - Home Assistant automations and **AI Task** integration
@@ -31,19 +31,51 @@ have to land.
 - Proactive, AI-generated status statements for the 7" display
 - Evals — how we know a prompt change made things better, not just different
 
-## Planned layout
+## Pipeline layout
 
-```
+```text
 ai/
-├── home-assistant/     # HA config (configuration.yaml, automations, dashboards)
-├── mqtt/               # broker config, topic schema
-├── agent/              # the cloud agent itself
-├── prompts/            # versioned prompt templates
-├── mcp/                # MCP client config / tool definitions
-└── evals/              # scenario fixtures + scoring
+├── main.py                   # Run one pipeline cycle
+├── pipeline/context.py       # Collect and atomically save live context
+├── integrations/             # Shared Home Assistant MCP client
+├── llm/                      # OpenRouter integration plan and input contract
+├── probes/                   # Interactive MCP discovery and live-state tools
+├── systemd/                  # Boot startup and five-minute schedule
+├── mosquitto/                # Broker configuration and emulator registration
+└── requirements.txt          # Shared Python dependencies
 ```
+
+The running flow is devices → Mosquitto → Home Assistant → MCP → `main.py` →
+`latest.json`. The next stage will pass the fresh context to OpenRouter.
 
 ## Start here
+
+Run a single collection cycle from the repository root:
+
+```bash
+python3 -m venv .venv
+.venv/bin/pip install -r ai/requirements.txt
+# Create .env from .env.example only if one does not already exist.
+.venv/bin/python ai/main.py
+```
+
+Set `HA_BASE_URL=http://127.0.0.1:8123` and `HA_LONG_LIVED_TOKEN` in the root
+`.env` on this Pi. Exported environment variables override `.env`.
+`HA_MCP_URL` can override the complete MCP endpoint.
+
+The [systemd timer](systemd/README.md) runs `main.py` at boot and every five minutes.
+It runs without login and opens a fresh MCP session each cycle. Output remains at
+`~/.local/state/intellithings/mcp/latest.json`, with collection health in
+`status.json`. Failures preserve the last successful snapshot; consumers must
+check its UTC `fetched_at` timestamp. `--output-dir`, `--url`, and `--timeout`
+can override the defaults.
+
+See [the OpenRouter handoff](llm/README.md) for the next integration step.
+
+For the MQTT broker, follow the [Mosquitto setup](mosquitto/README.md).
+
+To inspect a running hub's MCP tools and live state, use the
+[Python MCP probes](probes/README.md).
 
 You don't need the Pi to begin. Run Home Assistant locally in Docker:
 
