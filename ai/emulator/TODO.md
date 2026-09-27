@@ -30,67 +30,104 @@ session with the network and the Home Assistant Pi.
   `ai/README.md`, Project Guideline §3.1a, Firmware Architecture §6, Collaboration Guidelines
   mock snapshot, `docs/interfaces/README.md`
 
-> The board currently has the offline build flashed (no credentials). Reflash after creating
-> `sdkconfig.local`.
+> The board now runs a build with the team Wi-Fi from `sdkconfig.local`. The broker is still
+> `homeassistant.local`, which doesn't exist until the Mosquitto add-on is set up; if the Pi
+> doesn't resolve by that name, put its IP in `sdkconfig.local` and rebuild.
 
 ## To test at the next team session
 
 ### Setup
 
-- [ ] Home Assistant Mosquitto add-on running; create an MQTT login for the emulator
-- [ ] Copy `esp32_c3_emulator/sdkconfig.local.example` → `sdkconfig.local`; fill in the
-  2.4 GHz Wi-Fi and broker host/port/user/password
-- [ ] `del sdkconfig` (or `rm sdkconfig`), then `idf.py build` and `idf.py -p COM8 flash monitor`
-- [ ] On a laptop: `mosquitto_sub -h <broker> -u <user> -P <pass> -t 'intellithings/#' -v`
+- [x] Home Assistant Mosquitto add-on running on the Pi at `192.168.1.2:1883`
+  (`homeassistant.local` doesn't resolve on the team network — use the IP). The emulator
+  currently logs in as the add-on's internal `homeassistant` user — [ ] create a dedicated
+  MQTT login for it
+- [x] `sdkconfig.local` filled in (team Wi-Fi + broker), `sdkconfig` deleted, rebuilt, flashed
+- [x] Laptop subscriber: no Mosquitto clients on the dev PC, so the tests used a small
+  paho-mqtt script reading the broker settings from `sdkconfig.local`
 
 ### Wi-Fi
 
-- [ ] Connects; serial shows IP and the control-panel URL
+- [x] Connects; serial shows IP and the control-panel URL — 2026-09-27 on the team network,
+  RSSI −20…−33 dBm. Boot backoff seen working (1 s → 2 s → 4 s): after a reset while
+  associated, the AP (PMF) refuses re-association for ~15 s ("comeback time too long",
+  reason 208); the board retries and joins by itself
 - [ ] Reconnect: turn the AP off/on (or move out of range) → retries with backoff (1 s → 30 s),
   reconnects by itself; panel's "Wi-Fi reconnects" goes up
-- [ ] Clock syncs (serial `Clock synced: …`; payloads gain `ts`; panel shows local time)
+- [x] Clock syncs (serial `Clock synced: …`; panel shows local time) — synced 40 ms after
+  Wi-Fi came up. **Bug found and fixed:** with the broker unreachable it never synced (4 failing
+  mDNS broker lookups held all 4 lwIP DNS request slots, starving SNTP's lookup);
+  `CONFIG_LWIP_SNTP_STARTUP_DELAY=n` in `sdkconfig.defaults` sends the NTP request before the
+  MQTT clients start. Payload `ts` confirmed once the broker was up
 
 ### MQTT — node contract
 
-- [ ] Four connections come up: three nodes + emulator (`connected` lines on serial)
-- [ ] `intellithings/<id>/status` = `online` (retained) for all three, and
+- [x] Four connections come up: three nodes + emulator, all within 100 ms of Wi-Fi
+- [x] `intellithings/<id>/status` = `online` (retained, QoS 1) for all three, and
   `intellithings/emulator/status` = `online`
-- [ ] Each node publishes `…/sensors` every 3 s, even when readings haven't changed
-- [ ] Payload fields and types match `docs/interfaces/mqtt.md`
-- [ ] Last Will: unplug the board → all four statuses flip to `offline` within ~25 s
-- [ ] Broker restart: nodes reconnect, re-publish `online`, resubscribe; retained `display`
-  messages are re-delivered and print with `[retained]`
+- [x] Each node publishes `…/sensors` every 3 s (measured gaps 2.95–3.07 s), QoS 0, not retained
+- [x] Payload fields, types and ranges match `docs/interfaces/mqtt.md`; `ts` present and valid
+  ISO 8601 with offset in every message
+- [x] Last Will: board held in reset (radio off, same as unplugging) → all four statuses flipped
+  to `offline` after 22 s (keepalive 15 s × 1.5); back `online` 2 s after release. A quick
+  reset/reflash also publishes `offline`, then `online` once it reconnects
+- [x] After a reboot: resubscribes; retained `display` messages re-delivered and printed with
+  `[retained]`; a cleared topic stays cleared
+- [x] Broker restart (Mosquitto add-on restarted 15:50): all four connections reconnected by
+  themselves (`mqtt_reconnects` = 1 each), statuses back to retained `online`, publishing
+  resumed, retained `display` messages re-delivered with `[retained]`; no reboot
 
 ### AI messages (`…/display`)
 
-- [ ] `mosquitto_pub -t intellithings/emu-bedroom/display -r -q 1 -m '{"text":"…","ts":"…"}'`
-  → banner under **BEDROOM** on serial and in the panel; repeat for kitchen and living room
-- [ ] Message to one node does **not** show under the others
-- [ ] Non-JSON payload → printed raw with a note
-- [ ] Payload over 512 bytes → truncated with a note, no crash
-- [ ] Empty retained payload (`-r -n`) → "display topic cleared" log
+- [x] Retained `{"text","ts"}` to each of the three `display` topics → banner under the right
+  room on serial and in the panel's list, with `ts`; UTF-8 (°C, —) intact
+- [x] Message to one node does **not** show under the others
+- [x] Non-JSON payload → printed raw with a note
+- [x] Payload over 512 bytes (711 B) → truncated, no crash. **Fixed:** the banner used to say
+  "not JSON" (the cut breaks the JSON); it now says "payload over 512 bytes; truncated"
+- [x] Empty retained payload (`-r -n`) → "display topic cleared" log
 
 ### Control panel
 
-- [ ] Loads at the IP and at `http://intellithings-emu.local/` (check a phone too; some
-  Android/Windows setups don't resolve `.local`)
-- [ ] **JavaScript never ran yet** (no Node.js on the dev PC) — check the browser console for
-  errors in Chrome, Safari and a phone
-- [ ] System status values correct (IP, SSID/RSSI, broker, uptime, heap, clock, last command)
-- [ ] Every shortcut on its default room: mode badge + time left shown; values move as
-  expected; "published N s ago" stays under ~3 s
-- [ ] Shortcut with a custom duration; "All rooms"; ↺ Back to normal; Reset room
-- [ ] Custom values: fixed value (min = max) becomes exact; range + "jump instantly"; duration
-  expiry returns to auto; presence present/empty
-- [ ] Invalid input (min > max, out of sensor range) → red toast, nothing changes
-- [ ] Send test AI message → appears in the panel list and on serial under the right room
+Tested 2026-09-27 from a laptop with a scripted run of the panel's HTTP API (46/46 passed) and
+the page rendered in headless Edge.
+
+- [x] Loads at the IP (74 ms) and at `http://intellithings-emu.local/` (Windows laptop, ~2.4 s
+  for the mDNS lookup) — [ ] still to check on a phone
+- [x] JavaScript runs in Chromium (headless Edge): no console errors; status, three room cards,
+  12 shortcuts, custom-values table, message list and test form all render with live data —
+  [ ] still to check Safari and a phone, and click through a few buttons by hand
+- [x] System status values correct (IP, SSID/RSSI, broker, uptime, heap, clock, last command)
+- [x] Every shortcut on its default room (rooms with no default tested on the kitchen): mode
+  + time left correct; values move as expected (PM2.5 spike 6 → 45 in 30 s, hot 21.3 → 22.5 °C
+  with presence, lights off 203 → 3 lux); "published N s ago" stays at 0–3 s
+- [x] Shortcut with a custom duration; "All rooms" (until cleared); ↺ Back to normal; Reset room
+  (also by room name)
+- [x] Custom values: fixed value (min = max) becomes exact (CO₂ 1500); range + instant stays
+  inside the range; 5 s duration expires back to auto; presence present/empty
+- [x] Invalid input → HTTP 400 with a reason, nothing changes (min > max, out of sensor range,
+  unknown metric/node/action/scenario, missing fields, negative duration, bad JSON, empty and
+  over-2 KB bodies — the last gets its 400, then the socket is reset because httpd doesn't
+  drain the body; the panel can't send that much). Red toast itself not seen yet (no clicks)
+- [x] Send test AI message (HTTP `display` command) → published, appears in the panel list and
+  on serial under the right room with a `ts`; with MQTT down it's rejected with "MQTT not
+  connected; message not sent"
+- [x] **Bug found and fixed:** once MQTT was up the panel stopped accepting connections
+  (`httpd: error in accept (23)`). The 4 MQTT sockets left only ~3 of lwIP's default 10 sockets
+  for HTTP, so idle browser keep-alive connections ran it out before httpd's LRU purge (at 7)
+  could act. `CONFIG_LWIP_MAX_SOCKETS=16` in `sdkconfig.defaults`; with 12 idle keep-alive
+  connections held open, fresh requests still answer in 27–57 ms
 
 ### MQTT control topic
 
-- [ ] `mosquitto_pub -t intellithings/emulator/cmd -q 1 -m '{"node":"emu-kitchen","action":"scenario","name":"cooking"}'`
-  works; `intellithings/emulator/state` updates within ~1 s with `last_cmd`
-- [ ] Invalid JSON / unknown node / unknown scenario → rejected in `last_cmd`
-- [ ] Retained command (`-r`) is ignored and logged (then clear it with `-r -n`)
+- [x] Scenario command on `intellithings/emulator/cmd` works; `intellithings/emulator/state`
+  updates 0.4–0.5 s later with `last_cmd` (source `mqtt`)
+- [x] Invalid JSON / unknown node / unknown scenario → rejected in `last_cmd`
+- [x] Retained command: re-delivered after a reconnect → ignored and logged. Note: a retained
+  publish is still **executed once** by an already-connected emulator, because the broker
+  forwards it to existing subscribers with the retain flag cleared (MQTT 3.1.1 §3.3.1.3)
+- [x] Clearing it with `-r -n` is silent. **Fixed:** it used to be logged as "rejected: invalid
+  JSON" and show up as the last command
 
 ### Home Assistant
 
@@ -99,7 +136,9 @@ session with the network and the Home Assistant Pi.
 
 ### Soak
 
-- [ ] Leave it running 1 h+; panel's "Free heap (min)" stays stable, no reboots on serial
+- [x] Ran 1 h (15:36–16:36) with MQTT live, polled every 30 s: no reboots (uptime continuous to
+  3631 s), panel answered all 121 polls, no Wi-Fi reconnects, free heap flat at ~137 KB, minimum
+  free heap 111 KB (set in the first minute, never lower — including through the broker restart)
 
 ## Open items / known limitations
 

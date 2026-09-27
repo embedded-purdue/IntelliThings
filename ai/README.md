@@ -61,7 +61,8 @@ can't target our Lambda. Fine for quick in-HA experiments, not the production pa
 
 One LuatOS ESP32-C3 Core board (C on ESP-IDF v6.1) with no sensors attached, so HA and the
 agent can be built before the Software subteam's firmware is ready
-([Project Guideline §3.1a](../docs/Project_Guideline.md)). Full guide:
+([Project Guideline §3.1a](../docs/Project_Guideline.md)). **User guide** (control panel,
+worked examples for each agent test scenario, scripting):
 [`emulator/README.md`](emulator/README.md).
 
 - Publishes as **three nodes** — `emu-kitchen`, `emu-bedroom`, `emu-living-room` — with the
