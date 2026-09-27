@@ -59,17 +59,24 @@ can't target our Lambda. Fine for quick in-HA experiments, not the production pa
 
 ## Emulator ESP32 — owner: @spicybutter (PM)
 
-One spare ESP32 with no sensors attached, so HA and the agent can be built before the
-Software subteam's firmware is ready ([Project Guideline §3.1a](../docs/Project_Guideline.md)):
+One LuatOS ESP32-C3 Core board (C on ESP-IDF v6.1) with no sensors attached, so HA and the
+agent can be built before the Software subteam's firmware is ready
+([Project Guideline §3.1a](../docs/Project_Guideline.md)). Full guide:
+[`emulator/README.md`](emulator/README.md).
 
-- Publishes as **three nodes** (`emu-1`, `emu-2`, `emu-3`) with the **full sensor set** as
-  fake but plausible values, plus `.../status`
-- Follows the **same MQTT contract** as the real nodes, so nothing in HA or the agent changes
-  when real nodes replace it
+- Publishes as **three nodes** — `emu-kitchen`, `emu-bedroom`, `emu-living-room` — with the
+  **full sensor set** every **3 s**, plus `.../status` with its own Last Will per node
+- Follows the **same MQTT contract** as the real nodes
+  ([`docs/interfaces/mqtt.md`](../docs/interfaces/mqtt.md)), so nothing in HA or the agent
+  changes when real nodes replace it
 - Subscribes to each node's `.../display` topic and prints AI messages over serial — tests
   the feedback path end to end
-- Values drift like a real room, with **scripted events** (rising CO₂, hot room with
-  presence, PM2.5 spike, presence turning off) for agent testing
+- Stateful simulation: each room drifts like a real room, with occupancy, cooking, CO₂
+  build-up and PM/VOC events
+- **Control panel** at `http://intellithings-emu.local/`: one-click scenarios (cook, stuffy
+  room, PM2.5 spike, hot & occupied, leave…), custom value ranges, system status, received AI
+  messages and a test-message sender. The same commands work over MQTT on
+  `intellithings/emulator/cmd`
 - Until the MQTT schema is fixed on Oct 4, the emulator's JSON is the working draft
 - Stays available after real nodes come online, for testing the agent and dashboard
   without hardware

@@ -149,7 +149,9 @@ Wrap once in `Arc<SharedState>` and clone into each thread. Use `mpsc` only wher
 | `intellithings/<node_id>/status` | publish (retained, Last Will) | `online` / `offline` |
 | `intellithings/<node_id>/display` | subscribe (HA publishes **retained**) | `{"text": "...", "ts": "2026-10-18T14:05:00-04:00"}` — latest AI message; retained so a rebooted node re-shows it |
 
-`<node_id>` comes from the C6's efuse MAC, so one firmware image fits every node. The AI team's emulator ESP32 publishes as `emu-1..3` on the same topics and schema.
+`<node_id>` comes from the C6's efuse MAC, so one firmware image fits every node. The AI team's emulator ESP32 publishes as `emu-kitchen`, `emu-bedroom` and `emu-living-room` on the same topics and schema.
+
+**Payload fields, QoS and retained flags:** see the draft contract in [`docs/interfaces/mqtt.md`](../docs/interfaces/mqtt.md) (to be agreed Oct 4). The emulator already publishes it, so the baseline firmware's placeholder snapshot should use the same field names.
 
 ---
 

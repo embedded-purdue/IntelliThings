@@ -352,7 +352,7 @@ MQTT → HA devices → virtual devices → automations → MCP Server + Nabu Ca
 
 ```json
 {
-  "node_id": "emu-1",
+  "node_id": "emu-kitchen",
   "temperature_c": 27.2,
   "humidity_pct": 68,
   "co2_ppm": 1250,

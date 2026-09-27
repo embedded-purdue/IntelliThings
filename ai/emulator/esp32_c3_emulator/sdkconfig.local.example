@@ -1,0 +1,16 @@
+# Copy to sdkconfig.local (gitignored) and fill in. Then delete sdkconfig and rebuild,
+# because defaults don't overwrite values already in an existing sdkconfig.
+# NEVER commit sdkconfig.local or sdkconfig.
+
+CONFIG_EMU_WIFI_SSID="your-ssid"
+CONFIG_EMU_WIFI_PASSWORD="your-wifi-password"
+
+CONFIG_EMU_MQTT_HOST="homeassistant.local"
+CONFIG_EMU_MQTT_PORT=1883
+CONFIG_EMU_MQTT_USERNAME=""
+CONFIG_EMU_MQTT_PASSWORD=""
+
+# Optional overrides (defaults shown)
+# CONFIG_EMU_PUBLISH_INTERVAL_MS=3000
+# CONFIG_EMU_SIM_SPEED=1
+# CONFIG_EMU_HOSTNAME="intellithings-emu"
