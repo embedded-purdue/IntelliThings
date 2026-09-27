@@ -1,0 +1,6 @@
+## ESP-IDF v6 no longer bundles MQTT or cJSON; they come from the component registry.
+dependencies:
+  idf: ">=6.1"
+  espressif/mqtt: "^1.0.0"
+  espressif/cjson: "^1.7.17"
+  espressif/mdns: "^1.4.0"

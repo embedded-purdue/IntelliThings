@@ -6,7 +6,7 @@ anyone builds against it, and changed only after every affected team's lead appr
 | Contract | Between | Due |
 |---|---|---|
 | Rig wiring diagram + pin map + power rails | Hardware ↔ Software | Oct 4 |
-| MQTT topics + JSON payload schema (emulator follows it too) | Software ↔ AI | Oct 4 |
+| MQTT topics + JSON payload schema (emulator follows it too) — **draft: [`mqtt.md`](mqtt.md)** | Software ↔ AI | Oct 4 |
 | `/ha-event` snapshot format (HA → cloud agent) | Local AI ↔ Cloud AI | Oct 4 |
 | AI message format (`text`, `ts`) + max length for the AI section | AI ↔ Software | Oct 18 |
 | HA entity names + MCP tools exposed to the agent | Local AI ↔ Cloud AI | Oct 18 |
