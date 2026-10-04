@@ -2,6 +2,9 @@
 debug/
 target/
 
+# Env
+.cargo/esp-config.toml
+
 # Editor configuration
 .vscode/
 .zed/
