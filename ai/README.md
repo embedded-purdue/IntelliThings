@@ -37,8 +37,8 @@ have to land.
 ai/
 ├── main.py                   # Run one pipeline cycle
 ├── pipeline/context.py       # Collect and atomically save live context
-├── integrations/             # Shared Home Assistant MCP client
-├── llm/                      # OpenRouter integration plan and input contract
+├── integrations/             # Home Assistant MCP and OpenRouter clients
+├── llm/                      # Prompt construction and inference persistence
 ├── probes/                   # Interactive MCP discovery and live-state tools
 ├── systemd/                  # Boot startup and five-minute schedule
 ├── mosquitto/                # Broker configuration and emulator registration
@@ -46,11 +46,11 @@ ai/
 ```
 
 The running flow is devices → Mosquitto → Home Assistant → MCP → `main.py` →
-`latest.json`. The next stage will pass the fresh context to OpenRouter.
+`latest.json` → OpenRouter → `inference.json` (recommendations only).
 
 ## Start here
 
-Run a single collection cycle from the repository root:
+Run a single collection and inference cycle from the repository root:
 
 ```bash
 python3 -m venv .venv
@@ -61,7 +61,8 @@ python3 -m venv .venv
 
 Set `HA_BASE_URL=http://127.0.0.1:8123` and `HA_LONG_LIVED_TOKEN` in the root
 `.env` on this Pi. Exported environment variables override `.env`.
-`HA_MCP_URL` can override the complete MCP endpoint.
+`HA_MCP_URL` can override the complete MCP endpoint. Set `OPENROUTER_API_KEY` and
+`OPENROUTER_MODEL=openai/gpt-5.4-mini` for inference, or pass `--collect-only`.
 
 The [systemd timer](systemd/README.md) runs `main.py` at boot and every five minutes.
 It runs without login and opens a fresh MCP session each cycle. Output remains at
@@ -70,7 +71,8 @@ It runs without login and opens a fresh MCP session each cycle. Output remains a
 check its UTC `fetched_at` timestamp. `--output-dir`, `--url`, and `--timeout`
 can override the defaults.
 
-See [the OpenRouter handoff](llm/README.md) for the next integration step.
+See [OpenRouter inference](llm/README.md) for prompt editing, response files,
+timeout settings, and failure handling.
 
 For the MQTT broker, follow the [Mosquitto setup](mosquitto/README.md).
 

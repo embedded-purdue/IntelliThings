@@ -31,7 +31,7 @@ def write_json(path, value):
             os.unlink(name)
 
 
-async def collect(url, token, timeout, output_dir):
+async def collect_snapshot(url, token, timeout, output_dir):
     attempted_at = timestamp()
     try:
         if not token:
@@ -68,10 +68,14 @@ async def collect(url, token, timeout, output_dir):
             "attempted_at": attempted_at, "ok": False, "error": error,
         })
         print(f"Context collection failed: {error}", file=sys.stderr)
-        return 1
+        return None
     write_json(output_dir / "status.json", {
         "attempted_at": attempted_at, "ok": True, "fetched_at": snapshot["fetched_at"],
     })
     print(f"Saved live context to {output_dir / 'latest.json'} at {snapshot['fetched_at']}")
-    return 0
+    return snapshot
 
+
+async def collect(url, token, timeout, output_dir):
+    """Compatibility entry point for collection-only callers."""
+    return 0 if await collect_snapshot(url, token, timeout, output_dir) is not None else 1

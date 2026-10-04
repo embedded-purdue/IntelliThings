@@ -1,8 +1,9 @@
 # Scheduled pipeline
 
-## Background collection
+## Background pipeline
 
-`ai/main.py` fetches a single read-only live-context snapshot. The systemd
+`ai/main.py` fetches a single read-only live-context snapshot, then requests
+recommendations from OpenRouter. It does not execute device-control tools. The systemd
 user timer runs it at startup and every five minutes. Each run opens a fresh MCP
 session and loads the root `.env`, so token changes take effect on the next run.
 
@@ -17,7 +18,10 @@ The default output directory is `~/.local/state/intellithings/mcp/` (or
 Files are replaced atomically and readable only by the owner. An LLM consumer can
 read `context` from `latest.json`; check `fetched_at` and `status.json` to avoid
 treating stale data as current. This collects Assist-exposed context only; it does
-not fetch shopping list contents or send anything to an LLM yet.
+not fetch shopping list contents. Inference sends the fresh context to OpenRouter
+and saves `inference.json` with the input timestamp and model ID;
+`inference_status.json` tracks inference errors separately. Configure the model,
+API key, and editable prompt as described in [OpenRouter inference](../llm/README.md).
 
 Install on a Pi where the repository is at `~/IntelliThings` and the virtualenv
 and `.env` have been set up as in [the AI README](../README.md):
@@ -35,7 +39,8 @@ Lingering starts the user's service manager at boot without an interactive login
 For a different checkout location, edit `WorkingDirectory` and `ExecStart` in the
 installed service. Home Assistant may still be starting on the first attempt;
 failed requests are retried on the next five-minute tick. Each run has a 60-second
-request budget and a 90-second systemd limit. Timer runs cannot overlap.
+collection budget, a 45-second inference budget, and a 120-second systemd limit. Timer runs cannot overlap. After updating an existing installation, copy the
+service file again and run `systemctl --user daemon-reload`.
 
 ```bash
 systemctl --user list-timers intellithings-context.timer
