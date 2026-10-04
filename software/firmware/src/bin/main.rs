@@ -8,13 +8,16 @@
 #![deny(clippy::large_stack_frames)]
 
 use embassy_executor::Spawner;
+
 use embassy_time::{Duration, Timer};
 use esp_hal::clock::CpuClock;
 use esp_hal::timer::timg::TimerGroup;
 use esp_println::println;
+use test2_esp32::wifi;
 
 #[panic_handler]
-fn panic(_: &core::panic::PanicInfo) -> ! {
+fn panic(panic_info: &core::panic::PanicInfo) -> ! {
+    println!("Panic! {}", panic_info);
     loop {}
 }
 
@@ -57,13 +60,7 @@ async fn main(spawner: Spawner) -> ! {
     let timg0 = TimerGroup::new(peripherals.TIMG0);
     esp_rtos::start(timg0.timer0, peripherals.FROM_CPU_INTR0);
 
-    let _wifi_controller =
-        esp_radio::wifi::WifiController::new(peripherals.WIFI, Default::default())
-            .expect("Failed to initialize Wi-Fi controller");
-    let _wifi_interface = esp_radio::wifi::Interface::station();
-
-    // TODO: Spawn some tasks
-    let _ = spawner;
+    let (_wifi_controller, _stack) = wifi::setup(spawner, peripherals.WIFI).await;
 
     loop {
         Timer::after(Duration::from_secs(1)).await;
