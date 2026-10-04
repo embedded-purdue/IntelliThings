@@ -3,6 +3,7 @@
 
 import argparse
 import asyncio
+import fcntl
 import os
 import sys
 from pathlib import Path
@@ -18,6 +19,10 @@ async def run_cycle(args):
         args.url, os.getenv("HA_LONG_LIVED_TOKEN", "").strip(), args.timeout, args.output_dir
     )
     if snapshot is None or args.collect_only:
+        write_json(args.output_dir / "dashboard_status.json", {
+            "attempted_at": timestamp(), "ok": False, "skipped": True,
+            "reason": "collection_failed" if snapshot is None else "collection_only",
+        })
         write_json(args.output_dir / "inference_status.json", {
             "attempted_at": timestamp(), "ok": False, "skipped": True,
             "reason": "collection_failed" if snapshot is None else "collection_only",
@@ -27,6 +32,8 @@ async def run_cycle(args):
         snapshot, args.output_dir, args.prompt_file,
         os.getenv("OPENROUTER_API_KEY", "").strip(),
         os.getenv("OPENROUTER_MODEL", "").strip(), args.llm_timeout, args.max_tokens,
+        mcp_url=args.url, ha_token=os.getenv("HA_LONG_LIVED_TOKEN", "").strip(),
+        ha_base_url=os.getenv("HA_BASE_URL", "http://127.0.0.1:8123").rstrip("/"),
     )
 
 
@@ -46,7 +53,14 @@ def main():
     args = parser.parse_args()
     if args.timeout <= 0 or args.llm_timeout <= 0 or args.max_tokens <= 0:
         parser.error("Timeouts and --max-tokens must be positive")
-    return asyncio.run(run_cycle(args))
+    args.output_dir.mkdir(parents=True, exist_ok=True, mode=0o700)
+    with (args.output_dir / ".pipeline.lock").open("w") as lock:
+        try:
+            fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError:
+            print("A pipeline cycle is already running for this output directory.", file=sys.stderr)
+            return 1
+        return asyncio.run(run_cycle(args))
 
 
 if __name__ == "__main__":

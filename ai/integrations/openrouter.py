@@ -5,7 +5,8 @@ import asyncio
 import httpx
 
 
-async def complete(api_key, model, messages, timeout, max_tokens, response_schema=None):
+async def complete(api_key, model, messages, timeout, max_tokens, response_schema=None,
+                   tools=None, tool_choice="auto"):
     if not api_key:
         raise ValueError("Set OPENROUTER_API_KEY in .env or the environment.")
     if not model:
@@ -21,6 +22,7 @@ async def complete(api_key, model, messages, timeout, max_tokens, response_schem
                     "stream": False,
                     "max_tokens": max_tokens,
                     "reasoning": {"effort": "low"},
+                    **({"tools": tools, "tool_choice": tool_choice} if tools else {}),
                     **({"response_format": {
                         "type": "json_schema",
                         "json_schema": {"name": "home_recommendation", "strict": True,
@@ -36,8 +38,14 @@ async def complete(api_key, model, messages, timeout, max_tokens, response_schem
         raise RuntimeError("OpenRouter returned an API error")
     try:
         choice = payload["choices"][0]
-        content = choice["message"]["content"]
-        if choice.get("finish_reason") != "stop":
+        message = choice["message"]
+        content = message.get("content")
+        calls = message.get("tool_calls")
+        if choice.get("finish_reason") == "tool_calls" and tools and tool_choice != "none" and calls:
+            return {"response_id": payload.get("id"), "model": payload.get("model", model),
+                    "content": content, "message": message, "tool_calls": calls,
+                    "usage": payload.get("usage")}
+        if choice.get("finish_reason") != "stop" or calls:
             raise ValueError("OpenRouter response did not finish normally")
         if not isinstance(content, str) or not content.strip():
             raise ValueError("OpenRouter returned no assistant text")

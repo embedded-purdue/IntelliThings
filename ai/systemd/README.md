@@ -3,7 +3,7 @@
 ## Background pipeline
 
 `ai/main.py` fetches a single read-only live-context snapshot, then requests
-recommendations from OpenRouter. It does not execute device-control tools. The systemd
+recommendations from OpenRouter. It can execute one configured MCP turn-on action per cycle. The systemd
 user timer runs it at startup and every five minutes. Each run opens a fresh MCP
 session and loads the root `.env`, so token changes take effect on the next run.
 

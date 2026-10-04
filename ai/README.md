@@ -46,7 +46,7 @@ ai/
 ```
 
 The running flow is devices → Mosquitto → Home Assistant → MCP → `main.py` →
-`latest.json` → OpenRouter → `inference.json` (recommendations only).
+`latest.json` → OpenRouter → `inference.json` (recommendations and optional turn-on action).
 
 ## Start here
 

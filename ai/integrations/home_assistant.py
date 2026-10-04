@@ -1,13 +1,15 @@
 """Shared Home Assistant MCP transport for the pipeline and inspection tools."""
 
 from datetime import timedelta
+from contextlib import asynccontextmanager
 
 import httpx
 from mcp import ClientSession
 from mcp.client.streamable_http import streamable_http_client
 
 
-async def get_live_context(url, token, timeout):
+@asynccontextmanager
+async def connect(url, token, timeout):
     async with httpx.AsyncClient(
         headers={"Authorization": f"Bearer {token}"}, timeout=timeout
     ) as client:
@@ -16,7 +18,12 @@ async def get_live_context(url, token, timeout):
                 read, write, read_timeout_seconds=timedelta(seconds=timeout)
             ) as session:
                 await session.initialize()
-                return await session.call_tool("homeassistant__GetLiveContext", arguments={})
+                yield session
+
+
+async def get_live_context(url, token, timeout):
+    async with connect(url, token, timeout) as session:
+        return await session.call_tool("homeassistant__GetLiveContext", arguments={})
 
 
 def explain(exc):
@@ -35,4 +42,3 @@ def explain(exc):
     if isinstance(exc, (TimeoutError, httpx.TimeoutException)):
         return "Request timed out; check the server address or increase --timeout."
     return f"{type(exc).__name__}: {exc}"
-

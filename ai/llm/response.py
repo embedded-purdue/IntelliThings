@@ -8,7 +8,7 @@ import json
 import sys
 from pathlib import Path
 
-from pydantic import BaseModel, ConfigDict, ValidationError
+from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 
 class ProposedChange(BaseModel):
@@ -25,7 +25,7 @@ class ProposedChange(BaseModel):
 class Recommendation(BaseModel):
     model_config = ConfigDict(extra="forbid", strict=True)
 
-    summary: str
+    summary: str = Field(max_length=255)
     changes: list[ProposedChange]
     missing_information: list[str]
 
