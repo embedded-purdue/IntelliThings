@@ -1,11 +1,11 @@
 [package]
 edition      = "2024"
-name         = "test2-esp32"
+name         = "intelli_things"
 rust-version = "1.95"
 version      = "0.1.0"
 
 [[bin]]
-name = "test2-esp32"
+name = "intelli_things"
 path = "./src/bin/main.rs"
 
 [dependencies]

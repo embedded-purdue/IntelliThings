@@ -13,7 +13,7 @@ use embassy_time::{Duration, Timer};
 use esp_hal::clock::CpuClock;
 use esp_hal::timer::timg::TimerGroup;
 use esp_println::println;
-use test2_esp32::wifi;
+use intelli_things::wifi;
 
 #[panic_handler]
 fn panic(panic_info: &core::panic::PanicInfo) -> ! {
