@@ -7,10 +7,39 @@
 )]
 #![deny(clippy::large_stack_frames)]
 
+#[derive(Debug, Clone, Copy)]
+struct SensorResponse([u8; 6]);
+
+#[derive(Debug, Clone, Copy)]
+struct FormattedData {
+    temperature_c: f32,
+    temperature_f: f32,
+    humidity_percent: f32,
+}
+
+impl SensorResponse {
+    fn convert(&self) -> FormattedData {
+        let raw_temperature = u16::from_be_bytes([self.0[0], self.0[1]]) as f32;
+
+        let raw_humidity = u16::from_be_bytes([self.0[3], self.0[4]]) as f32;
+        
+        let temperature_c = -45.0 + 175.0 * (raw_temperature / 65535.0);
+
+        let temperature_f = -49.0 + 315.0 * (raw_temperature / 65535.0);
+        
+        let humidity_percent = -6.0 + 125.0 * (raw_humidity / 65535.0);
+    }
+}
+
+use core::fmt;
 use embassy_executor::Spawner;
 use embassy_time::{Duration, Timer};
 use esp_hal::clock::CpuClock;
 use esp_hal::timer::timg::TimerGroup;
+use esp_hal::{
+    i2c::master::{Config as I2cConfig, I2c},
+    time::Rate,
+};
 use esp_println::println;
 
 #[panic_handler]
@@ -52,6 +81,19 @@ async fn main(spawner: Spawner) -> ! {
     let _gpio29 = peripherals.GPIO29;
     let _gpio30 = peripherals.GPIO30;
 
+    // ESP32 C6 WROOM 1 SDA AND SCL -> 6 and 7
+    let sda = peripherals.GPIO6;
+    let scl = peripherals.GPIO7;
+
+    let i2c_config = I2cConfig::default()
+        .with_frequency(Rate::from_khz(100));
+
+    let mut i2c = I2c::new(peripherals.I2C0, i2c_config)
+        .expect("Failed to initialize I2C")
+        .with_sda(sda)
+        .with_scl(scl)
+        .into_async();
+
     esp_alloc::heap_allocator!(#[esp_hal::ram(reclaimed)] size: 65536);
 
     let timg0 = TimerGroup::new(peripherals.TIMG0);
@@ -65,9 +107,26 @@ async fn main(spawner: Spawner) -> ! {
     // TODO: Spawn some tasks
     let _ = spawner;
 
+    const SHT41_ADDRESS: u8 = 0x44;
+
+    
+
     loop {
+        i2c.write_async(SHT41_ADDRESS, &[0xFD])
+        .await
+        .expect("Failed to start SHT41 measurement");
+
+        Timer::after(Duration::from_millis(10)).await;
+
+        let mut response = [0u8; 6];
+
+        i2c.read_async(SHT41_ADDRESS, &mut response)
+            .await
+            .expect("Failed to read SHT41 response");
+
+        println!("SHT41 response: {:02x?}", response);
+
         Timer::after(Duration::from_secs(1)).await;
-        println!("Hello World!");
     }
 
     // for inspiration have a look at the examples at https://github.com/esp-rs/esp-hal/tree/esp-hal-v1.2.2/examples
