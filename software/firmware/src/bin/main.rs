@@ -7,30 +7,6 @@
 )]
 #![deny(clippy::large_stack_frames)]
 
-#[derive(Debug, Clone, Copy)]
-struct SensorResponse([u8; 6]);
-
-#[derive(Debug, Clone, Copy)]
-struct FormattedData {
-    temperature_c: f32,
-    temperature_f: f32,
-    humidity_percent: f32,
-}
-
-impl SensorResponse {
-    fn convert(&self) -> FormattedData {
-        let raw_temperature = u16::from_be_bytes([self.0[0], self.0[1]]) as f32;
-
-        let raw_humidity = u16::from_be_bytes([self.0[3], self.0[4]]) as f32;
-        
-        let temperature_c = -45.0 + 175.0 * (raw_temperature / 65535.0);
-
-        let temperature_f = -49.0 + 315.0 * (raw_temperature / 65535.0);
-        
-        let humidity_percent = -6.0 + 125.0 * (raw_humidity / 65535.0);
-    }
-}
-
 use core::fmt;
 use embassy_executor::Spawner;
 use embassy_time::{Duration, Timer};
@@ -41,6 +17,48 @@ use esp_hal::{
     time::Rate,
 };
 use esp_println::println;
+
+#[derive(Debug, Clone, Copy)]
+struct SensorResponse([u8; 6]);
+
+#[derive(Debug, Clone, Copy)]
+struct FormattedData {
+    temperature_c: f32,
+    temperature_f: f32,
+    humidity_percent: f32,
+}
+
+impl fmt::Display for FormattedData {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "Temperature: {:.2} C / {:.2} F, Humidity: {:.2} %RH",
+            self.temperature_c,
+            self.temperature_f,
+            self.humidity_percent
+        )
+    }
+}
+
+impl SensorResponse {
+    fn convert(&self) -> FormattedData {
+        let raw_temperature = u16::from_be_bytes([self.0[0], self.0[1]]) as f32;
+
+        let raw_humidity = u16::from_be_bytes([self.0[3], self.0[4]]) as f32;
+        
+        let temperature_c = -45.0 + 175.0 * (raw_temperature / 65535.0);
+
+        let temperature_f = temperature_c * 9.0 / 5.0 + 32.0;
+        
+        let humidity_percent = -6.0 + 125.0 * (raw_humidity / 65535.0);
+
+        FormattedData {
+            temperature_c,
+            temperature_f,
+            humidity_percent,
+        }
+    }
+}
 
 #[panic_handler]
 fn panic(_: &core::panic::PanicInfo) -> ! {
@@ -124,7 +142,10 @@ async fn main(spawner: Spawner) -> ! {
             .await
             .expect("Failed to read SHT41 response");
 
-        println!("SHT41 response: {:02x?}", response);
+        let sensor_response = SensorResponse(response);
+        let formatted_data = sensor_response.convert();
+
+        println!("SHT41: {}", formatted_data);
 
         Timer::after(Duration::from_secs(1)).await;
     }
