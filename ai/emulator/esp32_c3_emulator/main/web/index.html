@@ -1,0 +1,416 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>IntelliThings Emulator</title>
+<style>
+:root {
+  --bg: #f4f5f7; --card: #ffffff; --text: #1d2330; --muted: #677085; --line: #e2e5eb;
+  --accent: #2f6fed; --accent-soft: #e6eeff; --ok: #1f9d55; --warn: #c77700; --bad: #d64545;
+  --ok-soft: #e3f5ea; --warn-soft: #fdf1dc; --bad-soft: #fbe5e5; --chip: #eef0f4;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #12151b; --card: #1b2029; --text: #e6e9ef; --muted: #99a2b3; --line: #2a313d;
+    --accent: #6b9bff; --accent-soft: #1f2b45; --ok: #4cc47f; --warn: #f0a93b; --bad: #ff7070;
+    --ok-soft: #173325; --warn-soft: #3a2c14; --bad-soft: #3d1c1c; --chip: #262c37;
+  }
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--text);
+  font: 14px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+header { position: sticky; top: 0; z-index: 5; background: var(--card); border-bottom: 1px solid var(--line);
+  padding: 10px 16px; display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; }
+header h1 { font-size: 16px; margin: 0; font-weight: 650; }
+header .sub { color: var(--muted); font-size: 12px; }
+.badges { display: flex; gap: 6px; flex-wrap: wrap; margin-left: auto; }
+.badge { padding: 2px 8px; border-radius: 999px; font-size: 12px; background: var(--chip); color: var(--muted); white-space: nowrap; }
+.badge.ok { background: var(--ok-soft); color: var(--ok); }
+.badge.bad { background: var(--bad-soft); color: var(--bad); }
+.badge.warn { background: var(--warn-soft); color: var(--warn); }
+main { max-width: 1200px; margin: 0 auto; padding: 16px; display: grid; gap: 16px; }
+.card { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; min-width: 0; }
+.card h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin: 0 0 10px; font-weight: 600; }
+.status-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px 16px; }
+.kv .k { color: var(--muted); font-size: 12px; }
+.kv .v { font-weight: 550; overflow-wrap: anywhere; }
+.rooms { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; }
+.room-head { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+.room-head h3 { margin: 0; font-size: 16px; }
+.room-head .id { color: var(--muted); font-size: 12px; font-family: ui-monospace, Consolas, monospace; }
+.dot { width: 9px; height: 9px; border-radius: 50%; background: var(--bad); flex: none; }
+.dot.ok { background: var(--ok); }
+.mode { margin: 6px 0 10px; display: flex; gap: 6px; flex-wrap: wrap; align-items: center; font-size: 12px; }
+.readings { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 2px 14px; }
+.readings div { display: flex; justify-content: space-between; gap: 8px; padding: 3px 0; border-bottom: 1px dashed var(--line); }
+.readings span:first-child { color: var(--muted); }
+.readings b { font-variant-numeric: tabular-nums; font-weight: 600; }
+.readings b.forced { color: var(--accent); }
+.room-foot { display: flex; justify-content: space-between; align-items: center; margin-top: 10px; gap: 8px; flex-wrap: wrap; }
+.age { font-size: 12px; color: var(--muted); }
+.age.stale { color: var(--bad); font-weight: 600; }
+button { font: inherit; border: 1px solid var(--line); background: var(--card); color: var(--text);
+  border-radius: 8px; padding: 6px 12px; cursor: pointer; }
+button:hover { border-color: var(--accent); }
+button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+button.small { padding: 3px 9px; font-size: 12px; }
+button:disabled { opacity: .5; cursor: default; }
+.tabs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; }
+.tabs button.active { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); font-weight: 600; }
+.shortcuts { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 8px; }
+.shortcut { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 10px 6px; }
+.shortcut .ic { font-size: 22px; line-height: 1; }
+.shortcut .lb { font-weight: 600; font-size: 13px; }
+.shortcut .dr { font-size: 11px; color: var(--muted); }
+.shortcut.suggested { border-color: var(--accent); background: var(--accent-soft); }
+.row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-top: 12px; }
+label.inline { display: inline-flex; gap: 6px; align-items: center; color: var(--muted); font-size: 13px; }
+input, select, textarea { font: inherit; color: var(--text); background: var(--bg); border: 1px solid var(--line);
+  border-radius: 7px; padding: 5px 8px; min-width: 0; }
+input[type=number] { width: 100px; }
+input[type=checkbox] { width: 16px; height: 16px; accent-color: var(--accent); }
+.ranges { width: 100%; border-collapse: collapse; }
+.ranges td, .ranges th { padding: 5px 6px; border-bottom: 1px solid var(--line); text-align: left; }
+.ranges th { color: var(--muted); font-weight: 500; font-size: 12px; }
+.ranges td.hint { color: var(--muted); font-size: 12px; }
+.table-wrap { overflow-x: auto; }
+.msgs { display: flex; flex-direction: column; gap: 8px; max-height: 420px; overflow-y: auto; }
+.msg { border: 1px solid var(--line); border-left: 4px solid var(--accent); border-radius: 8px; padding: 8px 10px; }
+.msg .meta { display: flex; gap: 8px; flex-wrap: wrap; font-size: 12px; color: var(--muted); }
+.msg .room { font-weight: 700; color: var(--text); text-transform: uppercase; letter-spacing: .03em; }
+.msg .text { margin-top: 4px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.empty { color: var(--muted); font-style: italic; }
+textarea { width: 100%; min-height: 60px; resize: vertical; }
+.two { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; }
+@media (max-width: 800px) { .two { grid-template-columns: 1fr; } }
+#toast { position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%); max-width: calc(100% - 32px);
+  padding: 10px 14px; border-radius: 8px; color: #fff; font-weight: 550; box-shadow: 0 6px 20px rgba(0,0,0,.2);
+  opacity: 0; pointer-events: none; transition: opacity .2s; z-index: 10; }
+#toast.show { opacity: 1; }
+#toast.ok { background: var(--ok); }
+#toast.bad { background: var(--bad); }
+code { font-family: ui-monospace, Consolas, monospace; font-size: 12px; }
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <h1>IntelliThings Emulator</h1>
+    <div class="sub">3 virtual sensor nodes on one ESP32-C3 · AI-team test panel</div>
+  </div>
+  <div class="badges">
+    <span id="b-link" class="badge">connecting…</span>
+    <span id="b-wifi" class="badge">Wi-Fi</span>
+    <span id="b-mqtt" class="badge">MQTT</span>
+    <span id="b-time" class="badge">clock</span>
+  </div>
+</header>
+
+<main>
+  <section class="card">
+    <h2>System status</h2>
+    <div class="status-grid" id="status"></div>
+  </section>
+
+  <section class="rooms" id="rooms"></section>
+
+  <section class="card">
+    <h2>Emulate</h2>
+    <div class="tabs" id="tabs"></div>
+
+    <div class="two">
+      <div>
+        <h2 style="margin-top:4px">Shortcuts</h2>
+        <div class="shortcuts" id="shortcuts"></div>
+        <div class="row">
+          <label class="inline">Duration (s) <input type="number" id="sc-duration" min="0" max="86400" placeholder="default"></label>
+          <button id="btn-normal" title="Drop scenarios and overrides; back to automatic behaviour">↺ Back to normal</button>
+          <button id="btn-reset" title="Also reset readings to the room's baseline">Reset room</button>
+        </div>
+      </div>
+
+      <div>
+        <h2 style="margin-top:4px">Custom values</h2>
+        <div class="table-wrap">
+          <table class="ranges">
+            <thead><tr><th></th><th>Metric</th><th>Min</th><th>Max</th><th>Sensor range</th></tr></thead>
+            <tbody id="ranges"></tbody>
+          </table>
+        </div>
+        <div class="row">
+          <label class="inline">Presence
+            <select id="presence"><option value="">no change</option><option value="true">present</option><option value="false">empty</option></select>
+          </label>
+          <label class="inline">Duration (s) <input type="number" id="ovr-duration" min="0" max="86400" value="0" title="0 = until cleared"></label>
+          <label class="inline"><input type="checkbox" id="instant"> jump instantly</label>
+        </div>
+        <div class="row">
+          <button class="primary" id="btn-apply">Apply</button>
+          <span class="age">Min = max gives a fixed value. Values move smoothly unless “jump instantly” is ticked.</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="two">
+    <div class="card">
+      <h2>AI messages received</h2>
+      <div class="msgs" id="msgs"><div class="empty">No AI messages yet. They appear here and on the serial monitor.</div></div>
+    </div>
+    <div class="card">
+      <h2>Send a test AI message</h2>
+      <p class="age" style="margin-top:0">Publishes <code>{"text","ts"}</code> to the room's <code>…/display</code> topic, like Home Assistant would.</p>
+      <div class="row" style="margin-top:0">
+        <label class="inline">Room <select id="test-room"></select></label>
+        <label class="inline"><input type="checkbox" id="test-retain"> retained</label>
+      </div>
+      <div class="row"><textarea id="test-text" maxlength="400" placeholder="CO₂ is elevated. Consider opening the window."></textarea></div>
+      <div class="row"><button class="primary" id="btn-test">Send</button></div>
+    </div>
+  </section>
+</main>
+<div id="toast"></div>
+
+<script>
+"use strict";
+const $ = (id) => document.getElementById(id);
+let META = null, STATE = null, selected = "all";
+
+function el(tag, attrs = {}, ...kids) {
+  const e = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs)) {
+    if (k === "class") e.className = v;
+    else if (k.startsWith("on")) e.addEventListener(k.slice(2), v);
+    else if (v !== undefined && v !== null && v !== false) e.setAttribute(k, v === true ? "" : v);
+  }
+  for (const kid of kids.flat()) if (kid !== null && kid !== undefined) e.append(kid);
+  return e;
+}
+
+function toast(ok, msg) {
+  const t = $("toast");
+  t.textContent = msg;
+  t.className = "show " + (ok ? "ok" : "bad");
+  clearTimeout(toast.timer);
+  toast.timer = setTimeout(() => (t.className = ""), 3500);
+}
+
+async function api(path, body) {
+  const opts = body ? { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) } : {};
+  const r = await fetch(path, opts);
+  const j = await r.json().catch(() => ({ ok: false, msg: "HTTP " + r.status }));
+  return j;
+}
+
+async function cmd(body) {
+  try {
+    const r = await api("/api/cmd", body);
+    toast(r.ok, r.msg || (r.ok ? "OK" : "Failed"));
+    pollState();
+    return r.ok;
+  } catch (e) {
+    toast(false, "Emulator unreachable");
+    return false;
+  }
+}
+
+function fmtDur(s) {
+  if (s === null || s === undefined) return "until cleared";
+  s = Math.max(0, Math.round(s));
+  if (s < 90) return s + " s";
+  if (s < 5400) return Math.round(s / 60) + " min";
+  return (s / 3600).toFixed(1) + " h";
+}
+function fmtUptime(s) {
+  const d = Math.floor(s / 86400), h = Math.floor(s % 86400 / 3600), m = Math.floor(s % 3600 / 60);
+  return (d ? d + "d " : "") + (h ? h + "h " : "") + m + "m " + Math.floor(s % 60) + "s";
+}
+function fmtVal(metric, v) {
+  if (v === undefined || v === null) return "–";
+  return (metric.decimals ? Number(v).toFixed(metric.decimals) : Math.round(v)) + (metric.unit ? " " + metric.unit : "");
+}
+function nodeName(id) {
+  const n = META.nodes.find((n) => n.id === id);
+  return n ? n.label : id;
+}
+
+// ---------------------------------------------------------------- static UI
+function buildControls() {
+  const tabs = $("tabs");
+  tabs.replaceChildren();
+  const add = (value, label) => tabs.append(el("button", {
+    class: value === selected ? "active" : "", onclick: () => { selected = value; buildControls(); }
+  }, label));
+  META.nodes.forEach((n) => add(n.id, n.label));
+  add("all", "All rooms");
+
+  const room = selected === "all" ? null : META.nodes.find((n) => n.id === selected).room;
+  const sc = $("shortcuts");
+  sc.replaceChildren();
+  META.scenarios.forEach((s) => {
+    sc.append(el("button", {
+      class: "shortcut" + (room && s.default_room === room ? " suggested" : ""),
+      title: `${s.label}: default ${fmtDur(s.duration_s)}`,
+      onclick: () => {
+        const d = $("sc-duration").value;
+        const body = { node: selected, action: "scenario", name: s.name };
+        if (d !== "") body.duration_s = Number(d);
+        cmd(body);
+      },
+    }, el("span", { class: "ic" }, s.icon), el("span", { class: "lb" }, s.label),
+       el("span", { class: "dr" }, fmtDur(s.duration_s))));
+  });
+
+  const tb = $("ranges");
+  if (!tb.children.length) {
+    META.metrics.forEach((m) => {
+      const step = m.decimals ? "0.1" : "1";
+      tb.append(el("tr", {},
+        el("td", {}, el("input", { type: "checkbox", id: "use-" + m.key })),
+        el("td", {}, el("label", { for: "use-" + m.key }, m.label + (m.unit ? ` (${m.unit})` : ""))),
+        el("td", {}, el("input", { type: "number", id: "min-" + m.key, step, min: m.min, max: m.max,
+          oninput: () => ($("use-" + m.key).checked = true) })),
+        el("td", {}, el("input", { type: "number", id: "max-" + m.key, step, min: m.min, max: m.max,
+          oninput: () => ($("use-" + m.key).checked = true) })),
+        el("td", { class: "hint" }, `${m.min} – ${m.max}`)));
+    });
+  }
+}
+
+function applyRanges() {
+  const ranges = {};
+  for (const m of META.metrics) {
+    if (!$("use-" + m.key).checked) continue;
+    let lo = $("min-" + m.key).value, hi = $("max-" + m.key).value;
+    if (lo === "" && hi === "") { toast(false, `${m.label}: enter a min and/or max`); return; }
+    if (lo === "") lo = hi;
+    if (hi === "") hi = lo;
+    ranges[m.key] = { min: Number(lo), max: Number(hi) };
+  }
+  const body = { node: selected, action: "set", ranges,
+    duration_s: Number($("ovr-duration").value || 0), instant: $("instant").checked };
+  const p = $("presence").value;
+  if (p !== "") body.presence = p === "true";
+  if (!Object.keys(ranges).length && p === "") { toast(false, "Tick at least one metric or choose presence"); return; }
+  cmd(body);
+}
+
+// ---------------------------------------------------------------- live state
+function renderStatus(s) {
+  const kv = (k, v) => el("div", { class: "kv" }, el("div", { class: "k" }, k), el("div", { class: "v" }, v));
+  $("status").replaceChildren(
+    kv("IP address", s.wifi.ip || "—"),
+    kv("Hostname", s.hostname + ".local"),
+    kv("Wi-Fi", s.wifi.connected ? `${s.wifi.ssid} (${s.wifi.rssi} dBm)` : "disconnected"),
+    kv("Wi-Fi reconnects", String(s.wifi.reconnects)),
+    kv("MQTT broker", s.mqtt.broker),
+    kv("Emulator MQTT", s.mqtt.emulator_connected ? "connected" : "disconnected"),
+    kv("Uptime", fmtUptime(s.uptime_s)),
+    kv("Free heap", `${Math.round(s.free_heap / 1024)} KB (min ${Math.round(s.min_free_heap / 1024)} KB)`),
+    kv("Local time", s.time.synced ? s.time.now.replace("T", " ") : "not synced (using boot clock)"),
+    kv("Publish interval", `${s.publish_interval_s} s · sim ×${s.sim_speed}`),
+    kv("Firmware", s.fw),
+    kv("Last command", s.last_cmd ? `${s.last_cmd.ok ? "✔" : "✖"} ${s.last_cmd.msg}` : "—"),
+  );
+  const set = (id, cls, text) => { const b = $(id); b.className = "badge " + cls; b.textContent = text; };
+  set("b-link", "ok", "panel connected");
+  set("b-wifi", s.wifi.connected ? "ok" : "bad", s.wifi.connected ? `Wi-Fi ${s.wifi.rssi} dBm` : "Wi-Fi down");
+  const up = s.nodes.filter((n) => n.mqtt === "connected").length;
+  set("b-mqtt", up === s.nodes.length ? "ok" : up ? "warn" : "bad", `MQTT ${up}/${s.nodes.length} nodes`);
+  set("b-time", s.time.synced ? "ok" : "warn", s.time.synced ? "clock synced" : "clock not synced");
+}
+
+function renderRooms(s) {
+  const rooms = $("rooms");
+  rooms.replaceChildren(...s.nodes.map((n) => {
+    const r = n.reading || {};
+    const badges = [el("span", { class: "badge " + (n.mode === "auto" ? "" : "warn") }, n.mode)];
+    if (n.scenario) badges.push(el("span", { class: "badge warn" }, `${n.scenario_label} · ${fmtDur(n.scenario_remaining_s)} left`));
+    if (n.auto_event) badges.push(el("span", { class: "badge" }, `auto: ${n.auto_event} · ${fmtDur(n.auto_event_remaining_s)}`));
+    const ovKeys = Object.keys(n.overrides || {});
+    if (ovKeys.length || n.presence_override !== null)
+      badges.push(el("span", { class: "badge warn" }, `override · ${fmtDur(n.override_remaining_s)}`));
+    badges.push(el("span", { class: "badge" }, `${n.occupants} occupant${n.occupants === 1 ? "" : "s"}`));
+
+    const cells = META.metrics.map((m) => el("div", {},
+      el("span", {}, m.label),
+      el("b", { class: n.overrides && n.overrides[m.key] ? "forced" : "" }, fmtVal(m, r[m.key]))));
+    cells.push(el("div", {}, el("span", {}, "Presence"),
+      el("b", { class: n.presence_override !== null ? "forced" : "" }, r.presence === undefined ? "–" : r.presence ? "present" : "empty")));
+
+    const stale = n.last_publish_age_s === null || n.last_publish_age_s > s.publish_interval_s * 3;
+    return el("div", { class: "card" },
+      el("div", { class: "room-head" }, el("span", { class: "dot" + (n.mqtt === "connected" ? " ok" : "") }),
+        el("h3", {}, n.label), el("span", { class: "id" }, n.id)),
+      el("div", { class: "mode" }, badges),
+      el("div", { class: "readings" }, cells),
+      el("div", { class: "room-foot" },
+        el("span", { class: "age" + (stale ? " stale" : "") },
+          n.last_publish_age_s === null ? "no reading yet" :
+          `published ${n.last_publish_age_s}s ago · ${n.publish_count} sent` + (n.mqtt === "connected" ? "" : " · MQTT offline")),
+        el("span", {},
+          el("button", { class: "small", onclick: () => cmd({ node: n.id, action: "clear" }) }, "↺ Normal"))));
+  }));
+}
+
+async function pollState() {
+  try {
+    const s = await api("/api/state");
+    STATE = s;
+    renderStatus(s);
+    renderRooms(s);
+  } catch (e) {
+    const b = $("b-link");
+    b.className = "badge bad";
+    b.textContent = "emulator unreachable";
+  }
+}
+
+async function pollMessages() {
+  try {
+    const j = await api("/api/messages");
+    const box = $("msgs");
+    if (!j.messages.length) return;
+    box.replaceChildren(...j.messages.map((m) => el("div", { class: "msg" },
+      el("div", { class: "meta" },
+        el("span", { class: "room" }, m.room),
+        el("span", {}, m.node_id),
+        m.ts ? el("span", {}, "ts " + m.ts) : null,
+        el("span", {}, m.age_s < 60 ? `${m.age_s}s ago` : `${Math.round(m.age_s / 60)} min ago`),
+        m.retained ? el("span", { class: "badge" }, "retained") : null,
+        m.raw ? el("span", { class: "badge bad" }, "not {text} JSON") : null),
+      el("div", { class: "text" }, m.text))));
+  } catch (e) { /* shown by the state poll */ }
+}
+
+async function init() {
+  try {
+    META = await api("/api/meta");
+  } catch (e) {
+    $("b-link").className = "badge bad";
+    $("b-link").textContent = "emulator unreachable";
+    setTimeout(init, 3000);
+    return;
+  }
+  buildControls();
+  $("test-room").replaceChildren(...META.nodes.map((n) => el("option", { value: n.id }, n.label)));
+  $("btn-apply").onclick = applyRanges;
+  $("btn-normal").onclick = () => cmd({ node: selected, action: "clear" });
+  $("btn-reset").onclick = () => cmd({ node: selected, action: "reset" });
+  $("btn-test").onclick = async () => {
+    const text = $("test-text").value.trim();
+    if (!text) { toast(false, "Type a message first"); return; }
+    if (await cmd({ node: $("test-room").value, action: "display", text, retain: $("test-retain").checked })) {
+      setTimeout(pollMessages, 700);
+    }
+  };
+  pollState();
+  pollMessages();
+  setInterval(pollState, 1500);
+  setInterval(pollMessages, 2000);
+}
+init();
+</script>
+</body>
+</html>

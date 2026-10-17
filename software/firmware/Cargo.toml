@@ -1,11 +1,11 @@
 [package]
 edition      = "2024"
-name         = "test2-esp32"
+name         = "intelli_things"
 rust-version = "1.95"
 version      = "0.1.0"
 
 [[bin]]
-name = "test2-esp32"
+name = "intelli_things"
 path = "./src/bin/main.rs"
 
 [dependencies]
@@ -23,6 +23,7 @@ esp-bootloader-esp-idf = { version = "0.6.0", features = ["esp32c6"] }
 embassy-net = { version = "0.9.1", features = [
   "dhcpv4",
   "medium-ethernet",
+  "icmp",
   "tcp",
   "udp",
 ] }

@@ -135,11 +135,14 @@
 
 So the AI subteam can build and test the Home Assistant + cloud AI pipeline **before the Software subteam's firmware is ready**, one spare ESP32 board from @spicybutter's own stock runs as a **sensor-data emulator**. It has no sensors attached. The emulator belongs to the **AI subteam** (code in `ai/emulator/`); @spicybutter (PM) builds and maintains it.
 
-- **Three emulated nodes on one board:** it publishes as three separate nodes (e.g. `emu-1`, `emu-2`, `emu-3`), each with its own topics, so HA sees three devices — the same count as the final product.
+- **Board:** a LuatOS ESP32-C3 Core, running C on ESP-IDF v6.1 (the emulator shares no code with the node firmware, only the MQTT contract). Full guide: `ai/emulator/README.md`.
+- **Three emulated nodes on one board:** it publishes as `emu-kitchen`, `emu-bedroom` and `emu-living-room`, each with its own topics and its own MQTT connection and Last Will, so HA sees three independent devices — the same count as the final product.
+- **Publish interval:** every 3 s, even when values haven't changed (emulator only; the real-node interval is still open).
 - **Every reading in the system:** each emulated node publishes the full sensor set from §3.3 — temperature, humidity, VOC Index, CO₂, lux, distance, PM1.0/PM2.5/PM10 and presence — as fake but plausible values.
 - **Same MQTT contract as the real nodes (§4):** same topic pattern, same JSON fields and units, plus `.../status` (online/offline) — so nothing in HA or the agent changes when real nodes replace the emulated ones. It also subscribes to each emulated node's `.../display` topic and prints the AI messages over serial, which tests the feedback path end to end.
 - **Useful test behavior:** values drift slowly like a real room, with scripted events the agent should react to (e.g. CO₂ climbing, a hot room with presence, a PM2.5 spike, presence turning off).
-- **Schema coordination:** until the MQTT schema is fixed on Oct 4, the emulator's JSON is the working draft; the Software subteam's firmware and the AI subteam's emulator both follow the agreed schema after that.
+- **Control panel:** the emulator serves a web page (`http://intellithings-emu.local/`) where the AI team triggers those events with one click, forces any value into a range, sees system status and reads the AI messages each node received. The same commands work over MQTT on `intellithings/emulator/cmd` (a reserved namespace real nodes never use).
+- **Schema coordination:** until the MQTT schema is fixed on Oct 4, the emulator's JSON is the working draft (`docs/interfaces/mqtt.md`); the Software subteam's firmware and the AI subteam's emulator both follow the agreed schema after that.
 - **Retirement:** once the rigs publish real data, the emulated nodes are disabled in HA (the emulator stays available for testing the agent and dashboard without hardware).
 
 ### 3.2 Microcontroller
