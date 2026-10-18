@@ -7,6 +7,7 @@
 )]
 #![deny(clippy::large_stack_frames)]
 
+use core::cell::RefCell;
 use embassy_executor::Spawner;
 
 use embassy_time::{Duration, Timer};
@@ -17,7 +18,6 @@ use esp_hal::{
     time::Rate,
 };
 use esp_println::println;
-use intelli_things::wifi;
 use intelli_things::sensors;
 
 #[panic_handler]
@@ -36,8 +36,12 @@ esp_bootloader_esp_idf::esp_app_desc!();
     clippy::large_stack_frames,
     reason = "it's not unusual to allocate larger buffers etc. in main"
 )]
+#[allow(
+    clippy::await_holding_refcell_ref,
+    reason = "all bus users run sequentially in this task; each borrow ends before the next sensor call"
+)]
 #[esp_rtos::main]
-async fn main(spawner: Spawner) -> ! {
+async fn main(_spawner: Spawner) -> ! {
     // generator version: 1.4.0
     // generator parameters: -o esp32c6 -o esp32c6-wroom-1 -o unstable-hal -o alloc -o embassy -o wifi -o zed
 
@@ -64,10 +68,9 @@ async fn main(spawner: Spawner) -> ! {
     let sda = peripherals.GPIO6;
     let scl = peripherals.GPIO7;
 
-    let i2c_config = I2cConfig::default()
-        .with_frequency(Rate::from_khz(100));
+    let i2c_config = I2cConfig::default().with_frequency(Rate::from_khz(100));
 
-    let mut i2c = I2c::new(peripherals.I2C0, i2c_config)
+    let i2c = I2c::new(peripherals.I2C0, i2c_config)
         .expect("Failed to initialize I2C")
         .with_sda(sda)
         .with_scl(scl)
@@ -80,56 +83,95 @@ async fn main(spawner: Spawner) -> ! {
 
     //let (_wifi_controller, _stack) = wifi::setup(spawner, peripherals.WIFI).await;
 
+    // All I2C access stays sequential in this task. Release each temporary
+    // borrow before calling a driver that uses a RefCellDevice handle.
+    let bus = RefCell::new(i2c);
+    let mut vl53l0 = match sensors::VL53L0::new(&bus) {
+        Ok(sensor) => Some(sensor),
+        Err(err) => {
+            println!("VL53L0 start error: {}", err);
+            None
+        }
+    };
+
     let mut sht41 = sensors::SHT41::new();
     let mut bh1750 = sensors::BH1750::new();
     let mut sgp40 = sensors::SGP40::new();
     let mut scd41 = sensors::SCD41::new();
 
     let mut scd41_started = false;
-    
-    match scd41.start(&mut i2c).await {
+
+    let start_result = {
+        let mut i2c = bus.borrow_mut();
+        scd41.start(&mut i2c).await
+    };
+    match start_result {
         Ok(()) => scd41_started = true,
-        Err(err) => println!("SCD41 start error: {}", err)
+        Err(err) => println!("SCD41 start error: {}", err),
     }
-    
+
     loop {
-        let result = sht41.read(&mut i2c).await;
+        let result = {
+            let mut i2c = bus.borrow_mut();
+            sht41.read(&mut i2c).await
+        };
         match result {
             Ok(()) => println!("{}", sht41),
-            Err(err) => println!("SHT41 error: {}", err)
+            Err(err) => println!("SHT41 error: {}", err),
         }
-        
-        let result = bh1750.read(&mut i2c).await;
+
+        let result = {
+            let mut i2c = bus.borrow_mut();
+            bh1750.read(&mut i2c).await
+        };
         match result {
             Ok(()) => println!("{}", bh1750),
             Err(err) => println!("BH1750 error: {}", err),
         }
-        
-        let result = sgp40.read(&mut i2c,
-            sht41.temperature_c, sht41.humidity_percent).await;
+
+        let result = {
+            let mut i2c = bus.borrow_mut();
+            sgp40
+                .read(&mut i2c, sht41.temperature_c, sht41.humidity_percent)
+                .await
+        };
         match result {
             Ok(()) => println!("{}", sgp40),
-            Err(err) => println!("SGP40 error: {}", err)
+            Err(err) => println!("SGP40 error: {}", err),
         }
-        
+
         if scd41_started {
-            let result = scd41.read(&mut i2c).await;
+            let result = {
+                let mut i2c = bus.borrow_mut();
+                scd41.read(&mut i2c).await
+            };
             match result {
                 Ok(true) => println!("New SCD41 data: {}", scd41),
-                Ok(false) => println!("Old SCD41 data: {}", scd41),           // no new reading yet, which is normal
-                Err(err) => println!("SCD41 error: {}", err)
+                Ok(false) => println!("Old SCD41 data: {}", scd41), // no new reading yet, which is normal
+                Err(err) => println!("SCD41 error: {}", err),
+            }
+        } else {
+            let start_result = {
+                let mut i2c = bus.borrow_mut();
+                scd41.start(&mut i2c).await
+            };
+            match start_result {
+                Ok(()) => scd41_started = true,
+                Err(err) => println!("SCD41 start error: {}", err),
             }
         }
 
-        else {
-            match scd41.start(&mut i2c).await {
-                Ok(()) => scd41_started = true,
-                Err(err) => println!("SCD41 start error: {}", err)
+        println!("VL53L0:");
+        if let Some(sensor) = vl53l0.as_mut() {
+            match sensor.read() {
+                Ok(true) => println!("{}", sensor),
+                Ok(false) => println!("Measurement still running"), // The next measurement is still running.
+                Err(err) => println!("VL53L0 error: {}", err),
             }
         }
-        
+
         Timer::after(Duration::from_secs(1)).await;
     }
-    
+
     // for inspiration have a look at the examples at https://github.com/esp-rs/esp-hal/tree/esp-hal-v1.2.2/examples
 }
