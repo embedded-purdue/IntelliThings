@@ -80,7 +80,7 @@ def main():
     if not args.publish:
         print(json.dumps(dict(messages), indent=2, ensure_ascii=False))
         return
-    load_dotenv(Path(__file__).resolve().parents[2] / ".env")
+    load_dotenv(Path(__file__).resolve().parents[3] / ".env")
     token = os.getenv("HA_LONG_LIVED_TOKEN", "").strip()
     if not token:
         parser.error("Set HA_LONG_LIVED_TOKEN in .env or the environment")

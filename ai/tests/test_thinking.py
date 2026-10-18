@@ -9,7 +9,7 @@ import unittest
 from unittest.mock import AsyncMock, patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from llm import inference
+from agent import inference, pipeline, publishing
 from fixtures import ROOM_SUMMARIES
 
 VALUE = {'summary': 'Home summary.', 'room_summaries': ROOM_SUMMARIES}
@@ -42,11 +42,11 @@ class ThinkingTests(unittest.IsolatedAsyncioTestCase):
                     events.append('summaries')
                     return {'ok': True}
 
-                with patch.object(inference, 'publish_inference_state', side_effect=status), \
+                with patch.object(publishing, 'publish_inference_state', side_effect=status), \
                      patch.object(inference, 'complete', side_effect=complete) as model, \
-                     patch.object(inference, 'publish_mqtt_summaries', side_effect=publish), \
-                     patch.object(inference, 'publish_summary', AsyncMock(return_value=None)):
-                    call = inference.infer({'context': 'rooms', 'fetched_at': 'now'}, root, prompt,
+                     patch.object(publishing, 'publish_mqtt_summaries', side_effect=publish), \
+                     patch.object(publishing, 'publish_summary', AsyncMock(return_value=None)):
+                    call = pipeline.run_inference({'context': 'rooms', 'fetched_at': 'now'}, root, prompt,
                         'key', 'model', 0.05, 2048, ha_token='secret', ha_base_url='http://ha')
                     if outcome == 'cancelled':
                         with self.assertRaises(asyncio.CancelledError):
@@ -74,11 +74,11 @@ class ThinkingTests(unittest.IsolatedAsyncioTestCase):
                         raise RuntimeError('offline secret')
                     return {'ok': True, 'state': state}
 
-                with patch.object(inference, 'publish_inference_state', side_effect=status) as states, \
+                with patch.object(publishing, 'publish_inference_state', side_effect=status) as states, \
                      patch.object(inference, 'complete', AsyncMock(return_value={'content': json.dumps(VALUE)})), \
-                     patch.object(inference, 'publish_mqtt_summaries', AsyncMock(return_value={'ok': True})), \
-                     patch.object(inference, 'publish_summary', AsyncMock(return_value=None)):
-                    result = await inference.infer({'context': 'rooms', 'fetched_at': 'now'}, root, prompt,
+                     patch.object(publishing, 'publish_mqtt_summaries', AsyncMock(return_value={'ok': True})), \
+                     patch.object(publishing, 'publish_summary', AsyncMock(return_value=None)):
+                    result = await pipeline.run_inference({'context': 'rooms', 'fetched_at': 'now'}, root, prompt,
                         'key', 'model', 1, 2048, ha_token='secret', ha_base_url='http://ha')
                 self.assertEqual(result, 1)
                 self.assertEqual(states.await_count, 2)

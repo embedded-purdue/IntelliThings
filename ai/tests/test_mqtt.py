@@ -12,11 +12,10 @@ from unittest.mock import AsyncMock, patch
 import httpx
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from integrations import mqtt
-from llm import inference
+from agent.integrations import mqtt
+from agent import inference, pipeline, publishing
 from fixtures import ROOM_SUMMARIES
-from llm.response import Recommendation
-import main
+from agent.response import Recommendation
 
 STAMP = '2026-10-18T12:00:00+00:00'
 
@@ -119,12 +118,12 @@ class PublicationTests(unittest.IsolatedAsyncioTestCase):
             prompt = root / 'prompt.txt'
             prompt.write_text('Return JSON')
             value = {'summary': 'Room is warm.', 'room_summaries': ROOM_SUMMARIES}
-            with patch.object(inference, 'publish_inference_state', AsyncMock(return_value={'ok': True})), \
+            with patch.object(publishing, 'publish_inference_state', AsyncMock(return_value={'ok': True})), \
                  patch.object(inference, 'complete', AsyncMock(return_value={'content': json.dumps(value)})) as complete, \
-                 patch.object(inference, 'publish_summary', AsyncMock(return_value=None)) as dashboard, \
-                 patch.object(inference, 'publish_mqtt_summaries', AsyncMock(return_value={
+                 patch.object(publishing, 'publish_summary', AsyncMock(return_value=None)) as dashboard, \
+                 patch.object(publishing, 'publish_mqtt_summaries', AsyncMock(return_value={
                      'ok': False, 'topics': [{'topic': 'intellithings/emu-kitchen/display', 'ok': False}]})) as publish:
-                result = await inference.infer({'context': 'room', 'fetched_at': 'now'}, root,
+                result = await pipeline.run_inference({'context': 'room', 'fetched_at': 'now'}, root,
                     prompt, 'key', 'model', 2, 2048, ha_token='secret', ha_base_url='http://ha')
             self.assertEqual(result, 1)
             complete.assert_awaited_once()
@@ -140,10 +139,10 @@ class PublicationTests(unittest.IsolatedAsyncioTestCase):
             root = Path(directory)
             prompt = root / 'prompt.txt'
             prompt.write_text('Return JSON')
-            with patch.object(inference, 'publish_inference_state', AsyncMock(return_value={'ok': True})), \
+            with patch.object(publishing, 'publish_inference_state', AsyncMock(return_value={'ok': True})), \
                  patch.object(inference, 'complete', AsyncMock(return_value={'content': 'invalid'})), \
-                 patch.object(inference, 'publish_mqtt_summaries', AsyncMock()) as publish:
-                result = await inference.infer({'context': 'room', 'fetched_at': 'now'}, root,
+                 patch.object(publishing, 'publish_mqtt_summaries', AsyncMock()) as publish:
+                result = await pipeline.run_inference({'context': 'room', 'fetched_at': 'now'}, root,
                     prompt, 'key', 'model', 2, 2048, ha_token='secret', ha_base_url='http://ha')
             self.assertEqual(result, 1)
             publish.assert_not_awaited()
@@ -157,10 +156,10 @@ class PublicationTests(unittest.IsolatedAsyncioTestCase):
             with self.subTest(reason=reason), tempfile.TemporaryDirectory() as directory:
                 root = Path(directory)
                 args = SimpleNamespace(url='http://ha', timeout=2, output_dir=root, collect_only=collect_only)
-                with patch.object(main, 'set_thinking_state', AsyncMock(return_value=True)) as reset, \
-                     patch.object(main, 'collect_snapshot', AsyncMock(return_value=snapshot)), \
-                     patch.object(main, 'infer', AsyncMock()) as infer:
-                    await main.run_cycle(args)
+                with patch.object(pipeline, 'set_thinking_state', AsyncMock(return_value=True)) as reset, \
+                     patch.object(pipeline, 'collect_snapshot', AsyncMock(return_value=snapshot)), \
+                     patch.object(pipeline, 'run_inference', AsyncMock()) as infer:
+                    await pipeline.run_cycle(args)
                 infer.assert_not_awaited()
                 if collect_only:
                     reset.assert_not_awaited()

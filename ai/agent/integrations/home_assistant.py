@@ -2,6 +2,7 @@
 
 from datetime import timedelta
 from contextlib import asynccontextmanager
+import json
 
 import httpx
 from mcp import ClientSession
@@ -9,7 +10,7 @@ from mcp.client.streamable_http import streamable_http_client
 
 
 @asynccontextmanager
-async def connect(url, token, timeout):
+async def connect(url, token, timeout, *, on_initialize=None):
     async with httpx.AsyncClient(
         headers={"Authorization": f"Bearer {token}"}, timeout=timeout
     ) as client:
@@ -17,13 +18,34 @@ async def connect(url, token, timeout):
             async with ClientSession(
                 read, write, read_timeout_seconds=timedelta(seconds=timeout)
             ) as session:
-                await session.initialize()
+                initialized = await session.initialize()
+                if on_initialize:
+                    on_initialize(initialized)
                 yield session
 
 
 async def get_live_context(url, token, timeout):
     async with connect(url, token, timeout) as session:
         return await session.call_tool("homeassistant__GetLiveContext", arguments={})
+
+
+def parse_live_context(result, *, indent=None):
+    """Extract text blocks and any tool error for collection and CLI inspection."""
+    error = "GetLiveContext returned an MCP tool error." if result.isError else None
+    texts = []
+    for block in result.content:
+        if block.type != "text":
+            continue
+        try:
+            payload = json.loads(block.text)
+        except json.JSONDecodeError:
+            payload = block.text
+        if isinstance(payload, dict):
+            if payload.get("success") is False and error is None:
+                error = "GetLiveContext reported success=false."
+            payload = payload.get("result", payload)
+        texts.append(payload if isinstance(payload, str) else json.dumps(payload, indent=indent))
+    return texts, error
 
 
 def explain(exc):

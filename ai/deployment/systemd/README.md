@@ -10,16 +10,16 @@ and every five minutes. Each run opens fresh MCP connections and loads the root
 
 Runtime files default to `~/.local/state/intellithings/mcp/` (or
 `$XDG_STATE_HOME/intellithings/mcp/`). See the
-[output file table](../llm/README.md#outputs-and-failures) for snapshots, model
+[output file table](../../docs/inference.md#outputs-and-failures) for snapshots, model
 responses, discovery, actions, and stage statuses. Check statuses and timestamps
 before treating a saved result as current.
 
 Install on a Pi where the repository is at `~/IntelliThings` and the virtualenv
-and `.env` have been set up as in [local pipeline setup](../README.md#current-local-python-pipeline):
+and `.env` have been set up as in [local pipeline setup](../../README.md#current-local-python-pipeline):
 
 ```bash
 mkdir -p ~/.config/systemd/user
-cp ai/systemd/intellithings-context.* ~/.config/systemd/user/
+cp ai/deployment/systemd/intellithings-context.* ~/.config/systemd/user/
 loginctl enable-linger "$USER"
 systemctl --user daemon-reload
 systemctl --user enable --now intellithings-context.timer

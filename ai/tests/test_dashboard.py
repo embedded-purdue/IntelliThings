@@ -10,10 +10,10 @@ import httpx
 from pydantic import ValidationError
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from integrations import dashboard
-from llm import inference
+from agent.integrations import dashboard
+from agent import inference, pipeline, publishing
 from fixtures import ROOM_SUMMARIES
-from llm.response import Recommendation
+from agent.response import Recommendation
 
 
 class DashboardTests(unittest.IsolatedAsyncioTestCase):
@@ -44,11 +44,11 @@ class DashboardTests(unittest.IsolatedAsyncioTestCase):
             prompt = root/'prompt.txt'
             prompt.write_text('Return JSON')
             value = {'summary':'Room is warm.', 'room_summaries': ROOM_SUMMARIES}
-            with patch.object(inference, 'publish_inference_state', AsyncMock(return_value={'ok': True})), \
+            with patch.object(publishing, 'publish_inference_state', AsyncMock(return_value={'ok': True})), \
                  patch.object(inference, 'complete', AsyncMock(return_value={'content':json.dumps(value)})), \
-                 patch.object(inference, 'publish_summary', AsyncMock(side_effect=RuntimeError('offline secret'))) as publish, \
-                 patch.object(inference, 'publish_mqtt_summaries', AsyncMock(return_value={'ok': True})) as mqtt:
-                result = await inference.infer({'context':'room', 'fetched_at':'now'}, root, prompt,
+                 patch.object(publishing, 'publish_summary', AsyncMock(side_effect=RuntimeError('offline secret'))) as publish, \
+                 patch.object(publishing, 'publish_mqtt_summaries', AsyncMock(return_value={'ok': True})) as mqtt:
+                result = await pipeline.run_inference({'context':'room', 'fetched_at':'now'}, root, prompt,
                     'key', 'model', 2, 2048, ha_token='secret', ha_base_url='http://ha')
             self.assertEqual(result,1)
             publish.assert_awaited_once_with('http://ha','secret','Room is warm.')

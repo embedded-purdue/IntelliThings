@@ -10,7 +10,7 @@ Docker volume, and restarts automatically unless explicitly stopped.
 From the repository root:
 
 ```bash
-cd ai/mosquitto
+cd ai/deployment/mosquitto
 docker compose pull
 docker run --rm -it --user 0 --entrypoint sh \
   -v "$PWD/config:/mosquitto/config" eclipse-mosquitto:2 \
@@ -45,13 +45,13 @@ Anonymous connections are disabled. Authenticated users can access all topics.
 The emulator publishes JSON to `intellithings/emulator/state`. Register its
 Kitchen, Bedroom, and Living Room nodes using MQTT discovery (enabled by default
 in HA). First connect HA's MQTT integration to this broker, then from the repository
-root, using the virtualenv and `.env` described in [the MCP setup](../probes/README.md):
+root, using the virtualenv and `.env` described in [the MCP setup](../../tools/README.md):
 
 ```bash
 # Preview configuration without publishing:
-.venv/bin/python ai/mosquitto/register_emulator.py
+.venv/bin/python ai/deployment/home_assistant/register_emulator.py
 # Create or update the discovery configurations:
-.venv/bin/python ai/mosquitto/register_emulator.py --publish
+.venv/bin/python ai/deployment/home_assistant/register_emulator.py --publish
 ```
 
 This uses HA's `mqtt.publish` service with the HA access token, so it needs no
@@ -71,7 +71,7 @@ readings in MCP live context, expose the desired entities to Assist under
 
 ## Broker operations
 
-Run these commands from `ai/mosquitto/`:
+Run these commands from `ai/deployment/mosquitto/`:
 
 ```bash
 docker compose logs -f mosquitto

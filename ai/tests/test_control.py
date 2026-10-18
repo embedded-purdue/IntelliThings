@@ -11,8 +11,8 @@ from unittest.mock import AsyncMock, patch
 from mcp.types import CallToolResult, TextContent
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from llm.control import Controller, TURN_ON, visible_actuators
-from llm import inference
+from agent.controls import Controller, TURN_ON, visible_actuators
+from agent import inference, pipeline
 from fixtures import ROOM_SUMMARIES
 
 CONTEXT = "Live Context: home:\n- names: Turn Cooling On\n  domain: input_boolean\n  state: 'off'\n"
@@ -79,7 +79,7 @@ class ControlTests(unittest.IsolatedAsyncioTestCase):
             final = {"content": json.dumps({"summary": "Flag turned on", "room_summaries": ROOM_SUMMARIES})}
             mock = AsyncMock(side_effect=[first, final])
             with patch.object(inference, "connect", connect), patch.object(inference, "complete", mock):
-                result = await inference.infer({"context": CONTEXT, "fetched_at": "now"}, root,
+                result = await pipeline.run_inference({"context": CONTEXT, "fetched_at": "now"}, root,
                                                prompt, "key", "model", 3, 2048, mcp_url="test", ha_token="ha")
             self.assertEqual(result, 0)
             self.assertEqual(mock.await_count, 2)

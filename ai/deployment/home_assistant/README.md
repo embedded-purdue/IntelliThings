@@ -1,8 +1,9 @@
 # Home Assistant config
 
-Local AI side: MQTT entities for every node, virtual devices, the throttled `/ha-event`
-hand-off automation, MCP Server exposure and dashboards. No secrets — use `secrets.yaml`
-(gitignored) with `!secret`. See [`../README.md`](../README.md).
+Home Assistant summary entities and dashboard setup for the local agent.
+The legacy sensor discovery script is [`register_emulator.py`](register_emulator.py);
+see its [setup instructions](../mosquitto/README.md#emulator-readings-in-home-assistant).
+Secrets stay outside version control. See [the AI README](../../README.md).
 
 ## Room summaries and overall inference status
 

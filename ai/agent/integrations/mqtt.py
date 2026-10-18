@@ -7,9 +7,9 @@ import re
 
 import httpx
 
-from pipeline.context import timestamp
+from agent.storage import timestamp
 
-CONFIG = Path(__file__).resolve().parents[1] / "llm/display_nodes.json"
+CONFIG = Path(__file__).resolve().parents[2] / "config/display_nodes.json"
 SUMMARY_TOPIC = "intellithings/ai/summary"
 INFERENCE_TOPIC = "intellithings/ai/inference_status"
 TEXT_BYTES = 400

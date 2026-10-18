@@ -10,10 +10,10 @@ from unittest.mock import AsyncMock, patch
 from pydantic import ValidationError
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from llm.response import load_response, parse_response, Recommendation
-from llm import inference
+from agent.response import load_response, parse_response, Recommendation
+from agent import inference, pipeline
 from fixtures import ROOM_SUMMARIES
-from integrations import openrouter
+from agent.integrations import openrouter
 import httpx
 
 
@@ -70,7 +70,7 @@ class ResponseTests(unittest.IsolatedAsyncioTestCase):
             saved = root / "inference.json"
             saved.write_text("previous result")
             with patch.object(inference, "complete", AsyncMock(return_value={"content": "not JSON"})):
-                code = await inference.infer({"context": "Bedroom", "fetched_at": "now"},
+                code = await pipeline.run_inference({"context": "Bedroom", "fetched_at": "now"},
                                              root, prompt, "secret", "model", 1, 100)
             self.assertEqual(code, 1)
             self.assertEqual(saved.read_text(), "previous result")

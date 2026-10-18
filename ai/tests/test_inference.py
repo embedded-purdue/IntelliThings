@@ -12,9 +12,8 @@ from unittest.mock import AsyncMock, patch
 import httpx
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-import main
-from integrations import openrouter
-from llm import inference
+from agent.integrations import openrouter
+from agent import inference, pipeline
 from fixtures import ROOM_SUMMARIES
 
 
@@ -55,7 +54,7 @@ class InferenceTests(unittest.IsolatedAsyncioTestCase):
                 "summary": "Comfortable", "room_summaries": ROOM_SUMMARIES
             })})
             with patch.object(inference, "complete", mock):
-                self.assertEqual(await inference.infer(snapshot, output, prompt, "secret", "test-model", 1, 100), 0)
+                self.assertEqual(await pipeline.run_inference(snapshot, output, prompt, "secret", "test-model", 1, 100), 0)
             messages = mock.call_args.args[2]
             self.assertEqual(messages[0]["content"], "My editable prompt")
             self.assertNotIn("mcp_result", json.loads(messages[1]["content"]))
@@ -64,7 +63,7 @@ class InferenceTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(saved.stat().st_mode & 0o777, 0o600)
             self.assertEqual(json.loads(previous)["input_fetched_at"], "test-time")
             with patch.object(inference, "complete", AsyncMock(side_effect=RuntimeError("secret failed"))):
-                self.assertEqual(await inference.infer(snapshot, output, prompt, "secret", "test-model", 1, 100), 1)
+                self.assertEqual(await pipeline.run_inference(snapshot, output, prompt, "secret", "test-model", 1, 100), 1)
             self.assertEqual(previous, saved.read_bytes())
             status = (output / "inference_status.json").read_text()
             self.assertFalse(json.loads(status)["ok"])
@@ -76,15 +75,15 @@ class InferenceTests(unittest.IsolatedAsyncioTestCase):
                                    collect_only=False, prompt_file=Path("prompt.txt"),
                                    llm_timeout=1, max_tokens=100)
             snapshot = {"fetched_at": "fresh", "context": "new"}
-            with patch.object(main, "set_thinking_state", AsyncMock(return_value=True)), \
-                 patch.object(main, "collect_snapshot", AsyncMock(return_value=snapshot)), \
-                 patch.object(main, "infer", AsyncMock(return_value=0)) as infer:
-                self.assertEqual(await main.run_cycle(args), 0)
+            with patch.object(pipeline, "set_thinking_state", AsyncMock(return_value=True)), \
+                 patch.object(pipeline, "collect_snapshot", AsyncMock(return_value=snapshot)), \
+                 patch.object(pipeline, "run_inference", AsyncMock(return_value=0)) as infer:
+                self.assertEqual(await pipeline.run_cycle(args), 0)
                 self.assertIs(infer.call_args.args[0], snapshot)
-            with patch.object(main, "set_thinking_state", AsyncMock(return_value=True)), \
-                 patch.object(main, "collect_snapshot", AsyncMock(return_value=None)), \
-                 patch.object(main, "infer", AsyncMock()) as infer:
-                self.assertEqual(await main.run_cycle(args), 1)
+            with patch.object(pipeline, "set_thinking_state", AsyncMock(return_value=True)), \
+                 patch.object(pipeline, "collect_snapshot", AsyncMock(return_value=None)), \
+                 patch.object(pipeline, "run_inference", AsyncMock()) as infer:
+                self.assertEqual(await pipeline.run_cycle(args), 1)
                 infer.assert_not_called()
                 self.assertTrue(json.loads((args.output_dir / "inference_status.json").read_text())["skipped"])
 

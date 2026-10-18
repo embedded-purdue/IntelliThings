@@ -522,7 +522,7 @@ emulator; real nodes and HA must not depend on it.
 ## Home Assistant example
 
 MQTT YAML for one room and two readings; repeat per room and per field. This is a reference
-for the Local AI team, not the project's HA config (that lives in `ai/ha/`).
+for the Local AI team, not the project's HA config (that lives in `ai/deployment/home_assistant/`).
 
 ```yaml
 mqtt:

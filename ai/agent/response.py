@@ -1,6 +1,6 @@
 """Validate model JSON and load saved recommendation fields.
 
-Run: .venv/bin/python ai/llm/response.py /path/to/inference.json
+Run: .venv/bin/python ai/agent/response.py /path/to/inference.json
 """
 
 import argparse

@@ -13,7 +13,7 @@ only the HA URL and access token; an OpenRouter key is not needed.
 From the repository root:
 
 ```bash
-.venv/bin/python ai/probes/probe.py
+.venv/bin/python ai/tools/probe.py
 ```
 
 The script loads the root `.env` regardless of the working directory. Exported
@@ -25,9 +25,9 @@ endpoint; the default is `HA_BASE_URL` plus `/api/mcp`.
 To print just the current home context, use the dedicated read-only script:
 
 ```bash
-.venv/bin/python ai/probes/live_context.py
+.venv/bin/python ai/tools/live_context.py
 # Include the full MCP response envelope:
-.venv/bin/python ai/probes/live_context.py --json
+.venv/bin/python ai/tools/live_context.py --json
 ```
 
 It uses the same `.env` settings as the probe and supports `--url` and `--timeout`.
@@ -35,10 +35,10 @@ It initializes the MCP session and calls `homeassistant__GetLiveContext` directl
 
 ```bash
 # List tool descriptions and inputSchema without making a tool call.
-.venv/bin/python ai/probes/probe.py --list-only
+.venv/bin/python ai/tools/probe.py --list-only
 
 # Explicitly request the current state snapshot.
-.venv/bin/python ai/probes/probe.py --tool homeassistant__GetLiveContext --arguments '{}'
+.venv/bin/python ai/tools/probe.py --tool homeassistant__GetLiveContext --arguments '{}'
 ```
 
 For any other tool, pass its exact advertised name to `--tool` and a JSON object
@@ -56,6 +56,12 @@ result = await session.call_tool(name, arguments={})
 The SDK handles JSON-RPC and Streamable HTTP. The script prints the call's name
 and arguments followed by the complete MCP result, including text content,
 structured content if supplied, and `isError`.
+
+Both commands use the shared transport in
+[`agent/integrations/home_assistant.py`](../agent/integrations/home_assistant.py).
+The connection helper initializes the session once; the full probe observes
+that handshake to print server information. The compact context command and
+pipeline share the same context decoder, with pretty formatting for inspection.
 
 The live context is a **snapshot of Assist-exposed entities**, not an exhaustive
 database export or a subscription to changes. Depending on available devices and

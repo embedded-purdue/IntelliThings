@@ -5,10 +5,10 @@ from pathlib import Path
 
 import yaml
 
-from pipeline.context import timestamp, write_json
+from agent.storage import timestamp, write_json
 
 TURN_ON = "intent__HassTurnOn"
-CONFIG = Path(__file__).with_name("allowed_actuators.json")
+CONFIG = Path(__file__).resolve().parents[1] / "config/allowed_actuators.json"
 
 
 def context_entities(text):

@@ -3,7 +3,6 @@
 
 import argparse
 import asyncio
-import json
 import os
 import sys
 from pathlib import Path
@@ -12,7 +11,7 @@ from dotenv import load_dotenv
 
 # Allow direct execution from any working directory.
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from integrations.home_assistant import explain, get_live_context
+from agent.integrations.home_assistant import explain, get_live_context, parse_live_context
 
 
 def main():
@@ -30,24 +29,12 @@ def main():
         parser.error("Set HA_LONG_LIVED_TOKEN in the repository .env or environment.")
     try:
         result = asyncio.run(get_live_context(args.url, token, args.timeout))
-        failed = result.isError
-        texts = []
-        for block in result.content:
-            if block.type != "text":
-                continue
-            try:
-                payload = json.loads(block.text)
-            except json.JSONDecodeError:
-                payload = block.text
-            if isinstance(payload, dict):
-                failed = failed or payload.get("success") is False
-                payload = payload.get("result", payload)
-            texts.append(payload if isinstance(payload, str) else json.dumps(payload, indent=2))
+        texts, error = parse_live_context(result, indent=2)
         if args.json or not texts:
             print(result.model_dump_json(indent=2, exclude_none=True))
         else:
             print("\n".join(texts))
-        return 1 if failed else 0
+        return 1 if error else 0
     except KeyboardInterrupt:
         return 130
     except Exception as exc:

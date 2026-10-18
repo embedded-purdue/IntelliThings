@@ -10,7 +10,8 @@ from unittest.mock import AsyncMock, patch
 from mcp.types import CallToolResult, TextContent
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from pipeline import context
+from agent import context
+from agent.storage import write_json
 
 
 class CollectionTests(unittest.IsolatedAsyncioTestCase):
@@ -21,7 +22,7 @@ class CollectionTests(unittest.IsolatedAsyncioTestCase):
         with tempfile.TemporaryDirectory() as directory:
             output = Path(directory)
             with patch.object(context, "get_live_context", AsyncMock(return_value=result)):
-                self.assertEqual(await context.collect("http://test", "token", 1, output), 0)
+                self.assertIsNotNone(await context.collect_snapshot("http://test", "token", 1, output))
             snapshot = json.loads((output / "latest.json").read_text())
             self.assertEqual(snapshot["context"], "Kitchen: 22 C")
             self.assertTrue(snapshot["fetched_at"])
@@ -39,11 +40,11 @@ class CollectionTests(unittest.IsolatedAsyncioTestCase):
         ]
         with tempfile.TemporaryDirectory() as directory:
             output = Path(directory)
-            context.write_json(output / "latest.json", {"context": "previous"})
+            write_json(output / "latest.json", {"context": "previous"})
             previous = (output / "latest.json").read_bytes()
             for failure in failures:
                 with patch.object(context, "get_live_context", failure):
-                    self.assertEqual(await context.collect("http://test", "secret-token", 1, output), 1)
+                    self.assertIsNone(await context.collect_snapshot("http://test", "secret-token", 1, output))
                 self.assertEqual((output / "latest.json").read_bytes(), previous)
                 status = (output / "status.json").read_text()
                 self.assertFalse(json.loads(status)["ok"])

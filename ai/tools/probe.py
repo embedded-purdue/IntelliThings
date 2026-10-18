@@ -6,18 +6,14 @@ import asyncio
 import json
 import os
 import sys
-from datetime import timedelta
 from pathlib import Path
 
-import httpx
 from dotenv import load_dotenv
-from mcp import ClientSession
-from mcp.client.streamable_http import streamable_http_client
 
 
 # Allow direct execution from any working directory.
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from integrations.home_assistant import explain, get_live_context
+from agent.integrations.home_assistant import connect, explain
 
 
 def show(label, value):
@@ -28,48 +24,40 @@ def show(label, value):
 
 
 async def probe(args, token):
-    headers = {"Authorization": f"Bearer {token}"}
-    async with httpx.AsyncClient(headers=headers, timeout=args.timeout) as client:
-        async with streamable_http_client(args.url, http_client=client) as (read, write, _):
-            async with ClientSession(
-                read, write, read_timeout_seconds=timedelta(seconds=args.timeout)
-            ) as session:
-                # MCP handshake must precede discovery or tool calls.
-                initialized = await session.initialize()
-                show("Server", initialized)
+    async with connect(args.url, token, args.timeout,
+                       on_initialize=lambda result: show("Server", result)) as session:
+        tools = []
+        cursor = None
+        while True:
+            page = await session.list_tools(cursor=cursor)
+            tools.extend(page.tools)
+            cursor = page.nextCursor
+            if not cursor:
+                break
+        show("Available tools and input schemas", [
+            tool.model_dump(mode="json", exclude_none=True) for tool in tools
+        ])
 
-                tools = []
-                cursor = None
-                while True:
-                    page = await session.list_tools(cursor=cursor)
-                    tools.extend(page.tools)
-                    cursor = page.nextCursor
-                    if not cursor:
-                        break
-                show("Available tools and input schemas", [
-                    tool.model_dump(mode="json", exclude_none=True) for tool in tools
-                ])
+        if args.list_only:
+            return 0
 
-                if args.list_only:
-                    return 0
+        # Only this known read-only tool is called automatically.
+        name = args.tool or next((tool.name for tool in tools if tool.name in {
+            "homeassistant__GetLiveContext", "GetLiveContext"
+        }), None)
+        if name is None:
+            print("No GetLiveContext tool advertised. Check the integration's "
+                  "Assist API selection and exposed entities. "
+                  "Use --tool and --arguments for another advertised tool.")
+            return 0
+        if name not in {tool.name for tool in tools}:
+            raise ValueError(f"Tool {name!r} is not advertised by this server.")
 
-                # Only this known read-only tool is called automatically.
-                name = args.tool or next((tool.name for tool in tools if tool.name in {
-                    "homeassistant__GetLiveContext", "GetLiveContext"
-                }), None)
-                if name is None:
-                    print("No GetLiveContext tool advertised. Check the integration's "
-                          "Assist API selection and exposed entities. "
-                          "Use --tool and --arguments for another advertised tool.")
-                    return 0
-                if name not in {tool.name for tool in tools}:
-                    raise ValueError(f"Tool {name!r} is not advertised by this server.")
-
-                # This maps to MCP JSON-RPC tools/call with name and arguments.
-                show("tools/call request", {"name": name, "arguments": args.arguments})
-                result = await session.call_tool(name, arguments=args.arguments)
-                show("Tool result", result)
-                return 1 if result.isError else 0
+        # This maps to MCP JSON-RPC tools/call with name and arguments.
+        show("tools/call request", {"name": name, "arguments": args.arguments})
+        result = await session.call_tool(name, arguments=args.arguments)
+        show("Tool result", result)
+        return 1 if result.isError else 0
 
 
 def main():

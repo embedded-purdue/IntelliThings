@@ -5,6 +5,12 @@
 This stage can execute one targeted `intent__HassTurnOn` MCP call per cycle,
 then save a structured recommendation.
 
+Code entry points: [`agent/pipeline.py`](../agent/pipeline.py) coordinates stages
+and saves the inference result; [`agent/inference.py`](../agent/inference.py)
+handles model/tool interaction and returns validated summaries;
+[`agent/publishing.py`](../agent/publishing.py) records output delivery;
+[`agent/storage.py`](../agent/storage.py) provides timestamps and atomic writes.
+
 ## Configuration
 
 Complete [local pipeline setup](../README.md#current-local-python-pipeline) first.
@@ -57,7 +63,7 @@ Install `ai/requirements.txt`; PyYAML parses the HA context inventory.
 ## Structured recommendations and Python loader
 
 The prompt requests JSON, and the API request enforces the JSON Schema generated
-from `ai/llm/response.py`. The pipeline validates the response before saving it.
+from `ai/agent/response.py`. The pipeline validates the response before saving it.
 `inference.json` now has envelope `schema_version: 5`, retains the original JSON
 string in `content`, and exposes its parsed fields in `recommendation`:
 
@@ -79,13 +85,13 @@ response; the existing optional tool-call round trip is unchanged.
 Print the extracted fields from a saved response:
 
 ```bash
-.venv/bin/python ai/llm/response.py ~/.local/state/intellithings/mcp/inference.json
+.venv/bin/python ai/agent/response.py ~/.local/state/intellithings/mcp/inference.json
 ```
 
 From Python with `ai/` on the import path:
 
 ```python
-from llm.response import load_response
+from agent.response import load_response
 
 recommendation = load_response('/home/intellithings/.local/state/intellithings/mcp/inference.json')
 print(recommendation.summary)
@@ -100,7 +106,7 @@ The loader validates saved content; callers should still check
 ## MCP actuator control
 
 Each cycle discovers MCP tools and matches the fresh GetLiveContext inventory
-against [`allowed_actuators.json`](allowed_actuators.json). This is the static
+against [`allowed_actuators.json`](../config/allowed_actuators.json). This is the static
 allowlist, distinct from runtime `actuators.json`. Only configured, uniquely named entities visible
 in MCP context with on/off state can be targeted. The initial target is the
 virtual `input_boolean.cooling_actuator` named **Turn Cooling On**. It is exposed
@@ -156,7 +162,7 @@ OpenRouter, alongside `advertised_tools`, the wider MCP server tool list.
 
 After successful inference, the pipeline publishes `recommendation.summary` to
 `intellithings/ai/summary`. Each room's short message goes to its own display
-topic, using the node-to-room mapping in [`display_nodes.json`](display_nodes.json).
+topic, using the node-to-room mapping in [`display_nodes.json`](../config/display_nodes.json).
 This mapping is independent of Assist exposure and the actuator allowlist. The
 default display topics match the ESP32 emulator's existing subscriptions:
 
