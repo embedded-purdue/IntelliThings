@@ -7,16 +7,73 @@ between them belongs to both.** Design notes:
 [`AI_Agent_Notes.md`](AI_Agent_Notes.md) ·
 team split and review rules: [Collaboration Guidelines §3](../docs/Collaboration_Guidelines.md).
 
+## Current local Python pipeline
+
+The existing Pi runs Home Assistant Container and a separate Mosquitto container.
+`main.py` collects fresh MCP context, sends it to OpenRouter, optionally executes
+one configured `intent__HassTurnOn` call, saves a structured recommendation, and
+updates the HA dashboard summary. The model gets a second request only when a tool
+call needs to be followed by a final response. This local implementation runs on
+a five-minute systemd timer; it does not use Lambda or HA AI Task.
+
+Run from the repository root:
+
+```bash
+python3 -m venv .venv
+.venv/bin/pip install -r ai/requirements.txt
+test -e .env || cp .env.example .env
+```
+
+Set `HA_BASE_URL`, `HA_LONG_LIVED_TOKEN`, `OPENROUTER_API_KEY`, and
+`OPENROUTER_MODEL` in `.env`. Exported variables take precedence. On the Pi,
+`HA_BASE_URL=http://127.0.0.1:8123`; the current model is `openai/gpt-5.4-mini`.
+Optional `HA_MCP_URL` overrides the MCP endpoint only.
+
+Use the [MCP setup](probes/README.md#local-setup) to enable the HA MCP Server
+integration and expose entities to Assist. Dashboard publishing requires the
+`input_text.ai_summary_overall` helper with maximum length 255. The virtual
+**Turn Cooling On** helper must also appear in MCP context and the configured
+[actuator allowlist](llm/actuators.json) to be offered as a control.
+
+```bash
+# Collect a snapshot without LLM requests or actions:
+.venv/bin/python ai/main.py --collect-only
+# Full cycle, including possible configured control and dashboard update:
+.venv/bin/python ai/main.py
+# Offline regression tests:
+.venv/bin/python -m unittest discover -s ai/tests -v
+```
+
+Runtime files default to `~/.local/state/intellithings/mcp/`. Read
+[inference and controls](llm/README.md) for the prompt, response schema, status
+files, and dashboard behavior; [scheduling](systemd/README.md) for the timer; and
+[broker operations](mosquitto/README.md) for the existing Pi deployment.
+
+The legacy discovery script in `mosquitto/` consumes the aggregate
+`intellithings/emulator/state` topic. The ESP32 emulator added alongside this
+pipeline uses the newer per-node topics in [the MQTT contract](../docs/interfaces/mqtt.md).
+Those require matching HA entity configuration; merging these files does not
+migrate an existing HA deployment or add Python summary publishing to `.../display`.
+
 ## Layout
 
 ```
 ai/
-├── emulator/ Emulator ESP32 — 3 simulated nodes (owner: @spicybutter, PM)
-├── ha/       Home Assistant config: MQTT entities, automations, dashboards (no secrets)
-└── cloud/    Lambda agent harness, chat bot, deployment config
+├── main.py       Local Python pipeline entry point
+├── pipeline/     Context collection and persistence
+├── integrations/ Home Assistant MCP, OpenRouter, dashboard REST clients
+├── llm/          Inference orchestration, response validation, actuator allowlist
+├── prompts/      Editable system prompt
+├── probes/       Interactive MCP inspection
+├── tests/        Offline Python regression tests
+├── systemd/      Service and five-minute timer
+├── mosquitto/    Broker configuration and legacy emulator registration
+├── emulator/     Emulator ESP32 — 3 simulated nodes (owner: @spicybutter, PM)
+├── ha/           Planned Home Assistant configuration
+└── cloud/        Planned Lambda harness and chat bot
 ```
 
-## System flow
+## Target system flow
 
 ```
 ESP32 nodes (or the emulator)
@@ -36,7 +93,7 @@ Real / virtual devices → dashboard + AI message → node display (retained MQT
 Discord or Telegram → API Gateway /chat → same Lambda → agent → HA MCP Server
 ```
 
-## Local — Raspberry Pi 5 / Home Assistant
+## Target local deployment — Raspberry Pi 5 / Home Assistant
 
 - **HAOS** with the **Mosquitto broker add-on**
 - MQTT entities from each node's `.../sensors` JSON (one entity per field), with
@@ -82,7 +139,7 @@ worked examples for each agent test scenario, scripting):
 - Stays available after real nodes come online, for testing the agent and dashboard
   without hardware
 
-## Cloud — AWS agent harness
+## Target cloud deployment — AWS agent harness
 
 - **Custom harness**, not an agent framework (OpenClaw and Hermes Agent were evaluated and
   rejected — see the AI Agent Notes §1).
@@ -126,6 +183,9 @@ Local AI owns *HA → snapshot format*; Cloud AI owns *snapshot → decision →
 **Both leads approve changes to the interface between them.**
 
 ## Security
+
+- The local Python pipeline reads HA and OpenRouter credentials from the ignored
+  root `.env`; `.env.example` contains placeholders only.
 
 - HA long-lived token, OpenRouter key, chat bot token and webhook secrets live in AWS
   Secrets Manager / Lambda environment config — **never in the repo**. HA secrets go in

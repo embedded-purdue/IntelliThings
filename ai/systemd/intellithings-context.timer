@@ -1,0 +1,11 @@
+[Unit]
+Description=Collect Home Assistant context at startup and every five minutes
+
+[Timer]
+OnStartupSec=20s
+OnUnitActiveSec=5min
+AccuracySec=1s
+Unit=intellithings-context.service
+
+[Install]
+WantedBy=timers.target
