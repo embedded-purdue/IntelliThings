@@ -109,14 +109,22 @@ async fn main(spawner: Spawner) -> ! {
             sht41.temperature_c, sht41.humidity_percent).await;
         match result {
             Ok(()) => println!("{}", sgp40),
-            Err(err) => println!("SHT41 error: {}", err)
+            Err(err) => println!("SGP40 error: {}", err)
         }
         
         if scd41_started {
             let result = scd41.read(&mut i2c).await;
             match result {
-                Ok(()) => println!("{}", scd41),
+                Ok(true) => println!("New SCD41 data: {}", scd41),
+                Ok(false) => println!("Old SCD41 data: {}", scd41),           // no new reading yet, which is normal
                 Err(err) => println!("SCD41 error: {}", err)
+            }
+        }
+
+        else {
+            match scd41.start(&mut i2c).await {
+                Ok(()) => scd41_started = true,
+                Err(err) => println!("SCD41 start error: {}", err)
             }
         }
         
