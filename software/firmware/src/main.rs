@@ -19,6 +19,7 @@ use esp_hal::{
 use esp_println::println;
 use intelli_things::wifi;
 use intelli_things::sensors::sht41::SHT41;
+use intelli_things::sensors::bh1750::BH1750;
 
 #[panic_handler]
 fn panic(panic_info: &core::panic::PanicInfo) -> ! {
@@ -81,15 +82,21 @@ async fn main(spawner: Spawner) -> ! {
     let (_wifi_controller, _stack) = wifi::setup(spawner, peripherals.WIFI).await;
 
     let mut sht41 = SHT41::new();
+    let mut bh1750 = BH1750::new();
     loop {
         let result = sht41.read(&mut i2c).await;
         match result {
             Ok(()) => println!("{}", sht41),
             Err(err) => println!("SHT41 error: {}", err)
         }
-        
+        let result = bh1750.read(&mut i2c).await;
+        match result {
+            Ok(()) => println!("{}", bh1750),
+            Err(err) => println!("BH1750 error: {}", err),
+        }
+              
         Timer::after(Duration::from_secs(1)).await;
     }
-
+    
     // for inspiration have a look at the examples at https://github.com/esp-rs/esp-hal/tree/esp-hal-v1.2.2/examples
 }
