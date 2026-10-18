@@ -6,12 +6,6 @@ labels: bug
 assignees: ''
 ---
 
-----
-
-# **Placeholder**
-
-----
-
 ## What happens
 
 ## What should happen
@@ -24,10 +18,11 @@ assignees: ''
 
 ## Where
 
-- [ ] Software (which board? which sensor?)
-- [ ] Hardware
-- [ ] AI — Home Assistant / Pi 5
-- [ ] AI — cloud agent
+- [ ] Software — firmware (which rig/node? which sensor, display or LED bar?)
+- [ ] Hardware (rig wiring, power, PCB, enclosure)
+- [ ] AI — Home Assistant / Pi 5 (broker, entities, automations, MCP Server, dashboard)
+- [ ] AI — cloud agent (Lambda, OpenRouter, chat bot)
+- [ ] AI — emulator ESP32
 
 ## Logs / output
 
@@ -37,4 +32,4 @@ paste here
 
 ## Environment
 
-<!-- ESP-IDF version, HA version, board revision, which branch -->
+<!-- Rig H / Rig S / node # / emulator · firmware commit or branch · HA version · model used -->

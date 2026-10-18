@@ -1,149 +1,203 @@
-----
-
-# **Placeholder**
-
-----
-
 # AI — AI Agent & Smart Home Subteam
 
-The Home Assistant hub on the Raspberry Pi 5, the cloud AI agent, and everything
-between them.
+Cloud AI Lead: **@ProgrammingJohn** · Local AI Lead: **undecided** · Emulator: **@spicybutter (PM)** · 6 people + PM
 
-This is the integration point where hardware, software, and the reasoning layer all
-have to land.
+**Local AI owns the smart-home environment. Cloud AI owns the intelligence. The interface
+between them belongs to both.** Design notes:
+[`AI_Agent_Notes.md`](AI_Agent_Notes.md) ·
+team split and review rules: [Collaboration Guidelines §3](../docs/Collaboration_Guidelines.md).
 
-## Scope
+## Current local Python pipeline
 
-**Home Assistant / hub**
-- Home Assistant Container on the Raspberry Pi 5
-- MQTT broker — ingest telemetry from the sensor nodes
-- Matter for local device interop
-- Home Assistant automations and **AI Task** integration
-- Virtual device fleet (represents a full-size home) + physical demo devices
-- Real-time dashboard, including the 3D floor-plan view
-- Network setup and security
+The existing Pi runs Home Assistant Container and a separate Mosquitto container.
+`main.py` collects fresh MCP context, sends it to OpenRouter, optionally executes
+one configured `intent__HassTurnOn` call, saves a structured recommendation, and
+updates the HA dashboard summary. The model gets a second request only when a tool
+call needs to be followed by a final response. This local implementation runs on
+a five-minute systemd timer; it does not use Lambda or HA AI Task.
 
-**Cloud agent**
-- Build and host the cloud AI agent
-- Design the decision prompts — what the agent sees, how it's asked to reason
-- Enable and secure the **Home Assistant MCP Server** so the agent can call HA as tools
-- Spatial awareness logic across multiple sensor nodes
-- Proactive, AI-generated status statements for the 7" display
-- Evals — how we know a prompt change made things better, not just different
-
-## Pipeline layout
-
-```text
-ai/
-├── main.py                   # Run one pipeline cycle
-├── pipeline/context.py       # Collect and atomically save live context
-├── integrations/             # Home Assistant MCP and OpenRouter clients
-├── llm/                      # Prompt construction and inference persistence
-├── probes/                   # Interactive MCP discovery and live-state tools
-├── systemd/                  # Boot startup and five-minute schedule
-├── mosquitto/                # Broker configuration and emulator registration
-└── requirements.txt          # Shared Python dependencies
-```
-
-The running flow is devices → Mosquitto → Home Assistant → MCP → `main.py` →
-`latest.json` → OpenRouter → `inference.json` (recommendations and optional turn-on action).
-
-## Start here
-
-Run a single collection and inference cycle from the repository root:
+Run from the repository root:
 
 ```bash
 python3 -m venv .venv
 .venv/bin/pip install -r ai/requirements.txt
-# Create .env from .env.example only if one does not already exist.
-.venv/bin/python ai/main.py
+test -e .env || cp .env.example .env
 ```
 
-Set `HA_BASE_URL=http://127.0.0.1:8123` and `HA_LONG_LIVED_TOKEN` in the root
-`.env` on this Pi. Exported environment variables override `.env`.
-`HA_MCP_URL` can override the complete MCP endpoint. Set `OPENROUTER_API_KEY` and
-`OPENROUTER_MODEL=openai/gpt-5.4-mini` for inference, or pass `--collect-only`.
+Set `HA_BASE_URL`, `HA_LONG_LIVED_TOKEN`, `OPENROUTER_API_KEY`, and
+`OPENROUTER_MODEL` in `.env`. Exported variables take precedence. On the Pi,
+`HA_BASE_URL=http://127.0.0.1:8123`; the current model is `openai/gpt-5.4-mini`.
+Optional `HA_MCP_URL` overrides the MCP endpoint only.
 
-The [systemd timer](systemd/README.md) runs `main.py` at boot and every five minutes.
-It runs without login and opens a fresh MCP session each cycle. Output remains at
-`~/.local/state/intellithings/mcp/latest.json`, with collection health in
-`status.json`. Failures preserve the last successful snapshot; consumers must
-check its UTC `fetched_at` timestamp. `--output-dir`, `--url`, and `--timeout`
-can override the defaults.
-
-See [OpenRouter inference](llm/README.md) for prompt editing, response files,
-timeout settings, and failure handling.
-
-For the MQTT broker, follow the [Mosquitto setup](mosquitto/README.md).
-
-To inspect a running hub's MCP tools and live state, use the
-[Python MCP probes](probes/README.md).
-
-You don't need the Pi to begin. Run Home Assistant locally in Docker:
+Use the [MCP setup](probes/README.md#local-setup) to enable the HA MCP Server
+integration and expose entities to Assist. Dashboard publishing requires the
+`input_text.ai_summary_overall` helper with maximum length 255. The virtual
+**Turn Cooling On** helper must also appear in MCP context and the configured
+[actuator allowlist](llm/actuators.json) to be offered as a control.
 
 ```bash
-docker run -d --name homeassistant \
-  --privileged --restart=unless-stopped \
-  -e TZ=America/Indiana/Indianapolis \
-  -v "$(pwd)/home-assistant:/config" \
-  --network=host \
-  ghcr.io/home-assistant/home-assistant:stable
+# Collect a snapshot without LLM requests or actions:
+.venv/bin/python ai/main.py --collect-only
+# Full cycle, including possible configured control and dashboard update:
+.venv/bin/python ai/main.py
+# Offline regression tests:
+.venv/bin/python -m unittest discover -s ai/tests -v
 ```
 
-http://localhost:8123
+Runtime files default to `~/.local/state/intellithings/mcp/`. Read
+[inference and controls](llm/README.md) for the prompt, response schema, status
+files, and dashboard behavior; [scheduling](systemd/README.md) for the timer; and
+[broker operations](mosquitto/README.md) for the existing Pi deployment.
 
-## MQTT topic schema
+The legacy discovery script in `mosquitto/` consumes the aggregate
+`intellithings/emulator/state` topic. The ESP32 emulator added alongside this
+pipeline uses the newer per-node topics in [the MQTT contract](../docs/interfaces/mqtt.md).
+Those require matching HA entity configuration; merging these files does not
+migrate an existing HA deployment or add Python summary publishing to `.../display`.
 
-Agree on this early and write it down here — the software team has to publish to
-whatever we decide, and changing it later means reflashing every node.
-
-Suggested shape:
+## Layout
 
 ```
-intellithings/<node-id>/sensor/<metric>      # telemetry, node → broker
-intellithings/<node-id>/status               # online/offline (LWT)
-intellithings/<node-id>/command/<target>     # commands, broker → node
+ai/
+├── main.py       Local Python pipeline entry point
+├── pipeline/     Context collection and persistence
+├── integrations/ Home Assistant MCP, OpenRouter, dashboard REST clients
+├── llm/          Inference orchestration, response validation, actuator allowlist
+├── prompts/      Editable system prompt
+├── probes/       Interactive MCP inspection
+├── tests/        Offline Python regression tests
+├── systemd/      Service and five-minute timer
+├── mosquitto/    Broker configuration and legacy emulator registration
+├── emulator/     Emulator ESP32 — 3 simulated nodes (owner: @spicybutter, PM)
+├── ha/           Planned Home Assistant configuration
+└── cloud/        Planned Lambda harness and chat bot
 ```
 
-## The agent's job, concretely
+## Target system flow
 
-It receives environmental state from Home Assistant — temperature, humidity, air
-quality, presence, light level, across multiple rooms — and decides what the home
-should do about it. It calls back into Home Assistant through MCP tools to actuate
-devices, and it writes short status statements for the display.
+```
+ESP32 nodes (or the emulator)
+   │ MQTT
+   ▼
+Home Assistant ── automation ── HTTPS POST /ha-event ──► Lambda agent harness
+                                                            │
+                                                            ▼
+                                                 LLM (via OpenRouter)
+                                                            │ tool calls
+                                                            ▼
+HA MCP Server ◄──────── MCP (via Nabu Casa) ─────── harness runs them
+   │
+   ▼
+Real / virtual devices → dashboard + AI message → node display (retained MQTT)
 
-Two distinct outputs, two distinct prompt problems:
+Discord or Telegram → API Gateway /chat → same Lambda → agent → HA MCP Server
+```
 
-1. **Decisions** — must be correct, conservative, and explainable. A wrong actuation is
-   worse than no actuation.
-2. **Status statements** — must be brief, useful, and not annoying. This is the part
-   users actually see.
+## Target local deployment — Raspberry Pi 5 / Home Assistant
 
-## Evals matter more than they look like they do
+- **HAOS** with the **Mosquitto broker add-on**
+- MQTT entities from each node's `.../sensors` JSON (one entity per field), with
+  `.../status` as availability
+- **Virtual devices** for what we don't own: thermostat, lights, fan, purifier, humidifier,
+  dehumidifier, smart plug
+- **Hand-off automation** — fires on meaningful changes (threshold crossings, presence,
+  periodic check), **throttled** so the LLM isn't called on every reading, POSTs a compact
+  snapshot to `/ha-event` (e.g. via `rest_command`)
+- Publish AI messages to each node's **retained** `.../display` topic
+- **MCP Server** integration, exposing only the entities/services the agent needs
+- **Home Assistant Cloud (Nabu Casa)** so the cloud agent can reach the MCP Server
+- Dashboard: per-node/room readings, device states, AI decision history, 3D/floor-plan view
 
-Prompt changes are invisible until they regress something. Before tuning, build a set
-of fixture scenarios — sensor states with known-correct responses — and score against
-them. Otherwise "better" is just vibes.
+Start from the **emulator ESP32** (see below). Disable its nodes in HA once real nodes
+publish.
 
-Keep prompts versioned in `prompts/`. When you change one, say why in the commit.
+**Why not HA's AI Task?** It only runs against LLM integrations configured inside HA, so it
+can't target our Lambda. Fine for quick in-HA experiments, not the production path.
 
-## Secrets
+## Emulator ESP32 — owner: @spicybutter (PM)
 
-- Home Assistant secrets go in `secrets.yaml`, referenced with `!secret`. That file is
-  **gitignored** — commit a `secrets.yaml.example` with blank values instead.
-- The LLM API key goes in `.env`, also gitignored. Don't buy your own key — ask a lead.
-- Also gitignored: `.storage/`, the SQLite database, logs. Runtime state, not config.
+One LuatOS ESP32-C3 Core board (C on ESP-IDF v6.1) with no sensors attached, so HA and the
+agent can be built before the Software subteam's firmware is ready
+([Project Guideline §3.1a](../docs/Project_Guideline.md)). **User guide** (control panel,
+worked examples for each agent test scenario, scripting):
+[`emulator/README.md`](emulator/README.md).
 
-## Note on risk
+- Publishes as **three nodes** — `emu-kitchen`, `emu-bedroom`, `emu-living-room` — with the
+  **full sensor set** every **3 s**, plus `.../status` with its own Last Will per node
+- Follows the **same MQTT contract** as the real nodes
+  ([`docs/interfaces/mqtt.md`](../docs/interfaces/mqtt.md)), so nothing in HA or the agent
+  changes when real nodes replace it
+- Subscribes to each node's `.../display` topic and prints AI messages over serial — tests
+  the feedback path end to end
+- Stateful simulation: each room drifts like a real room, with occupancy, cooking, CO₂
+  build-up and PM/VOC events
+- **Control panel** at `http://intellithings-emu.local/`: one-click scenarios (cook, stuffy
+  room, PM2.5 spike, hot & occupied, leave…), custom value ranges, system status, received AI
+  messages and a test-message sender. The same commands work over MQTT on
+  `intellithings/emulator/cmd`
+- Until the MQTT schema is fixed on Oct 4, the emulator's JSON is the working draft
+- Stays available after real nodes come online, for testing the agent and dashboard
+  without hardware
 
-Nobody started this project having configured Home Assistant, and HA AI Task, MCP
-Server, and Matter are the thinnest-documented parts of the stack. Expect to
-experiment, and expect this layer to gate the demo.
+## Target cloud deployment — AWS agent harness
 
-**Stand the hub up in week 1. Not week 6.**
+- **Custom harness**, not an agent framework (OpenClaw and Hermes Agent were evaluated and
+  rejected — see the AI Agent Notes §1).
+- **AWS Lambda + API Gateway (HTTP API)**, two routes into one function: `/ha-event` and
+  `/chat`. Python.
+- **OpenRouter** for model testing — one API across Claude, GPT, Gemini and open-weight
+  models. It doesn't speak MCP, so **the harness is the MCP client**: fetch HA's tools →
+  convert to OpenAI-style functions → send with the prompt → run the model's tool calls
+  against HA → return results → repeat until a final answer.
+- Prompt: comfort targets, the per-node snapshot, rules for when **not** to act, and a short
+  explanation for the display.
+- **Chat bot — 🗳 team decision: Discord or Telegram.** Discord needs the 3-second deferred
+  reply and Ed25519 signature check; Telegram needs a webhook secret token.
 
-## Background
+Don't wait for HA — start from **mock snapshots** in the agreed schema.
 
-- Model Context Protocol: https://modelcontextprotocol.io
-- Home Assistant MCP Server integration
-- Home Assistant AI Task
+## Testing the agent
+
+Keep a shared set of standard scenarios (hot room + presence, rising CO₂, PM2.5 spike,
+empty room, nothing wrong) and score every model and prompt on:
+
+- Correct tool, device and arguments
+- **Not acting** when nothing is needed
+- Handling missing/bad sensor data and unavailable devices
+- Short, clear explanations that fit the display's AI section
+- Latency and cost per decision
+
+The emulator's scripted events are a ready source of scenarios.
+
+## Contracts (in `docs/interfaces/`)
+
+| Contract | Between | Due |
+|---|---|---|
+| MQTT topics + JSON schema | Software ↔ AI | Oct 4 |
+| `/ha-event` snapshot format | Local AI ↔ Cloud AI | Oct 4 |
+| AI message format (`text`, `ts`) + max length | AI ↔ Software | Oct 18 |
+| HA entity names + exposed MCP tools | Local ↔ Cloud (shared with all) | Oct 18 |
+| `/chat` request format | Cloud AI | Oct 25 |
+
+Local AI owns *HA → snapshot format*; Cloud AI owns *snapshot → decision → MCP calls*.
+**Both leads approve changes to the interface between them.**
+
+## Security
+
+- The local Python pipeline reads HA and OpenRouter credentials from the ignored
+  root `.env`; `.env.example` contains placeholders only.
+
+- HA long-lived token, OpenRouter key, chat bot token and webhook secrets live in AWS
+  Secrets Manager / Lambda environment config — **never in the repo**. HA secrets go in
+  `secrets.yaml` (gitignored), referenced with `!secret`.
+- Verify every chat request and restrict the bot to known channels/users.
+- Expose the minimum set of HA entities through MCP.
+
+## Review
+
+Local HA change → a Local AI member or lead (Cloud AI Lead or a PM while the Local lead is
+undecided) · cloud agent change → a Cloud AI member or lead · cloud ↔ HA interface change →
+**both leads**.
+
+Branches: `ai/ha-mqtt-entities`, `ai/ha-dashboard`, `ai/mcp-config`, `ai/lambda-agent`,
+`ai/openrouter-tests`, `ai/chat-bot`. See [`CONTRIBUTING.md`](../CONTRIBUTING.md).
