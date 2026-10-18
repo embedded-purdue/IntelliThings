@@ -7,16 +7,93 @@ between them belongs to both.** Design notes:
 [`AI_Agent_Notes.md`](AI_Agent_Notes.md) ·
 team split and review rules: [Collaboration Guidelines §3](../docs/Collaboration_Guidelines.md).
 
+## Current local Python pipeline
+
+The existing Pi runs Home Assistant Container and a separate Mosquitto container.
+`main.py` collects fresh MCP context, sends it to OpenRouter, optionally executes
+one configured `intent__HassTurnOn` call, saves a structured recommendation, and
+updates the HA dashboard summary, publishes a short summary to each room's MQTT
+display, and publishes the overall summary and shared thinking status to MQTT.
+The model gets a second request only when a tool
+call needs to be followed by a final response. This local implementation runs on
+a five-minute systemd timer; it does not use Lambda or HA AI Task.
+
+Start here for the local pipeline. Use Python 3.11 or later and run all commands
+from the repository root; the virtualenv is `.venv/`, not `ai/.venv/`.
+
+```bash
+python3 -m venv .venv
+.venv/bin/pip install -r ai/requirements.txt
+test -e .env || cp .env.example .env
+```
+
+Set `HA_BASE_URL`, `HA_LONG_LIVED_TOKEN`, `OPENROUTER_API_KEY`, and
+`OPENROUTER_MODEL` in `.env`. Exported variables take precedence. On the Pi,
+`HA_BASE_URL=http://127.0.0.1:8123`; the current model is `openai/gpt-5.4-mini`.
+Optional `HA_MCP_URL` overrides the MCP endpoint only; dashboard and MQTT REST requests
+still use `HA_BASE_URL`. The current pipeline does not read `LLM_API_KEY`,
+`LLM_MODEL`, `WIFI_*`, or `MQTT_*` from the root template. It uses `OPENROUTER_*`
+for model requests and HA's configured broker connection for MQTT services.
+
+In Home Assistant:
+
+1. Under Settings → Devices & services → Add integration, add **Model Context
+   Protocol Server** and select the Assist API / Control Home Assistant option.
+2. Under Settings → Voice assistants → Expose, expose the required sensors and
+   actuators to Assist.
+3. Under your user profile → Security, create the long-lived access token used
+   in `.env`.
+
+Dashboard publishing requires the
+`input_text.ai_summary_overall` helper with maximum length 255. The virtual
+**Turn Cooling On** helper must also appear in MCP context and the configured
+[actuator allowlist](llm/allowed_actuators.json) to be offered as a control.
+
+```bash
+# Collect a snapshot without LLM requests or actions:
+.venv/bin/python ai/main.py --collect-only
+# Full cycle, including possible configured control, dashboard and MQTT updates:
+.venv/bin/python ai/main.py
+# Offline regression tests:
+.venv/bin/python -m unittest discover -s ai/tests -v
+```
+
+Runtime files default to `~/.local/state/intellithings/mcp/`. See the
+[output file table](llm/README.md#outputs-and-failures) for their meanings. Use
+[inference and controls](llm/README.md) for prompt and response changes;
+[MCP inspection](probes/README.md) to view exposed state and tools; [scheduling](systemd/README.md) for the timer; and
+[broker operations](mosquitto/README.md) for the existing Pi deployment.
+
+The legacy discovery script in `mosquitto/` consumes the aggregate
+`intellithings/emulator/state` topic. The ESP32 emulator added alongside this
+pipeline uses the newer per-node topics in [the MQTT contract](../docs/interfaces/mqtt.md).
+Those require matching HA entity configuration; merging these files does not
+migrate an existing HA deployment. Room summary publishing uses per-node
+`.../display` topics mapped to rooms in [`llm/display_nodes.json`](llm/display_nodes.json).
+The overall summary and thinking status use `intellithings/ai/summary` and
+`intellithings/ai/inference_status`, through HA's existing MQTT integration.
+See [MQTT summaries](llm/README.md#mqtt-display-summaries)
+for payloads, limits, and delivery checks.
+
 ## Layout
 
 ```
 ai/
-├── emulator/ Emulator ESP32 — 3 simulated nodes (owner: @spicybutter, PM)
-├── ha/       Home Assistant config: MQTT entities, automations, dashboards (no secrets)
-└── cloud/    Lambda agent harness, chat bot, deployment config
+├── main.py       Local Python pipeline entry point
+├── pipeline/     Context collection and persistence
+├── integrations/ Home Assistant MCP, OpenRouter, dashboard and MQTT REST clients
+├── llm/          Inference, response validation, actuator and display configuration
+├── prompts/      Editable system prompt
+├── probes/       Interactive MCP inspection
+├── tests/        Offline Python regression tests
+├── systemd/      Service and five-minute timer
+├── mosquitto/    Broker configuration and legacy emulator registration
+├── emulator/     Emulator ESP32 — 3 simulated nodes (owner: @spicybutter, PM)
+├── ha/           Home Assistant summary entities and dashboard setup
+└── cloud/        Planned Lambda harness and chat bot
 ```
 
-## System flow
+## Target system flow
 
 ```
 ESP32 nodes (or the emulator)
@@ -36,7 +113,7 @@ Real / virtual devices → dashboard + AI message → node display (retained MQT
 Discord or Telegram → API Gateway /chat → same Lambda → agent → HA MCP Server
 ```
 
-## Local — Raspberry Pi 5 / Home Assistant
+## Target local deployment — Raspberry Pi 5 / Home Assistant
 
 - **HAOS** with the **Mosquitto broker add-on**
 - MQTT entities from each node's `.../sensors` JSON (one entity per field), with
@@ -59,22 +136,31 @@ can't target our Lambda. Fine for quick in-HA experiments, not the production pa
 
 ## Emulator ESP32 — owner: @spicybutter (PM)
 
-One spare ESP32 with no sensors attached, so HA and the agent can be built before the
-Software subteam's firmware is ready ([Project Guideline §3.1a](../docs/Project_Guideline.md)):
+One LuatOS ESP32-C3 Core board (C on ESP-IDF v6.1) with no sensors attached, so HA and the
+agent can be built before the Software subteam's firmware is ready
+([Project Guideline §3.1a](../docs/Project_Guideline.md)). **User guide** (control panel,
+worked examples for each agent test scenario, scripting):
+[`emulator/README.md`](emulator/README.md).
 
-- Publishes as **three nodes** (`emu-1`, `emu-2`, `emu-3`) with the **full sensor set** as
-  fake but plausible values, plus `.../status`
-- Follows the **same MQTT contract** as the real nodes, so nothing in HA or the agent changes
-  when real nodes replace it
+- Publishes as **three nodes** — `emu-kitchen`, `emu-bedroom`, `emu-living-room` — with the
+  **full sensor set** every **3 s**, plus `.../status` with its own Last Will per node
+- Follows the **same MQTT contract** as the real nodes
+  ([`docs/interfaces/mqtt.md`](../docs/interfaces/mqtt.md)), so nothing in HA or the agent
+  changes when real nodes replace it
 - Subscribes to each node's `.../display` topic and prints AI messages over serial — tests
   the feedback path end to end
-- Values drift like a real room, with **scripted events** (rising CO₂, hot room with
-  presence, PM2.5 spike, presence turning off) for agent testing
-- Until the MQTT schema is fixed on Oct 4, the emulator's JSON is the working draft
+- Stateful simulation: each room drifts like a real room, with occupancy, cooking, CO₂
+  build-up and PM/VOC events
+- **Control panel** at `http://intellithings-emu.local/`: one-click scenarios (cook, stuffy
+  room, PM2.5 spike, hot & occupied, leave…), custom value ranges, system status, received AI
+  messages and a test-message sender. The same commands work over MQTT on
+  `intellithings/emulator/cmd`
+- The per-node topic and payload contract is documented in
+  [`docs/interfaces/mqtt.md`](../docs/interfaces/mqtt.md)
 - Stays available after real nodes come online, for testing the agent and dashboard
   without hardware
 
-## Cloud — AWS agent harness
+## Target cloud deployment — AWS agent harness
 
 - **Custom harness**, not an agent framework (OpenClaw and Hermes Agent were evaluated and
   rejected — see the AI Agent Notes §1).
@@ -118,6 +204,9 @@ Local AI owns *HA → snapshot format*; Cloud AI owns *snapshot → decision →
 **Both leads approve changes to the interface between them.**
 
 ## Security
+
+- The local Python pipeline reads HA and OpenRouter credentials from the ignored
+  root `.env`; `.env.example` contains placeholders only.
 
 - HA long-lived token, OpenRouter key, chat bot token and webhook secrets live in AWS
   Secrets Manager / Lambda environment config — **never in the repo**. HA secrets go in

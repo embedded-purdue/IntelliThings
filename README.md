@@ -20,7 +20,20 @@ Unlike camera-based systems such as Xiaomi Miloco 2.0, IntelliThings uses low-co
 privacy-preserving **environmental sensors**, needs **no local compute box** (reasoning runs
 in a cloud agent), and is built on **open protocols end to end** — MQTT, Home Assistant, MCP.
 
-## Architecture
+## Current Python prototype
+
+The runnable AI pipeline is in [`ai/main.py`](ai/main.py). It uses Home Assistant
+Container and a separate Mosquitto container on the project Pi, fetches
+Assist-exposed context through MCP, and calls OpenRouter directly. It saves JSON
+recommendations, optionally executes a configured virtual turn-on action, and
+updates `input_text.ai_summary_overall`. A systemd timer runs it every five minutes.
+
+See [local pipeline setup](ai/README.md#current-local-python-pipeline) for the root
+`.venv`, `.env`, and run commands. The Lambda deployment and retained display-message
+publishing described below are the target design, not features of this local
+Python pipeline yet.
+
+## Target architecture
 
 ```
 Desktop sensor nodes (ESP32-C6, no_std Rust with esp-hal + Embassy)
@@ -114,7 +127,7 @@ git checkout dev
 |---|---|---|
 | [`hardware/`](hardware/) | Hardware | KiCad project(s) + project-local libraries, enclosure CAD, datasheets · design decisions and parts list |
 | [`software/`](software/) | Software | `firmware/` (Rust node firmware) · firmware architecture |
-| [`ai/`](ai/) | AI | `emulator/` (emulator ESP32) · `ha/` (Home Assistant config) · `cloud/` (Lambda agent harness, chat bot) · agent notes |
+| [`ai/`](ai/) | AI | Local Python pipeline, prompts, MCP tools, broker setup and scheduling · `emulator/` · `ha/` and `cloud/` scaffolding · agent notes |
 | [`docs/`](docs/) | Everyone | Project Guideline, Collaboration Guidelines · `interfaces/` holds the shared contracts |
 
 Never commit secrets — current firmware reads Wi-Fi credentials from the local, ignored

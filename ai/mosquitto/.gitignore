@@ -1,0 +1,5 @@
+/config/passwords
+/config/passwords.*
+/credentials.txt
+/data/
+/log/

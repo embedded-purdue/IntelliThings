@@ -1,0 +1,7 @@
+[
+  {
+    "name": "Turn Cooling On",
+    "domain": "input_boolean",
+    "description": "On/off helper for cooling system. Effects temperature only"
+  }
+]
