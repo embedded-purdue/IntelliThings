@@ -7,27 +7,27 @@ import argparse
 import json
 import sys
 from pathlib import Path
+from typing import Annotated
 
-from pydantic import BaseModel, ConfigDict, Field, ValidationError
+from pydantic import BaseModel, ConfigDict, Field, StringConstraints, ValidationError
 
 
-class ProposedChange(BaseModel):
-    model_config = ConfigDict(extra="forbid", strict=True, allow_inf_nan=False)
+ShortSummary = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=60)]
 
-    area: str
-    action: str
-    target_value: float | None
-    unit: str | None
-    reasoning: str
-    evidence: list[str]
+
+class RoomSummaries(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True)
+
+    kitchen: ShortSummary
+    bedroom: ShortSummary
+    living_room: ShortSummary
 
 
 class Recommendation(BaseModel):
     model_config = ConfigDict(extra="forbid", strict=True)
 
-    summary: str = Field(max_length=255)
-    changes: list[ProposedChange]
-    missing_information: list[str]
+    summary: str = Field(min_length=1, max_length=255)
+    room_summaries: RoomSummaries
 
 
 def parse_response(content: str) -> Recommendation:

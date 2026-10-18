@@ -15,6 +15,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import main
 from integrations import openrouter
 from llm import inference
+from fixtures import ROOM_SUMMARIES
 
 
 class InferenceTests(unittest.IsolatedAsyncioTestCase):
@@ -51,7 +52,7 @@ class InferenceTests(unittest.IsolatedAsyncioTestCase):
             prompt.write_text("My editable prompt")
             snapshot = {"fetched_at": "test-time", "context": "Kitchen: 22 C", "mcp_result": "duplicate"}
             mock = AsyncMock(return_value={"model": "test-model", "content": json.dumps({
-                "summary": "Comfortable", "changes": [], "missing_information": []
+                "summary": "Comfortable", "room_summaries": ROOM_SUMMARIES
             })})
             with patch.object(inference, "complete", mock):
                 self.assertEqual(await inference.infer(snapshot, output, prompt, "secret", "test-model", 1, 100), 0)
@@ -75,11 +76,13 @@ class InferenceTests(unittest.IsolatedAsyncioTestCase):
                                    collect_only=False, prompt_file=Path("prompt.txt"),
                                    llm_timeout=1, max_tokens=100)
             snapshot = {"fetched_at": "fresh", "context": "new"}
-            with patch.object(main, "collect_snapshot", AsyncMock(return_value=snapshot)), \
+            with patch.object(main, "set_thinking_state", AsyncMock(return_value=True)), \
+                 patch.object(main, "collect_snapshot", AsyncMock(return_value=snapshot)), \
                  patch.object(main, "infer", AsyncMock(return_value=0)) as infer:
                 self.assertEqual(await main.run_cycle(args), 0)
                 self.assertIs(infer.call_args.args[0], snapshot)
-            with patch.object(main, "collect_snapshot", AsyncMock(return_value=None)), \
+            with patch.object(main, "set_thinking_state", AsyncMock(return_value=True)), \
+                 patch.object(main, "collect_snapshot", AsyncMock(return_value=None)), \
                  patch.object(main, "infer", AsyncMock()) as infer:
                 self.assertEqual(await main.run_cycle(args), 1)
                 infer.assert_not_called()

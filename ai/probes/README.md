@@ -6,31 +6,15 @@ calls `homeassistant__GetLiveContext` if available. The default call only reads 
 
 ## Local setup
 
-Inspection on 2026-09-27 found Home Assistant **2026.9.3** running in the
-`homeassistant` Docker container at `http://127.0.0.1:8123`. The MCP Server
-integration was enabled during setup; authenticated discovery still requires a token.
+Follow [local pipeline setup](../README.md#current-local-python-pipeline) for the
+root `.venv`, `.env`, HA MCP integration, and entity exposure. The probes require
+only the HA URL and access token; an OpenRouter key is not needed.
 
-1. Open Home Assistant and go to **Settings > Devices & services > Add integration**.
-   Add **Model Context Protocol Server** (the Server integration, not the MCP client).
-   Select the Assist API / enable **Control Home Assistant** as offered by the setup.
-2. Under **Settings > Voice assistants > Expose**, expose the entities you want
-   Assist to see. Tool availability and returned context depend on this configuration.
-3. Under **user profile > Security > Long-lived access tokens**, create a token.
-4. From the repository root, copy `.env.example` to `.env` if you do not already
-   have one. Set these values in `.env` (this file is gitignored):
+From the repository root:
 
-   ```dotenv
-   HA_BASE_URL=http://127.0.0.1:8123
-   HA_LONG_LIVED_TOKEN=your-token-here
-   ```
-
-5. Install and run with Python 3.11 or later:
-
-   ```bash
-   python3 -m venv .venv
-   .venv/bin/pip install -r ai/requirements.txt
-   .venv/bin/python ai/probes/probe.py
-   ```
+```bash
+.venv/bin/python ai/probes/probe.py
+```
 
 The script loads the root `.env` regardless of the working directory. Exported
 environment variables override it. `HA_MCP_URL` or `--url` can override the full

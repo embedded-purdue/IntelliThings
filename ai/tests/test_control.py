@@ -13,6 +13,7 @@ from mcp.types import CallToolResult, TextContent
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from llm.control import Controller, TURN_ON, visible_actuators
 from llm import inference
+from fixtures import ROOM_SUMMARIES
 
 CONTEXT = "Live Context: home:\n- names: Turn Cooling On\n  domain: input_boolean\n  state: 'off'\n"
 TARGET = {"name": "Turn Cooling On", "domain": "input_boolean"}
@@ -75,7 +76,7 @@ class ControlTests(unittest.IsolatedAsyncioTestCase):
             async def connect(*args):
                 yield s
             first = {"tool_calls": [CALL], "message": {"role": "assistant", "content": None, "tool_calls": [CALL]}}
-            final = {"content": json.dumps({"summary": "Flag turned on", "changes": [], "missing_information": []})}
+            final = {"content": json.dumps({"summary": "Flag turned on", "room_summaries": ROOM_SUMMARIES})}
             mock = AsyncMock(side_effect=[first, final])
             with patch.object(inference, "connect", connect), patch.object(inference, "complete", mock):
                 result = await inference.infer({"context": CONTEXT, "fetched_at": "now"}, root,

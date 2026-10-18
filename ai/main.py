@@ -11,14 +11,25 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 from pipeline.context import collect_snapshot, timestamp, write_json
-from llm.inference import infer
+from llm.inference import infer, set_thinking_state
 
 
 async def run_cycle(args):
-    snapshot = await collect_snapshot(
-        args.url, os.getenv("HA_LONG_LIVED_TOKEN", "").strip(), args.timeout, args.output_dir
-    )
+    token = os.getenv("HA_LONG_LIVED_TOKEN", "").strip()
+    base = os.getenv("HA_BASE_URL", "http://127.0.0.1:8123").rstrip("/")
+    collection = collect_snapshot(args.url, token, args.timeout, args.output_dir)
+    if args.collect_only:
+        snapshot = await collection
+    else:
+        # Recover a retained thinking flag from an interrupted previous run while
+        # collecting. The output-directory lock is already held by main().
+        snapshot, _ = await asyncio.gather(collection, set_thinking_state(
+            base, token, "stop thinking", args.output_dir, []))
     if snapshot is None or args.collect_only:
+        write_json(args.output_dir / "mqtt_status.json", {
+            "attempted_at": timestamp(), "ok": False, "skipped": True,
+            "reason": "collection_failed" if snapshot is None else "collection_only",
+        })
         write_json(args.output_dir / "dashboard_status.json", {
             "attempted_at": timestamp(), "ok": False, "skipped": True,
             "reason": "collection_failed" if snapshot is None else "collection_only",
@@ -32,8 +43,7 @@ async def run_cycle(args):
         snapshot, args.output_dir, args.prompt_file,
         os.getenv("OPENROUTER_API_KEY", "").strip(),
         os.getenv("OPENROUTER_MODEL", "").strip(), args.llm_timeout, args.max_tokens,
-        mcp_url=args.url, ha_token=os.getenv("HA_LONG_LIVED_TOKEN", "").strip(),
-        ha_base_url=os.getenv("HA_BASE_URL", "http://127.0.0.1:8123").rstrip("/"),
+        mcp_url=args.url, ha_token=token, ha_base_url=base,
     )
 
 

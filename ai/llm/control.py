@@ -8,7 +8,7 @@ import yaml
 from pipeline.context import timestamp, write_json
 
 TURN_ON = "intent__HassTurnOn"
-CONFIG = Path(__file__).with_name("actuators.json")
+CONFIG = Path(__file__).with_name("allowed_actuators.json")
 
 
 def context_entities(text):

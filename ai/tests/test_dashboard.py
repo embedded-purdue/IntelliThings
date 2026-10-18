@@ -12,6 +12,7 @@ from pydantic import ValidationError
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from integrations import dashboard
 from llm import inference
+from fixtures import ROOM_SUMMARIES
 from llm.response import Recommendation
 
 
@@ -34,21 +35,25 @@ class DashboardTests(unittest.IsolatedAsyncioTestCase):
 
     def test_summary_length_is_validated(self):
         with self.assertRaises(ValidationError):
-            Recommendation(summary='x'*256, changes=[], missing_information=[])
-        self.assertEqual(len(Recommendation(summary='x'*255, changes=[], missing_information=[]).summary),255)
+            Recommendation(room_summaries=ROOM_SUMMARIES, summary='x'*256)
+        self.assertEqual(len(Recommendation(room_summaries=ROOM_SUMMARIES, summary='x'*255).summary),255)
 
     async def test_publication_failure_preserves_successful_inference(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             prompt = root/'prompt.txt'
             prompt.write_text('Return JSON')
-            value = {'summary':'Room is warm.', 'changes':[], 'missing_information':[]}
-            with patch.object(inference, 'complete', AsyncMock(return_value={'content':json.dumps(value)})), \
-                 patch.object(inference, 'publish_summary', AsyncMock(side_effect=RuntimeError('offline secret'))) as publish:
+            value = {'summary':'Room is warm.', 'room_summaries': ROOM_SUMMARIES}
+            with patch.object(inference, 'publish_inference_state', AsyncMock(return_value={'ok': True})), \
+                 patch.object(inference, 'complete', AsyncMock(return_value={'content':json.dumps(value)})), \
+                 patch.object(inference, 'publish_summary', AsyncMock(side_effect=RuntimeError('offline secret'))) as publish, \
+                 patch.object(inference, 'publish_mqtt_summaries', AsyncMock(return_value={'ok': True})) as mqtt:
                 result = await inference.infer({'context':'room', 'fetched_at':'now'}, root, prompt,
                     'key', 'model', 2, 2048, ha_token='secret', ha_base_url='http://ha')
             self.assertEqual(result,1)
             publish.assert_awaited_once_with('http://ha','secret','Room is warm.')
+            mqtt.assert_awaited_once()
+            self.assertTrue(json.loads((root/'mqtt_status.json').read_text())['ok'])
             self.assertTrue(json.loads((root/'inference_status.json').read_text())['ok'])
             self.assertEqual(json.loads((root/'inference.json').read_text())['recommendation'],value)
             status=(root/'dashboard_status.json').read_text()
