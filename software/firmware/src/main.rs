@@ -12,8 +12,13 @@ use embassy_executor::Spawner;
 use embassy_time::{Duration, Timer};
 use esp_hal::clock::CpuClock;
 use esp_hal::timer::timg::TimerGroup;
+use esp_hal::{
+    i2c::master::{Config as I2cConfig, I2c},
+    time::Rate,
+};
 use esp_println::println;
 use intelli_things::wifi;
+use intelli_things::sensors::sht41::SHT41;
 
 #[panic_handler]
 fn panic(panic_info: &core::panic::PanicInfo) -> ! {
@@ -55,6 +60,19 @@ async fn main(spawner: Spawner) -> ! {
     let _gpio29 = peripherals.GPIO29;
     let _gpio30 = peripherals.GPIO30;
 
+    // ESP32 C6 WROOM 1 SDA AND SCL -> 6 and 7
+    let sda = peripherals.GPIO6;
+    let scl = peripherals.GPIO7;
+
+    let i2c_config = I2cConfig::default()
+        .with_frequency(Rate::from_khz(100));
+
+    let mut i2c = I2c::new(peripherals.I2C0, i2c_config)
+        .expect("Failed to initialize I2C")
+        .with_sda(sda)
+        .with_scl(scl)
+        .into_async();
+
     esp_alloc::heap_allocator!(#[esp_hal::ram(reclaimed)] size: 65536);
 
     let timg0 = TimerGroup::new(peripherals.TIMG0);
@@ -62,9 +80,15 @@ async fn main(spawner: Spawner) -> ! {
 
     let (_wifi_controller, _stack) = wifi::setup(spawner, peripherals.WIFI).await;
 
+    let mut sht41 = SHT41::new();
     loop {
+        let result = sht41.read(&mut i2c).await;
+        match result {
+            Ok(()) => println!("{}", sht41),
+            Err(err) => println!("SHT41 error: {}", err)
+        }
+        
         Timer::after(Duration::from_secs(1)).await;
-        println!("Hello World!");
     }
 
     // for inspiration have a look at the examples at https://github.com/esp-rs/esp-hal/tree/esp-hal-v1.2.2/examples

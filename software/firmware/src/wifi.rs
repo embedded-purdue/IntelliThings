@@ -50,7 +50,8 @@ pub async fn network_call(stack: Stack<'static>) {
 
 /// Connects to Wi-Fi and runs a ping test. Keep the returned controller alive
 /// for as long as the connection is needed.
-pub async fn setup<'d>(spawner: Spawner, wifi: WIFI<'d>) -> (WifiController<'d>, Stack<'static>) {
+pub async fn setup<'d>(spawner: Spawner, wifi: WIFI<'d>) ->
+    (WifiController<'d>, Stack<'static>) {
     let wifi_ssid = option_env!("WIFI_SSID").unwrap_or("");
     let wifi_password = option_env!("WIFI_PASSWORD").unwrap_or("");
     if wifi_ssid.is_empty() || wifi_password.is_empty() {
@@ -91,6 +92,7 @@ pub async fn setup<'d>(spawner: Spawner, wifi: WIFI<'d>) -> (WifiController<'d>,
     while !stack.is_config_up() {
         Timer::after(Duration::from_millis(100)).await;
     }
+    
     println!("DHCP configured");
     ping_smoke_test(stack).await;
 

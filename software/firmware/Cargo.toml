@@ -6,7 +6,7 @@ version      = "0.1.0"
 
 [[bin]]
 name = "intelli_things"
-path = "./src/bin/main.rs"
+path = "./src/main.rs"
 
 [dependencies]
 esp-hal = { version = "~1.2.2", features = ["esp32c6", "unstable"] }
