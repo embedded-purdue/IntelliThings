@@ -7,9 +7,9 @@ type RawResponse = [u8; 6];
 
 #[derive(Debug)]
 pub struct SHT41 {
-    temperature_c: f32,
-    temperature_f: f32,
-    humidity_percent: f32,
+    pub temperature_c: f32,
+    pub temperature_f: f32,
+    pub humidity_percent: f32,
 }
 
 /// Struct representing the SHT41 sensor

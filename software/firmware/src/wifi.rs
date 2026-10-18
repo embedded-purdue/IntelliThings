@@ -2,7 +2,7 @@ use embassy_executor::Spawner;
 use embassy_net::icmp::PacketMetadata;
 use embassy_net::icmp::ping::{PingManager, PingParams};
 use embassy_net::{Config as NetConfig, Runner, Stack, StackResources};
-use embassy_time::{Duration, Timer};
+use embassy_time::{Duration, Timer, with_timeout};
 use esp_hal::peripherals::WIFI;
 use esp_println::println;
 use esp_radio::wifi::{
@@ -44,12 +44,13 @@ async fn ping_smoke_test(stack: Stack<'static>) {
     }
 }
 
-pub async fn network_call(stack: Stack<'static>) {
+pub async fn network_call(_stack: Stack<'static>) {
     
 }
 
-/// Connects to Wi-Fi and runs a ping test. Keep the returned controller alive
-/// for as long as the connection is needed.
+/// Connects to Wi-Fi and runs a ping test if DHCP completes within 20 seconds.
+/// DHCP continues in the background after a timeout. Keep the returned controller
+/// alive for as long as the connection is needed; check stack readiness before use.
 pub async fn setup<'d>(spawner: Spawner, wifi: WIFI<'d>) ->
     (WifiController<'d>, Stack<'static>) {
     let wifi_ssid = option_env!("WIFI_SSID").unwrap_or("");
@@ -89,8 +90,13 @@ pub async fn setup<'d>(spawner: Spawner, wifi: WIFI<'d>) ->
     );
     spawner.spawn(network_task(runner).expect("Failed to prepare network task"));
 
-    while !stack.is_config_up() {
-        Timer::after(Duration::from_millis(100)).await;
+    println!("Waiting for a DHCP address (up to 20 seconds)...");
+    if with_timeout(Duration::from_secs(20), stack.wait_config_up())
+        .await
+        .is_err()
+    {
+        println!("DHCP timed out; starting sensors while DHCP continues in the background");
+        return (wifi_controller, stack);
     }
     
     println!("DHCP configured");

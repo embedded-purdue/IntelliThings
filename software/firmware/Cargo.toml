@@ -56,6 +56,7 @@ smoltcp = { version = "0.14.0", default-features = false, features = [
 critical-section = "1.2.0"
 static_cell      = "2.1.1"
 esp-println = { version = "0.18.0", features = ["esp32c6"] }
+gas-index-algorithm = "0.1.3"
 
 
 # For fine tuning these settings, please refer to https://doc.rust-lang.org/cargo/reference/profiles.html

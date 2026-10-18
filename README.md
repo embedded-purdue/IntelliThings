@@ -23,7 +23,7 @@ in a cloud agent), and is built on **open protocols end to end** — MQTT, Home 
 ## Architecture
 
 ```
-Desktop sensor nodes (ESP32-C6, Rust on ESP-IDF)
+Desktop sensor nodes (ESP32-C6, no_std Rust with esp-hal + Embassy)
   7 sensors · 5" DWIN display · WS2812B LED bar
         │  Wi-Fi / MQTT                     ▲  retained AI message
         ▼  intellithings/<node_id>/sensors  │  intellithings/<node_id>/display
@@ -57,7 +57,7 @@ PCBs in 3D-printed enclosures.
 
 ## Tech stack
 
-**Firmware** Rust (`std`, nightly) on ESP-IDF v6.1.0 · `esp-idf-sys` 0.38 / `esp-idf-hal` 0.47 / `esp-idf-svc` 0.53 · FreeRTOS underneath
+**Firmware** Rust (`no_std`, stable; minimum 1.95, edition 2024) · `esp-hal` 1.2.2 · `esp-rtos` 0.4 · Embassy async tasks/networking · `esp-radio` 1.0.0-beta.1
 **Protocols** Wi-Fi · MQTT · MCP (Matter was dropped)
 **Hub** Home Assistant OS on Raspberry Pi 5 · Mosquitto · Nabu Casa remote access
 **Cloud** AWS Lambda + API Gateway (HTTP API) · Python · OpenRouter for model testing
@@ -72,7 +72,7 @@ other doc disagrees.
 |---|---|
 | [Project Guideline](docs/Project_Guideline.md) | What we're building, BOM and spending, subteams, timeline, open team decisions |
 | [Collaboration Guidelines](docs/Collaboration_Guidelines.md) | Subteam roles, GitHub workflow, KiCad / firmware / AI collaboration rules, code review, hand-offs |
-| [Firmware Architecture](software/Firmware_Architecture.md) | Toolchain, threads, shared state, display and LED drivers, MQTT topics, boot sequence |
+| [Firmware Architecture](software/Firmware_Architecture.md) | Earlier ESP-IDF design: shared state, display and LED drivers, MQTT topics, boot sequence; see the [firmware README](software/firmware/README.md) for the current Rust toolchain and implementation |
 | [AI Agent Notes](ai/AI_Agent_Notes.md) | Agent harness, HA hand-off, OpenRouter + MCP client loop, hosting, chat bot, security |
 | [Hardware Design Decisions](hardware/Hardware_BOM_Candidates.md) | Why each part was chosen and what was considered |
 | [Full Parts List](hardware/Full_Parts_List.md) | Per-part specs: interface, voltage, output, quantity, source |
@@ -117,8 +117,9 @@ git checkout dev
 | [`ai/`](ai/) | AI | `emulator/` (emulator ESP32) · `ha/` (Home Assistant config) · `cloud/` (Lambda agent harness, chat bot) · agent notes |
 | [`docs/`](docs/) | Everyone | Project Guideline, Collaboration Guidelines · `interfaces/` holds the shared contracts |
 
-Never commit secrets — Wi-Fi credentials live in the ESP32's NVS, cloud keys in AWS
-Secrets Manager / Lambda environment config.
+Never commit secrets — current firmware reads Wi-Fi credentials from the local, ignored
+`software/firmware/.cargo/esp-config.toml` and embeds them at build time; cloud keys live in
+AWS Secrets Manager / Lambda environment config.
 
 ## Timeline
 

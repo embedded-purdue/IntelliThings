@@ -18,8 +18,7 @@ use esp_hal::{
 };
 use esp_println::println;
 use intelli_things::wifi;
-use intelli_things::sensors::sht41::SHT41;
-use intelli_things::sensors::bh1750::BH1750;
+use intelli_things::sensors;
 
 #[panic_handler]
 fn panic(panic_info: &core::panic::PanicInfo) -> ! {
@@ -79,22 +78,48 @@ async fn main(spawner: Spawner) -> ! {
     let timg0 = TimerGroup::new(peripherals.TIMG0);
     esp_rtos::start(timg0.timer0, peripherals.FROM_CPU_INTR0);
 
-    let (_wifi_controller, _stack) = wifi::setup(spawner, peripherals.WIFI).await;
+    //let (_wifi_controller, _stack) = wifi::setup(spawner, peripherals.WIFI).await;
 
-    let mut sht41 = SHT41::new();
-    let mut bh1750 = BH1750::new();
+    let mut sht41 = sensors::SHT41::new();
+    let mut bh1750 = sensors::BH1750::new();
+    let mut sgp40 = sensors::SGP40::new();
+    let mut scd41 = sensors::SCD41::new();
+
+    let mut scd41_started = false;
+    
+    match scd41.start(&mut i2c).await {
+        Ok(()) => scd41_started = true,
+        Err(err) => println!("SCD41 start error: {}", err)
+    }
+    
     loop {
         let result = sht41.read(&mut i2c).await;
         match result {
             Ok(()) => println!("{}", sht41),
             Err(err) => println!("SHT41 error: {}", err)
         }
+        
         let result = bh1750.read(&mut i2c).await;
         match result {
             Ok(()) => println!("{}", bh1750),
             Err(err) => println!("BH1750 error: {}", err),
         }
-              
+        
+        let result = sgp40.read(&mut i2c,
+            sht41.temperature_c, sht41.humidity_percent).await;
+        match result {
+            Ok(()) => println!("{}", sgp40),
+            Err(err) => println!("SHT41 error: {}", err)
+        }
+        
+        if scd41_started {
+            let result = scd41.read(&mut i2c).await;
+            match result {
+                Ok(()) => println!("{}", scd41),
+                Err(err) => println!("SCD41 error: {}", err)
+            }
+        }
+        
         Timer::after(Duration::from_secs(1)).await;
     }
     
