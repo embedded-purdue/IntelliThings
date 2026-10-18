@@ -27,6 +27,7 @@ embassy-net = { version = "0.9.1", features = [
   "tcp",
   "udp",
 ] }
+scd4x = { version = "0.5", features = ["embedded-hal-async", "scd41"] }
 embedded-io = "0.7.1"
 embedded-io-async = "0.7.0"
 esp-alloc = { version = "0.11.0", features = ["esp32c6"] }
