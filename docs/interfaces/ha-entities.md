@@ -65,3 +65,8 @@ isn't possible yet** (no `HassTurnOff`).
   and the 3D floor plan will use.
 - Discovery for the real nodes on their per-node topics ([`mqtt.md`](mqtt.md#home-assistant-discovery-homeassistant)).
 - Whether to add a turn-off tool.
+- **Demo mode** ([`demo/README.md`](../../demo/README.md)): entities for the **whole demo home**,
+  inside and outside (e.g. kitchen, living room, master and second bedroom, garage, patio, garden,
+  weather), each with a **low/high cap** for the demo master's random rolls. Also: which
+  entities the agent sees in demo mode, and how they're kept apart from the real nodes'
+  entities.

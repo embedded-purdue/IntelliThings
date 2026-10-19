@@ -30,17 +30,19 @@ feature       ●──●     ●─────●                     your wo
 
 ### Naming feature branches
 
-Prefix with your team: `software/`, `hardware/`, `ai/` or `docs/`.
+Prefix with your team: `software/`, `hardware/`, `ai/` or `docs/`. Demo mode work (the `demo/`
+folder) uses `demo/`.
 
 ```
 software/baseline
 software/sht41-driver
 software/dwin-dev-gui
 hardware/power-input
-hardware/mcu-bare-chip
+hardware/sensor-footprints
 ai/ha-mqtt-entities
-ai/lambda-agent
+ai/openrouter-tests
 docs/mqtt-schema
+demo/demo-master
 ```
 
 Lowercase, hyphens, no spaces. Keep it short and descriptive.

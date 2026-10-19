@@ -14,3 +14,4 @@ anyone builds against it, and changed only after every affected team's lead appr
 | Final GUI layout ↔ enclosure bezel | Software ↔ Hardware | Due Nov 1 |
 | `/ha-event` snapshot format | AI subteam | Only for the future cloud (Lambda) option; not needed by the local pipeline |
 | `/chat` request format | AI subteam | After the Discord/Telegram decision |
+| Demo mode: `intellithings/demo/#` topics ([`mqtt.md`](mqtt.md#proposed-intellithingsdemo-demo-mode)) + demo-home entities and caps ([`ha-entities.md`](ha-entities.md)) | Demo master (@spicybutter) ↔ Software ↔ AI | Proposed |

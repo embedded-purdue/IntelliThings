@@ -6,65 +6,114 @@
 
 At the ECE SPARK Challenge the room's environment will barely change, and people will walk past
 the booth all the time, so presence is always on. Real sensor data would therefore show visitors
-almost nothing of what the agent can do. In **demo mode**, the system feeds **pre-set scenario
-data** instead: a hot kitchen, a stuffy bedroom, a PM2.5 spike and so on. Visitors watch the LLM
-reason over each scenario and act on the smart home.
+almost nothing of what the agent can do. In **demo mode**, the system feeds **pre-set and
+randomized home data** instead: a hot kitchen, a stuffy bedroom, a smoky garage, a cold night
+outside. Visitors watch the LLM reason over it and act on the smart home.
 
 ## The booth (left to right)
 
 | # | On the table | Role in demo mode |
 |---|---|---|
-| 1 | **Three sensor nodes** (kitchen, bedroom, living room) | Show the scenario data and their room's AI message on their DWIN displays |
+| 1 | **Three sensor nodes** (kitchen, bedroom, living room) | Each shows its own room's demo data and AI message on its DWIN display |
 | 2 | **Wi-Fi router** | Booth network |
 | 3 | **Raspberry Pi 5** | Home Assistant, the Mosquitto broker and the AI agent |
-| 4 | **Game buzzer with an ESP32-C3 Core** — the **demo master** | Demo control ([`demo-master/`](demo-master/)) |
-| 5 | **Monitor** | The HA 3D dashboard and the game buzzer's web interface |
+| 4 | **Game buzzer with a LuatOS ESP32-C3 Core** — the **demo master** | Holds the scenario library and the randomizer, serves the web interface ([`demo-master/`](demo-master/)) |
+| 5 | **Monitor** | The HA 3D dashboard and the demo master's web interface |
 
 ## How it works
 
-1. **Scenario library:** **50–200 pre-set scenario groups** (format TBD).
-2. **Randomizer:** picks one scenario group at random.
-3. **The scenario's data is sent** to Home Assistant **and** to the related sensor nodes. The
-   nodes show it on their DWIN displays **instead of** their real readings.
-4. **The LLM reasons** over the scenario and takes smart-home actions through HA, as it does on
-   live data.
-5. **Each related node** shows its room's AI message; the **HA dashboard** shows the overall AI
-   message.
-6. **After a time interval** (TBD), the randomizer picks the next scenario, and the loop repeats.
+### The demo home
 
-**One of the three nodes shows both the demo data and its real sensor readings.** Its AI message
-still comes from the demo data. Which node, and how the screen shows both, is TBD.
+The demo covers **the whole home, inside and outside**, not just the three node rooms: for
+example the kitchen, living room, master bedroom, second bedroom, garage, patio, garden and the
+weather outside. Every value for every entity comes from the demo master. **Only the three real
+nodes show data on a DWIN display**, each for its own room. The rest appears in HA (dashboard,
+3D floor plan) and to the agent.
+
+The entity list (areas, sensors and their ranges) is **TBD**, to be agreed with the AI team and
+added to [`docs/interfaces/ha-entities.md`](../docs/interfaces/ha-entities.md).
+
+### Scenario loop
+
+1. **The scenario library** on the demo master holds **50–200 pre-set scenario groups**. Each
+   group sets a value for **every** entity in the demo home.
+2. **The randomizer** picks one group and the demo master publishes it, to HA and to each node
+   for its room.
+3. **Home Assistant automations/helpers decide when to call the LLM.** The demo master never calls
+   it directly.
+4. **The agent reasons and acts** through HA as it does on live data.
+5. **Each node** shows its room's AI message; the **HA dashboard** shows the overall message.
+6. **After a time interval** (TBD), the randomizer picks the next group.
+
+### Game buzzer: "roll the house"
+
+Visitors are invited to **press the buzzer**:
+
+1. **The scenario loop stops.**
+2. The web interface plays a **rolling animation** on every value for about **4 seconds** (the
+   exact time still needs testing and discussion).
+3. **Every value lands on a new random value** and is published to HA and the nodes. Visitors
+   then watch how the LLM reacts.
+
+**Random, but realistic.** Each entity has a **low and high cap**, and values never go outside
+it, because anything outside isn't a normal home. Example: indoor temperature between **60 °F and
+100 °F**; a roll near 100 °F reads as a possible fire hazard, which is exactly the kind of thing
+the agent should catch. MQTT still carries **°C** (60–100 °F ≈ 15.6–37.8 °C); °F is only for what
+people see. The caps for each entity are **TBD**, along with whether values are spread evenly
+across the range or lean toward normal.
+
+### The web interface (on the monitor)
+
+Served by the demo master:
+- **The home's entities in rows and columns,** with their current values.
+- **A number or text rolling animation** whenever a value changes (new scenario or buzzer roll).
+- **A buzzer press randomizes every value immediately.**
+
+### The hybrid node — TODO
+
+One of the three nodes will show **both the demo data and its real sensor readings**; its AI
+message still comes from the demo data. **TODO:** which node, how its screen shows both (the VP
+map needs a field for it; @rakkicow), and whether its real readings still go to HA.
+
+## MQTT (proposed)
+
+All demo traffic lives under a new **reserved `intellithings/demo/#`** namespace, next to
+`intellithings/ai/#` and `intellithings/emulator/#`. **Proposed, not agreed:** it goes into
+[`docs/interfaces/mqtt.md`](../docs/interfaces/mqtt.md) once the Software and AI leads agree.
+
+| Topic (proposed) | Publisher → subscriber | Retained | Payload |
+|---|---|---|---|
+| `intellithings/demo/status` | demo master → anyone | yes (Last Will) | `online` / `offline` |
+| `intellithings/demo/state` | demo master → nodes, HA | yes | Demo mode (off / scenario / random), the current scenario's ID and name, `ts` — fields TBD |
+| `intellithings/demo/home` | demo master → HA | yes | Values for **every** demo-home entity — format TBD (depends on the entity list) |
+| `intellithings/demo/<node_id>/sensors` | demo master → that node | yes | **The same JSON schema as `intellithings/<node_id>/sensors`**, so the node can reuse its parsing and display code |
+
+The AI messages need nothing new: the agent keeps publishing to `intellithings/<node_id>/display`
+and `intellithings/ai/summary`.
 
 ## Who builds what
 
 | Part | Where | Owner |
 |---|---|---|
-| Demo master firmware (ESP32-C3 + game buzzer) | [`demo/demo-master/`](demo-master/) | TBD |
-| Scenario library (50–200 groups) | TBD | TBD |
-| Demo mode in the node firmware (show scenario data; the one node showing demo + real data) | `software/firmware/` | Software (@LukeTuthill) |
-| Demo screens on the DWIN UI, if any are needed | VP map ([`docs/interfaces/display-vp-map.md`](../docs/interfaces/display-vp-map.md)) | @rakkicow (PM) |
-| HA side + agent run per scenario | `ai/` | AI (@ProgrammingJohn) |
-| 3D dashboard + the buzzer's web interface on the monitor | TBD | TBD |
-
-**Contracts first:** any new MQTT topic or payload for demo mode (scenario data, demo on/off,
-current scenario) goes into [`docs/interfaces/mqtt.md`](../docs/interfaces/mqtt.md) **before**
-anyone builds against it. The scenario data format also needs its own contract.
+| Demo master firmware: scenario library, randomizer, buzzer, web interface, MQTT | [`demo/demo-master/`](demo-master/) | **@spicybutter (PM)** — C on ESP-IDF, LuatOS ESP32-C3 Core (like the emulator) |
+| Scenario library drafts (50–200 groups) | `demo/demo-master/` | @spicybutter; drafts to be generated later |
+| Demo mode in the node firmware: show demo data from `intellithings/demo/<node_id>/sensors`; the hybrid node | `software/firmware/` | Software (@LukeTuthill) |
+| Demo or hybrid fields on the DWIN UI, if needed | VP map ([`docs/interfaces/display-vp-map.md`](../docs/interfaces/display-vp-map.md)) | @rakkicow (PM) |
+| HA demo entities for the whole home; automations that trigger the agent; 3D dashboard | `ai/` | AI (@ProgrammingJohn) |
 
 ## Open questions
 
-- **What the game buzzer does:** start/stop demo mode, skip to the next scenario, or something
-  else?
-- **Where the randomizer and the scenario library live:** on the demo master, or on the Pi?
-- **What a "scenario group" contains:** readings for all three rooms, or only the rooms a
-  scenario affects? Plus a name or description to show on the monitor?
-- **How demo data reaches HA and the nodes,** and how HA and the agent tell it apart from real
-  data (topics, entities).
-- **The interval between scenarios,** and whether the agent runs once per scenario instead of on
-  its 5-minute timer.
-- **The hybrid node:** which node it is, how its display shows both data sets, and whether its
-  real readings still go to HA.
-- **The buzzer's web interface:** what it shows and who serves it (the demo master, the Pi or
-  HA).
-- **Demo master toolchain:** C on ESP-IDF like the emulator, or Rust like the nodes?
-- **How it relates to the emulator ESP32** (`ai/emulator/`), which already has scenarios and a
-  control channel.
+- **After a buzzer roll,** when does the scenario loop resume: after a fixed time, or on the next
+  press?
+- **The interval between scenarios** and **the length of the roll animation** (about 4 s, needs
+  testing).
+- **The entity list for the whole home,** each entity's caps, and how values are spread within
+  them.
+- **Device states:** do scenario groups and rolls also set device states (lights, doors, the car
+  in the garage)? Or only readings, leaving devices for the agent to control?
+- **Demo vs. real data in HA:** which entities are exposed to the agent in demo mode, and whether
+  the nodes keep publishing their real readings during the demo.
+- **When the agent runs:** which HA automations/helpers trigger it in demo mode. **Open
+  discussion,** pending how the automations perform.
+- **The hybrid node** (TODO above).
+- **Buzzer wiring:** GPIO, and the button LED if it has one.

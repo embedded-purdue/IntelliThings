@@ -109,7 +109,7 @@ format, …) are written in `docs/interfaces/` **before** anyone builds against 
 
 - **`main`** — protected, demo-ready. Only receives `dev` at milestones.
 - **`dev`** — integration branch. Every PR targets `dev`.
-- **Feature branches** — cut from `dev`, named `software/…`, `hardware/…`, `ai/…` or `docs/…`.
+- **Feature branches** — cut from `dev`, named `software/…`, `hardware/…`, `ai/…`, `docs/…` or `demo/…`.
 
 Link the issue in the PR ("Closes #12") and say how you tested it. Full workflow in
 [`CONTRIBUTING.md`](CONTRIBUTING.md).
@@ -127,7 +127,7 @@ git checkout dev
 | [`hardware/`](hardware/) | Hardware | KiCad project(s) + project-local libraries, enclosure CAD, datasheets · design decisions and parts list |
 | [`software/`](software/) | Software | `firmware/` (Rust node firmware) · firmware architecture |
 | [`ai/`](ai/) | AI | Local Python pipeline, prompts, MCP tools, broker setup and scheduling · `emulator/` · `ha/` and `cloud/` scaffolding · agent notes |
-| [`demo/`](demo/) | PMs (owner TBD) | Demo mode for the ECE SPARK booth · `demo-master/` (ESP32-C3 + game buzzer firmware) |
+| [`demo/`](demo/) | @spicybutter (PM) | Demo mode for the ECE SPARK booth · `demo-master/` (ESP32-C3 + game buzzer firmware) |
 | [`docs/`](docs/) | Everyone | Project Guideline, Collaboration Guidelines · `interfaces/` holds the shared contracts |
 
 Never commit secrets — current firmware reads Wi-Fi credentials from the local, ignored
