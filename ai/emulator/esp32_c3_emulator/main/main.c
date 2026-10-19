@@ -4,15 +4,18 @@
 #include <stdio.h>
 
 #include "ai_message.h"
+#include "esp_app_desc.h"
+#include "app_config.h"
 #include "emulator_ctrl.h"
 #include "esp_event.h"
 #include "esp_log.h"
 #include "esp_netif.h"
 #include "esp_timer.h"
+#include "event_log.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include "history.h"
 #include "mdns.h"
-#include "mqtt_client.h"
 #include "mqtt_node.h"
 #include "nvs_flash.h"
 #include "payload.h"
@@ -42,8 +45,7 @@ static void on_ip(bool first_time)
         time_sync_start();
         start_mdns();
         web_server_start();
-        ctrl_start();
-        mqtt_nodes_start();
+        mqtt_nodes_start();  // node clients, then the control client
     }
     ESP_LOGI(TAG, "Control panel: http://%s/  (or http://%s.local/)", ip, CONFIG_EMU_HOSTNAME);
 }
@@ -53,6 +55,7 @@ static void publish_all(void)
     char ts[40];
     bool has_ts = time_iso8601(ts, sizeof(ts));
     int64_t now = esp_timer_get_time();
+    sim_reading_t all[NODE_COUNT];
 
     for (int i = 0; i < NODE_COUNT; i++) {
         vnode_t *n = &g_nodes[i];
@@ -60,6 +63,7 @@ static void publish_all(void)
         const char *mode;
         nodes_lock();
         sim_read(&n->sim, &r);
+        all[i] = r;
         n->last = r;
         n->has_last = true;
         n->last_publish_us = now;
@@ -80,13 +84,7 @@ static void publish_all(void)
             shown[i] = true;  // show the exact payload format once per node
             ESP_LOGI(TAG, "Example payload on %s:\n%s", n->topic_sensors, json);
         }
-        bool sent = false;
-        if (n->mqtt_connected) {
-            sent = esp_mqtt_client_publish(n->client, n->topic_sensors, json, len, 0, 0) >= 0;
-            if (sent) {
-                n->publish_count++;
-            }
-        }
+        bool sent = mqtt_node_publish_sensors(n, json, len);
 #if CONFIG_EMU_LOG_READINGS
         ESP_LOGI("node",
                  "%-16s T=%.1fC RH=%.1f%% CO2=%d VOC=%d PM1/2.5/10=%d/%d/%d lux=%.0f "
@@ -101,6 +99,11 @@ static void publish_all(void)
         (void)what;
 #endif
     }
+
+    // What the panel plots: every snapshot, whether or not MQTT was up to carry it.
+    nodes_lock();
+    history_record((uint32_t)(now / 1000000LL), all);
+    nodes_unlock();
 }
 
 static void sim_task(void *arg)
@@ -124,9 +127,10 @@ static void sim_task(void *arg)
         nodes_unlock();
 
         since_publish_ms += (int64_t)(dt * 1000.0f + 0.5f);
-        if (since_publish_ms >= CONFIG_EMU_PUBLISH_INTERVAL_MS) {
-            since_publish_ms -= CONFIG_EMU_PUBLISH_INTERVAL_MS;
-            if (since_publish_ms >= CONFIG_EMU_PUBLISH_INTERVAL_MS) {
+        const int64_t interval_ms = app_config_publish_interval_ms();  // Settings can change it
+        if (since_publish_ms >= interval_ms) {
+            since_publish_ms -= interval_ms;
+            if (since_publish_ms >= interval_ms) {
                 since_publish_ms = 0;  // fell behind (e.g. long block); don't burst
             }
             publish_all();  // every interval, even if nothing changed
@@ -139,8 +143,9 @@ static void sim_task(void *arg)
 
 void app_main(void)
 {
-    ESP_LOGI(TAG, "IntelliThings emulator booting: 3 virtual nodes, publish every %d ms",
-             CONFIG_EMU_PUBLISH_INTERVAL_MS);
+    event_log_init();  // first, so the panel's system log has the whole boot
+    ESP_LOGI(TAG, "IntelliThings emulator %s booting: 3 virtual nodes",
+             esp_app_get_description()->version);
 
     esp_err_t err = nvs_flash_init();  // required by Wi-Fi
     if (err == ESP_ERR_NVS_NO_FREE_PAGES || err == ESP_ERR_NVS_NEW_VERSION_FOUND) {
@@ -154,10 +159,13 @@ void app_main(void)
     esp_log_level_set("mqtt_client", ESP_LOG_WARN);
     esp_log_level_set("transport_base", ESP_LOG_WARN);
 
+    app_config_init();
     time_sync_init();
     ai_message_init();
     ctrl_init();
     nodes_init();
+    history_init(15);
+    mqtt_nodes_init();
 
     if (!CONFIG_EMU_WIFI_SSID[0]) {
         ESP_LOGE(TAG, "No Wi-Fi SSID configured. Set CONFIG_EMU_WIFI_SSID in sdkconfig.local "

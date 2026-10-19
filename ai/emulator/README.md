@@ -699,6 +699,9 @@ esp32_c3_emulator/
 ├── sdkconfig.local.example   credentials template
 ├── tools/gzip_asset.py       gzips web assets at build time
 └── main/
+    ├── app_config.[ch]       runtime broker/publish settings in NVS (v2)
+    ├── event_log.[ch]        system log hook, command log, MQTT route events (v2)
+    ├── history.[ch]          reading history for the plots (plain C, v2)
     ├── Kconfig.projbuild     "IntelliThings Emulator" menu
     ├── idf_component.yml     espressif/mqtt, cjson, mdns
     ├── main.c                boot, sim task, 3 s publish cycle
@@ -711,6 +714,6 @@ esp32_c3_emulator/
     ├── mqtt_node.[ch]        one MQTT connection per node, Last Will, display subscription
     ├── emulator_ctrl.[ch]    commands, state JSON, control MQTT connection
     ├── ai_message.[ch]       serial banner and message history
-    ├── web_server.[ch]       control panel + HTTP API
+    ├── web_server.[ch]       control panel + HTTP API (v2: poll, history, config, guide)
     └── web/index.html        the panel (embedded gzipped, served with Content-Encoding: gzip)
 ```

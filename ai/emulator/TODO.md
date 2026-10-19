@@ -38,7 +38,39 @@ Tested on the board (Oct 18, team Wi-Fi, **Pi was off**):
 - [x] Fallback: the merged v0.1.0 image restores the old table; v0.1.0 boots and serves the panel
 - [ ] **MQTT with the new build** (Pi/broker unreachable on Oct 18): 4 connections, statuses,
   publishing, display messages, then heap with MQTT up (v0.1.0 had ~137 KB)
-- [ ] Panel in a real browser with the gzipped page (Chrome + a phone)
+- [x] Panel in a real browser with the gzipped page (in-app Chromium, during phase 2: renders,
+  no console errors) — [ ] still to check on a phone
+
+### Phase 2: back end (Oct 18)
+
+New modules: `app_config` (runtime broker/publish settings in NVS, Kconfig as defaults),
+`event_log` (system log via a log hook, command log, MQTT route events), `history` (plain C,
+10 min fine + 1 h coarse tiers). New endpoints: `/api/poll`, `/api/history` (binary),
+`/api/config` (+ `/reset`), `/guide.md` (from `GUIDE.md`, gzipped). The control connection also
+subscribes (read-only) to `intellithings/ai/summary` and `…/inference_status`. Broker changes
+stop, reconfigure and restart the existing MQTT clients (handles are never freed, so no locks
+around publishing); clearing a login reboots, since esp-mqtt can't drop it from a live client.
+Kconfig default broker is now `192.168.1.2`, with a new keepalive option.
+
+| | Phase 1 | Phase 2 |
+|---|---|---|
+| App image | 997 554 B | 1 017 202 B (50 % of the slot free) |
+| Static DRAM | 117 578 B | 167 226 B (+49.6 KB: history 28 KB, logs 18 KB, AI state) |
+| Free heap, broker down, ~1 min | 146 536 B (lowest 126 680) | **~90 000 B (lowest ~70 900)** |
+
+Tested on the board (Oct 18, Pi still off), `tests/api_check.py`:
+- [x] 66/66 checks (v0.1.0 commands and validation, poll, history, guide, config) and 70/70 with
+  `--broker-test`: switching to an unreachable broker and back without a reboot, 3.3 s per switch,
+  panel answering throughout; settings left as found
+- [x] Bug found and fixed: `on_ip` still called `ctrl_start()` before the broker URI was set
+  (the control client was created twice, first with an empty URI)
+- [x] Bug found and fixed: `/api/state` showed the old broker until every client had stopped (up
+  to a 10 s connect timeout). Now the new broker shows at once, `mqtt.reconfiguring` covers the
+  switch, and the network timeout is 5 s
+- [ ] **With the broker up:** reconnection after a broker change, the retained `offline` left
+  on the old broker, display messages and AI summary/thinking via `/api/poll`, heap with 4 live
+  connections (target: lowest > 50 KB)
+- [ ] Clearing the login (reboot path)
 
 ---
 

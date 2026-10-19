@@ -1,6 +1,6 @@
 # Emulator v2.1.0 — firmware update plan
 
-Owner: @spicybutter (PM) · *Status: phases 0–1 done on branch `ai/emulator-v2` (Oct 18); results in [`TODO.md`](TODO.md#v210-progress). Still open from phase 0: uploading the merged v0.1.0 image to the team Drive* · current firmware: **v0.1.0**
+Owner: @spicybutter (PM) · *Status: phases 0–2 done on branch `ai/emulator-v2` (Oct 18); results in [`TODO.md`](TODO.md#v210-progress). Still open from phase 0: uploading the merged v0.1.0 image to the team Drive* · current firmware: **v0.1.0**
 ([`README.md`](README.md), [`TODO.md`](TODO.md))
 
 v2.1.0 keeps everything v0.1.0 does for the AI team (three emulated nodes on the real topics, the

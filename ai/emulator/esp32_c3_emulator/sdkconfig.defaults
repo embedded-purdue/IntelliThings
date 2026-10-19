@@ -33,5 +33,8 @@ CONFIG_LWIP_SNTP_STARTUP_DELAY=n
 CONFIG_LWIP_MAX_SOCKETS=16
 
 CONFIG_ESP_MAIN_TASK_STACK_SIZE=4096
+# The panel's log hook (event_log.c) formats each line a second time in the logging task;
+# the system event task (Wi-Fi/IP callbacks) has the smallest stack that logs.
+CONFIG_ESP_SYSTEM_EVENT_TASK_STACK_SIZE=3072
 CONFIG_HTTPD_MAX_REQ_HDR_LEN=1024
 CONFIG_LOG_DEFAULT_LEVEL_INFO=y

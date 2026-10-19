@@ -11,6 +11,9 @@ idf_component_register(
         "ai_message.c"
         "emulator_ctrl.c"
         "web_server.c"
+        "app_config.c"
+        "event_log.c"
+        "history.c"
     INCLUDE_DIRS "."
     PRIV_REQUIRES esp_app_format esp_wifi esp_netif esp_event esp_timer esp_http_server nvs_flash
 )
@@ -30,3 +33,4 @@ function(embed_gzipped_asset src)
 endfunction()
 
 embed_gzipped_asset("web/index.html")
+embed_gzipped_asset("../../GUIDE.md")  # ai/emulator/GUIDE.md, served at /guide.md

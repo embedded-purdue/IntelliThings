@@ -3,13 +3,17 @@
 #include <stdio.h>
 #include <string.h>
 
+#include "ai_message.h"
+#include "app_config.h"
 #include "cJSON.h"
 #include "esp_app_desc.h"
 #include "esp_log.h"
 #include "esp_system.h"
 #include "esp_timer.h"
+#include "event_log.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/semphr.h"
+#include "history.h"
 #include "mqtt_client.h"
 #include "mqtt_node.h"
 #include "payload.h"
@@ -28,9 +32,12 @@ static volatile bool s_connected;
 static volatile bool s_state_dirty;
 static SemaphoreHandle_t s_cmd_lock;
 
+// Inbound message being reassembled (touched only by the control client's MQTT task)
+typedef enum { RX_CMD, RX_AI_SUMMARY, RX_AI_INFERENCE, RX_OTHER } rx_kind_t;
 static char s_rx[CMD_MAX_LEN + 1];
 static size_t s_rx_len;
 static bool s_rx_retained;
+static rx_kind_t s_rx_kind;
 
 static struct {
     bool valid;
@@ -259,14 +266,35 @@ static bool cmd_display(const cJSON *root, vnode_t **nodes, int count, char *msg
                                    : (nodes[0]->mqtt_connected ? nodes[0]->client : NULL);
     int id = via ? esp_mqtt_client_publish(via, nodes[0]->topic_display, payload, 0, 1, retain)
                  : -1;
+    size_t bytes = strlen(payload);
     cJSON_free(payload);
     if (id < 0) {
         snprintf(msg, len, "MQTT not connected; message not sent");
         return false;
     }
+    event_log_route(ROUTE_DISPLAY_OUT, nodes[0]->topic_display, bytes);
     snprintf(msg, len, "%s: test message published to %s%s", nodes[0]->id,
              nodes[0]->topic_display, retain ? " (retained)" : "");
     return true;
+}
+
+void ctrl_record(const char *source, bool ok, const char *msg)
+{
+    xSemaphoreTake(s_cmd_lock, portMAX_DELAY);  // guards s_last only
+    s_last.valid = true;
+    s_last.ok = ok;
+    strlcpy(s_last.msg, msg, sizeof(s_last.msg));
+    strlcpy(s_last.source, source, sizeof(s_last.source));
+    s_last.at_us = esp_timer_get_time();
+    s_state_dirty = true;
+    xSemaphoreGive(s_cmd_lock);
+
+    event_log_cmd(source, ok, msg);
+    if (ok) {
+        ESP_LOGI(TAG, "[%s] %s", source, msg);
+    } else {
+        ESP_LOGW(TAG, "[%s] rejected: %s", source, msg);
+    }
 }
 
 bool ctrl_execute(const char *json, size_t len, const char *source, char *msg, size_t msg_len)
@@ -327,20 +355,12 @@ bool ctrl_execute(const char *json, size_t len, const char *source, char *msg, s
 
 done:
     cJSON_Delete(root);
-    xSemaphoreTake(s_cmd_lock, portMAX_DELAY);  // guards s_last only
-    s_last.valid = true;
-    s_last.ok = ok;
-    strlcpy(s_last.msg, msg, sizeof(s_last.msg));
-    strlcpy(s_last.source, source, sizeof(s_last.source));
-    s_last.at_us = esp_timer_get_time();
-    s_state_dirty = true;
-    xSemaphoreGive(s_cmd_lock);
-
-    if (ok) {
-        ESP_LOGI(TAG, "[%s] %s", source, msg);
+    if (strcmp(source, "mqtt") == 0) {
+        event_log_route(ROUTE_CMD_MQTT, TOPIC_EMULATOR_CMD, len);
     } else {
-        ESP_LOGW(TAG, "[%s] rejected: %s", source, msg);
+        event_log_route(ROUTE_CMD_HTTP, "POST /api/cmd", len);
     }
+    ctrl_record(source, ok, msg);
     return ok;
 }
 
@@ -445,7 +465,10 @@ char *ctrl_state_json(void)
     cJSON_AddNumberToObject(wifi, "reconnects", wifi_reconnect_count());
 
     cJSON *mqtt = cJSON_AddObjectToObject(root, "mqtt");
-    cJSON_AddStringToObject(mqtt, "broker", mqtt_broker_uri());
+    char uri[96];
+    mqtt_broker_uri(uri, sizeof(uri));
+    cJSON_AddStringToObject(mqtt, "broker", uri);
+    cJSON_AddBoolToObject(mqtt, "reconfiguring", mqtt_reconfiguring());
     cJSON_AddBoolToObject(mqtt, "emulator_connected", s_connected);
 
     cJSON *clock = cJSON_AddObjectToObject(root, "time");
@@ -457,8 +480,9 @@ char *ctrl_state_json(void)
     }
     cJSON_AddNumberToObject(clock, "local_hour", time_local_hour());
 
-    cJSON_AddNumberToObject(root, "publish_interval_s", CONFIG_EMU_PUBLISH_INTERVAL_MS / 1000.0);
+    cJSON_AddNumberToObject(root, "publish_interval_s", app_config_publish_interval_ms() / 1000.0);
     cJSON_AddNumberToObject(root, "sim_speed", CONFIG_EMU_SIM_SPEED);
+    cJSON_AddBoolToObject(root, "config_saved", app_config_saved());
 
     cJSON *arr = cJSON_AddArrayToObject(root, "nodes");
     nodes_lock();
@@ -521,7 +545,29 @@ char *ctrl_meta_json(void)
         cJSON_AddStringToObject(o, "topic_display", g_nodes[i].topic_display);
         cJSON_AddItemToArray(nodes, o);
     }
-    cJSON_AddNumberToObject(root, "publish_interval_s", CONFIG_EMU_PUBLISH_INTERVAL_MS / 1000.0);
+    cJSON_AddNumberToObject(root, "publish_interval_s", app_config_publish_interval_ms() / 1000.0);
+    cJSON_AddStringToObject(root, "fw", esp_app_get_description()->version);
+
+    // GET /api/history layout: series order, scales and tiers
+    cJSON *hist = cJSON_AddObjectToObject(root, "history");
+    cJSON *series = cJSON_AddArrayToObject(hist, "series");
+    for (int s = 0; s < HIST_SERIES; s++) {
+        cJSON *o = cJSON_CreateObject();
+        cJSON_AddStringToObject(o, "key", s < METRIC_COUNT ? METRIC_INFO[s].key : "presence");
+        cJSON_AddNumberToObject(o, "scale", history_scale(s));
+        cJSON_AddItemToArray(series, o);
+    }
+    cJSON *tiers = cJSON_AddArrayToObject(hist, "tiers");
+    const char *tier_names[HIST_TIER_COUNT] = {"10m", "1h"};
+    for (int t = 0; t < HIST_TIER_COUNT; t++) {
+        cJSON *o = cJSON_CreateObject();
+        cJSON_AddStringToObject(o, "name", tier_names[t]);
+        cJSON_AddNumberToObject(o, "slots", history_cap((hist_tier_id_t)t));
+        cJSON_AddNumberToObject(o, "interval_s", t == HIST_FINE
+                                                     ? app_config_publish_interval_ms() / 1000.0
+                                                     : history_bucket_s());
+        cJSON_AddItemToArray(tiers, o);
+    }
     char *out = cJSON_PrintUnformatted(root);
     cJSON_Delete(root);
     return out;
@@ -538,7 +584,10 @@ void ctrl_publish_state(bool force)
     s_state_dirty = false;
     char *json = ctrl_state_json();
     if (json) {
-        esp_mqtt_client_publish(s_client, TOPIC_EMULATOR_STATE, json, 0, 0, 1);
+        size_t len = strlen(json);
+        if (esp_mqtt_client_publish(s_client, TOPIC_EMULATOR_STATE, json, (int)len, 0, 1) >= 0) {
+            event_log_route(ROUTE_STATE, TOPIC_EMULATOR_STATE, len);
+        }
         cJSON_free(json);
     }
 }
@@ -546,6 +595,43 @@ void ctrl_publish_state(bool force)
 bool ctrl_mqtt_connected(void)
 {
     return s_connected;
+}
+
+static rx_kind_t rx_kind_for(const char *topic, int len)
+{
+    struct {
+        const char *topic;
+        rx_kind_t kind;
+    } map[] = {
+        {TOPIC_EMULATOR_CMD, RX_CMD},
+        {TOPIC_AI_SUMMARY, RX_AI_SUMMARY},
+        {TOPIC_AI_INFERENCE, RX_AI_INFERENCE},
+    };
+    for (size_t i = 0; i < sizeof(map) / sizeof(map[0]); i++) {
+        if (len == (int)strlen(map[i].topic) && strncmp(topic, map[i].topic, len) == 0) {
+            return map[i].kind;
+        }
+    }
+    return RX_OTHER;
+}
+
+static void handle_cmd(const esp_mqtt_event_t *ev)
+{
+    if (ev->total_data_len == 0) {
+        return;  // empty publish = clearing a retained command (-r -n); nothing to run
+    }
+    if (s_rx_retained) {
+        // A retained command would re-run on every reconnect; refuse it.
+        ESP_LOGW(TAG, "Ignoring retained message on %s (publish commands without -r)",
+                 TOPIC_EMULATOR_CMD);
+        return;
+    }
+    char msg[160];
+    if (ev->total_data_len > CMD_MAX_LEN) {
+        ctrl_execute(s_rx, CMD_MAX_LEN + 1, "mqtt", msg, sizeof(msg));  // rejected as too long
+    } else {
+        ctrl_execute(s_rx, s_rx_len, "mqtt", msg, sizeof(msg));
+    }
 }
 
 static void on_ctrl_event(void *arg, esp_event_base_t base, int32_t id, void *data)
@@ -556,8 +642,13 @@ static void on_ctrl_event(void *arg, esp_event_base_t base, int32_t id, void *da
         s_connected = true;
         s_state_dirty = true;
         esp_mqtt_client_publish(ev->client, TOPIC_EMULATOR_STATUS, "online", 0, 1, 1);
+        event_log_route(ROUTE_STATUS, TOPIC_EMULATOR_STATUS, 6);
         esp_mqtt_client_subscribe(ev->client, TOPIC_EMULATOR_CMD, 1);
-        ESP_LOGI(TAG, "emulator: connected; listening on %s", TOPIC_EMULATOR_CMD);
+        // Read-only: the agent's summary and thinking state, for the panel and route view.
+        esp_mqtt_client_subscribe(ev->client, TOPIC_AI_SUMMARY, 1);
+        esp_mqtt_client_subscribe(ev->client, TOPIC_AI_INFERENCE, 1);
+        ESP_LOGI(TAG, "emulator: connected; listening on %s and intellithings/ai/*",
+                 TOPIC_EMULATOR_CMD);
         break;
     case MQTT_EVENT_DISCONNECTED:
         if (s_connected) {
@@ -566,9 +657,11 @@ static void on_ctrl_event(void *arg, esp_event_base_t base, int32_t id, void *da
         s_connected = false;
         break;
     case MQTT_EVENT_DATA: {
+        // Large payloads arrive in chunks; only the first carries the topic.
         if (ev->current_data_offset == 0) {
             s_rx_len = 0;
             s_rx_retained = ev->retain;
+            s_rx_kind = rx_kind_for(ev->topic, ev->topic_len);
         }
         size_t room = CMD_MAX_LEN - s_rx_len;
         size_t take = (size_t)ev->data_len < room ? (size_t)ev->data_len : room;
@@ -578,20 +671,21 @@ static void on_ctrl_event(void *arg, esp_event_base_t base, int32_t id, void *da
         if (ev->current_data_offset + ev->data_len < ev->total_data_len) {
             break;  // more chunks to come
         }
-        if (ev->total_data_len == 0) {
-            break;  // empty publish = clearing a retained command (-r -n); nothing to run
-        }
-        if (s_rx_retained) {
-            // A retained command would re-run on every reconnect; refuse it.
-            ESP_LOGW(TAG, "Ignoring retained message on %s (publish commands without -r)",
-                     TOPIC_EMULATOR_CMD);
+        switch (s_rx_kind) {
+        case RX_CMD:
+            handle_cmd(ev);
             break;
-        }
-        char msg[160];
-        if (ev->total_data_len > CMD_MAX_LEN) {
-            ctrl_execute(s_rx, CMD_MAX_LEN + 1, "mqtt", msg, sizeof(msg));  // rejected as too long
-        } else {
-            ctrl_execute(s_rx, s_rx_len, "mqtt", msg, sizeof(msg));
+        case RX_AI_SUMMARY:
+        case RX_AI_INFERENCE:
+            event_log_route(ROUTE_AI_IN,
+                            s_rx_kind == RX_AI_SUMMARY ? TOPIC_AI_SUMMARY : TOPIC_AI_INFERENCE,
+                            (size_t)ev->total_data_len);
+            ai_message_handle_ai_topic(
+                s_rx_kind == RX_AI_SUMMARY ? AI_TOPIC_SUMMARY : AI_TOPIC_INFERENCE, s_rx,
+                s_rx_len, s_rx_retained);
+            break;
+        default:
+            break;
         }
         break;
     }
@@ -606,33 +700,53 @@ void ctrl_init(void)
     configASSERT(s_cmd_lock);
 }
 
+static void ctrl_config(esp_mqtt_client_config_t *cfg, const app_config_t *c, const char *uri)
+{
+    mqtt_fill_config(cfg, c, uri);
+    cfg->credentials.client_id = "intellithings-emulator";
+    cfg->session.last_will.topic = TOPIC_EMULATOR_STATUS;
+    cfg->session.last_will.msg = "offline";
+    cfg->session.last_will.qos = 1;
+    cfg->session.last_will.retain = 1;
+    cfg->buffer.out_size = 4096;
+}
+
+void ctrl_mqtt_restart(const app_config_t *c, const char *uri)
+{
+    esp_mqtt_client_config_t cfg;
+    ctrl_config(&cfg, c, uri);
+    if (!s_client) {
+        s_client = esp_mqtt_client_init(&cfg);
+        if (!s_client) {
+            ESP_LOGE(TAG, "emulator: client init failed");
+            return;
+        }
+        esp_mqtt_client_register_event(s_client, ESP_EVENT_ANY_ID, on_ctrl_event, NULL);
+    } else if (esp_mqtt_set_config(s_client, &cfg) != ESP_OK) {
+        ESP_LOGE(TAG, "emulator: applying the new settings failed");
+    }
+    esp_mqtt_client_start(s_client);
+}
+
 void ctrl_start(void)
 {
-    if (!CONFIG_EMU_MQTT_HOST[0]) {
-        return;
-    }
-    esp_mqtt_client_config_t cfg = {
-        .broker.address.uri = mqtt_broker_uri(),
-        .credentials.client_id = "intellithings-emulator",
-        .credentials.username = CONFIG_EMU_MQTT_USERNAME[0] ? CONFIG_EMU_MQTT_USERNAME : NULL,
-        .credentials.authentication.password =
-            CONFIG_EMU_MQTT_PASSWORD[0] ? CONFIG_EMU_MQTT_PASSWORD : NULL,
-        .session.keepalive = 15,
-        .session.last_will = {
-            .topic = TOPIC_EMULATOR_STATUS,
-            .msg = "offline",
-            .qos = 1,
-            .retain = 1,
-        },
-        .network.reconnect_timeout_ms = 5000,
-        .buffer.size = 1024,
-        .buffer.out_size = 4096,
-    };
-    s_client = esp_mqtt_client_init(&cfg);
+    app_config_t c;
+    app_config_get(&c);
+    char uri[96];
+    mqtt_broker_uri(uri, sizeof(uri));
+    ctrl_mqtt_restart(&c, uri);
+}
+
+void ctrl_mqtt_stop(void)
+{
     if (!s_client) {
-        ESP_LOGE(TAG, "emulator: client init failed");
         return;
     }
-    esp_mqtt_client_register_event(s_client, ESP_EVENT_ANY_ID, on_ctrl_event, NULL);
-    esp_mqtt_client_start(s_client);
+    if (s_connected) {
+        // Leave the old broker cleanly (see mqtt_node.c reconf_task).
+        esp_mqtt_client_publish(s_client, TOPIC_EMULATOR_STATUS, "offline", 0, 0, 1);
+    }
+    s_connected = false;
+    esp_mqtt_client_stop(s_client);
+    s_connected = false;
 }
