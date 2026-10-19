@@ -147,10 +147,17 @@ both sides agree. The full list and due dates are in the Collaboration Guideline
 **Never commit** Wi-Fi passwords, HA tokens, OpenRouter / AWS keys, chat bot tokens or
 webhook secrets — not in code, not in config, not "temporarily."
 
-- **ESP32:** Wi-Fi credentials and broker address live in NVS, never hardcoded.
-- **Cloud:** AWS Secrets Manager / Lambda environment config.
+- **Node firmware:** Wi-Fi settings go in the local, gitignored
+  `software/firmware/.cargo/esp-config.toml` and are compiled into the firmware. That's fine
+  for the prototype, but don't share firmware images that contain real credentials.
+- **AI pipeline on the Pi:** HA token and OpenRouter key in the gitignored root `.env`
+  (template: `.env.example`).
+- **Emulator ESP32:** Wi-Fi and broker login in the gitignored `sdkconfig.local`.
 - **Home Assistant:** `secrets.yaml` (gitignored), referenced with `!secret`.
-- **Local:** gitignored config files.
+- **Future cloud option:** AWS Secrets Manager / Lambda environment config.
+- **Shared team accounts and passwords** (HA logins, MQTT users, service accounts): save them
+  in the team's shared Google Drive folder (e.g. the AI Team folder) so nobody loses them —
+  never in Git.
 
 If you commit a secret by accident, tell a lead immediately and rotate it. Deleting it in a
 follow-up commit doesn't help — it stays in git history.

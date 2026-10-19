@@ -57,7 +57,7 @@ purifier, humidifier…) for the rest.
 
 | Block | Part |
 |---|---|
-| MCU | ESP32-C6 (DevKitC-1-N8 for dev; bare chip on a custom PCB for the final nodes, DevKit-on-headers as fallback) |
+| MCU | ESP32-C6-DevKitC-1-N8 — on the dev rigs, then plugged into sockets on the custom PCB in the final nodes |
 | I2C sensors | SHT41 (temp/RH) · SGP40 (VOC Index) · SCD41 (CO₂) · BH1750 (light) · VL53L0X (ToF distance) |
 | UART / GPIO sensors | PMS5003 (PM1.0/2.5/10) · LD2410C mmWave presence (OUT pin) |
 | Display | DWIN DMG80480T050_09WN — 5", 800×480, UART (TTL mode), DGUS, 12 V |
@@ -72,8 +72,8 @@ PCBs in 3D-printed enclosures.
 
 **Firmware** Rust (`no_std`, stable; minimum 1.95, edition 2024) · `esp-hal` 1.2.2 · `esp-rtos` 0.4 · Embassy async tasks/networking · `esp-radio` 1.0.0-beta.1
 **Protocols** Wi-Fi · MQTT · MCP (Matter was dropped)
-**Hub** Home Assistant OS on Raspberry Pi 5 · Mosquitto · Nabu Casa remote access
-**Cloud** AWS Lambda + API Gateway (HTTP API) · Python · OpenRouter for model testing
+**Hub** Raspberry Pi 5 · Raspberry Pi OS + Docker · Home Assistant Container · Mosquitto container · Python agent (OpenRouter)
+**Cloud** OpenRouter for the LLM · future option: AWS Lambda + API Gateway (HTTP API) · Nabu Casa remote access
 **Hardware** KiCad · JLCPCB · 3D printing
 
 ## Documentation
@@ -99,10 +99,9 @@ format, …) are written in `docs/interfaces/` **before** anyone builds against 
 |---|---|---|---|
 | **Hardware** | 7 | @LiamWatson-Purdue | Rigs, pin map, power, PCB, enclosure |
 | **Software** | 9 | @LukeTuthill | ESP32-C6 firmware, display GUI, MQTT topic contract |
-| **AI — Cloud** | 6 (AI total) | @ProgrammingJohn | Lambda harness, MCP client loop, prompts, model testing, chat bot |
-| **AI — Local** | | Undecided | Home Assistant, broker, entities, virtual devices, MCP Server, dashboard |
+| **AI** | 6 | @ProgrammingJohn | Home Assistant, broker, entities, virtual devices, MCP Server, dashboard; the agent, prompts, model testing, chat bot |
 | **AI — Emulator** | | @spicybutter (PM) | Emulator ESP32 — 3 simulated nodes for early AI testing |
-| **PM** | 2 | @spicybutter · @rakkicow | Cross-team coordination; code owners on every path |
+| **PM** | 2 | @spicybutter · @rakkicow | Cross-team coordination; code owners on every path. @rakkicow also owns the display UI |
 
 ## Workflow
 
@@ -142,10 +141,10 @@ Nov 29. Full per-subteam schedule in the
 
 | Milestone | Date |
 |---|---|
-| Rigs built, baseline firmware, emulator feeding HA | Sep 27 |
-| Pin map, MQTT schema and `/ha-event` format frozen | Oct 4 |
-| HA → Lambda → MCP loop working; real rig data starts | Oct 18 |
-| PCB layout; bare chip vs. DevKit fallback decided | Oct 25 |
+| Rigs built, emulator feeding HA ✓ | Sep 27 |
+| MQTT schema agreed; LLM pipeline working ✓ | Oct 4 |
+| All I2C sensors working; schematic; AI messages to the node displays ✓ | Oct 18 |
+| PCB layout (DevKit + breakouts on sockets); final pin map | Oct 25 |
 | PCB order (JLCPCB) | Nov 1 |
 | 3 final nodes assembled and added to HA | Nov 15 |
 | Full-system verification, ECE SPARK prep | Dec 6 |

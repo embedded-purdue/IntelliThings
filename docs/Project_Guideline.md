@@ -1,5 +1,5 @@
 # IntelliThings — Project Guideline
-*ES@P | Fall '26 | Last updated Sept 26, 2026*
+*ES@P | Fall '26 | Last updated Oct 18, 2026*
 
 > The single reference for what we're building, what we've bought, and who owns what. It pulls together every decision made since the May 2026 proposal. Deeper design reasoning lives in the companion docs listed at the end; if anything there disagrees with this guideline, this guideline is current.
 >
@@ -11,18 +11,18 @@
 
 | Area | Proposal (May 2026) | Current decision |
 |---|---|---|
-| Microcontroller | ESP32-C5 | **ESP32-C6** — DevKitC-1-N8 for dev; bare ESP32-C6 chip on a custom SMT PCB for the final nodes if time allows, otherwise the DevKit plugged into headers on the PCB |
-| Firmware | Embedded C + FreeRTOS, ESP-IDF | **Rust ("std") on ESP-IDF v6.1.0** via `esp-idf-sys` 0.38 / `esp-idf-hal` 0.47 / `esp-idf-svc` 0.53 (FreeRTOS still runs underneath); **nightly Rust**, exact nightly date pinned after the first successful build |
+| Microcontroller | ESP32-C5 | **ESP32-C6** — **ESP32-C6-DevKitC-1-N8 plugged into sockets on the PCB** for the final nodes (bare chip dropped); the same DevKits are used on the dev rigs |
+| Firmware | Embedded C + FreeRTOS, ESP-IDF | **Bare-metal `no_std` Rust** with `esp-hal` 1.2, `esp-rtos` 0.4 and **Embassy** async tasks; **stable Rust** (≥1.95); details in `software/README.md` |
 | Node protocols | MQTT + Matter | **MQTT only** — Matter dropped |
-| Sensors | Temp, humidity, PM2.5/PM10, TVOC, PIR, ultrasonic | **7 parts:** SHT41, SGP40, SCD41, BH1750, VL53L0X, PMS5003, LD2410C (adds CO₂ + light; ToF replaces ultrasonic; mmWave replaces PIR) |
-| Display | 7" color screen | **DWIN DMG80480T050_09WN** — 5", 800×480 IPS, no touch, UART, **12 V** |
-| Light output | — | **WS2812B addressable LED bar** (strip type chosen after testing) |
-| Node power | Not specified | 12 V or 5 V wall adapter (USB-C or barrel jack); 5 V input needs a 5 V → 12 V boost for the display |
-| LLM | OpenAI GPT-4.1 called from the Pi | **Custom agent harness on AWS Lambda + API Gateway**; models tested through **OpenRouter** first, final model chosen from the tests |
+| Sensors | Temp, humidity, PM2.5/PM10, TVOC, PIR, ultrasonic | **7 parts:** SHT41, SGP40, SCD41, BH1750, VL53L0X, PMS5003, LD2410C (adds CO₂ + light; ToF replaces ultrasonic; mmWave replaces PIR); **breakout boards on sockets** in the final nodes too |
+| Display | 7" color screen | **DWIN DMG80480T050_09WN** — 5", 800×480 IPS, no touch, UART, **12 V**; **custom DGUS UI** by @rakkicow, driven through the [VP map](interfaces/display-vp-map.md) |
+| Light output | — | **WS2812B addressable LED bar**, driven by the node's ESP32 (strip type chosen after testing) |
+| Node power | Not specified | **USB-C 5 V input** (power only) + a 5 V → 12 V boost for the display |
+| LLM | OpenAI GPT-4.1 called from the Pi | **Custom Python agent running on the Pi** (every 5 min; also triggering it from HA on big changes is in progress), calling models through **OpenRouter**; AWS Lambda + API Gateway kept as a **future option** |
 | How the AI acts | MQTT / Matter commands | **Home Assistant MCP Server** — agent calls HA as tools |
 | User interfaces | Display; optional buttons / mic / speaker | Display + LED bar on the node + a **chat bot** — **Discord or Telegram (🗳 TEAM DECISION)** |
-| Build plan | Not specified | **Emulator ESP32** (3 simulated nodes, for early AI testing) + **2 identical breadboard dev rigs** → **3 final sensor nodes** (SMT PCB + 3D-printed enclosure) |
-| Team structure | Software, Hardware, LLM, Smart Home roles | **3 subteams: Hardware, Software, AI** with confirmed leads (§8); the AI subteam is overseen by a Local AI lead (undecided) and a Cloud AI lead |
+| Build plan | Not specified | **Emulator ESP32** (3 simulated nodes, for early AI testing) + **2 identical breadboard dev rigs** → **3 final sensor nodes** (custom PCB + 3D-printed enclosure) in the **kitchen, bedroom and living room** |
+| Team structure | Software, Hardware, LLM, Smart Home roles | **3 subteams: Hardware, Software, AI**, each with one lead (§8) |
 | Schedule | 13 weekly steps | **11 Sunday work sessions**, Sept 6 – Dec 6 (§9) |
 
 ---
@@ -39,7 +39,7 @@
 - Only works with devices bound to a **Xiaomi Mi Home account**.
 - Always-on cameras plus cloud video processing raise **privacy** concerns and add deployment complexity.
 
-**Where IntelliThings differs:** low-cost, privacy-preserving **environmental sensors** instead of cameras; no local compute box (reasoning runs in a **cloud agent**); open protocols end to end (**MQTT, Home Assistant, MCP**) instead of a single-vendor ecosystem. Miloco wins on perception richness (vision) and maturity (shipped product) — we trade those for cost, privacy and openness.
+**Where IntelliThings differs:** low-cost, privacy-preserving **environmental sensors** instead of cameras; no extra compute box (the agent runs on the Home Assistant Pi and the reasoning happens in a **cloud LLM**); open protocols end to end (**MQTT, Home Assistant, MCP**) instead of a single-vendor ecosystem. Miloco wins on perception richness (vision) and maturity (shipped product) — we trade those for cost, privacy and openness.
 
 **Showcase target:** ECE SPARK Challenge.
 
@@ -51,56 +51,52 @@
 
 ```
 ┌──────────── Desktop Sensor Node (×3 final, ×2 dev rigs) ─────────┐
-│ 12 V in (or 5 V in + 5→12 V boost)                               │
-│   ├─► DWIN 5" display (12 V)                                     │
-│   └─► 5 V ─┬─► PMS5003 · LD2410C · WS2812B LED bar               │
-│            └─► 3.3 V ─► ESP32-C6 · I2C sensors                   │
+│ USB-C 5 V in ─┬─► 5→12 V boost ─► DWIN 5" display (12 V)         │
+│               ├─► PMS5003 · LD2410C · WS2812B LED bar            │
+│               └─► ESP32-C6-DevKitC-1 (3.3 V) ─► I2C sensors      │
 │                                                                  │
-│ ESP32-C6 (Rust + ESP-IDF)                                        │
-│  I2C bus: SHT41 · SGP40 · SCD41 · BH1750 · VL53L0X               │
-│  UART0:   PMS5003 (PM1.0/2.5/10)                                 │
-│  UART1:   DWIN DMG80480T050_09WN display (TTL mode, DGUS)        │
+│ ESP32-C6 (no_std Rust · esp-hal · Embassy)                       │
+│  I2C bus: SHT41 · SGP40 · SCD41 · BH1750 · VL53L0X (GPIO6/7)     │
+│  UART:    PMS5003 (PM1.0/2.5/10)                                 │
+│  UART:    DWIN display (TTL mode, custom DGUS UI via VP map)     │
 │  GPIO:    LD2410C OUT (presence)                                 │
-│  RMT:     WS2812B LED bar (via 5 V level shifter)                │
+│  GPIO:    WS2812B LED bar (method TBD)                           │
 └──────────────┬─────────────────────────────▲─────────────────────┘
    publish     │ Wi-Fi / MQTT                │ subscribe
    .../sensors │                             │ .../display
-┌──────────────▼─────────────────────────────┴───────┐
-│ Raspberry Pi 5 — Home Assistant OS                  │
-│  Mosquitto MQTT broker (add-on)                     │
-│  MQTT sensor entities · virtual devices · dashboard │
-│  Automation ──(HTTPS POST: state snapshot)──────────┼──┐
-│  MCP Server integration ◄──(MCP tool calls)─────────┼──┼──┐
-└──────────────▲──────────────────────────────────────┘  │  │
-               │ Nabu Casa remote access (HA Cloud)      │  │
-┌──────────────┴──────────────────────────────────────┐  │  │
-│ AWS: API Gateway (HTTP API) → Lambda agent harness  │◄─┘  │
-│   MCP client ─────────────────────────────────────────────┘
-│   LLM via OpenRouter (testing) → final provider     │
-│   Chat webhook ◄──► Discord or Telegram bot         │
-└─────────────────────────────────────────────────────┘
+┌──────────────▼─────────────────────────────┴────────────┐
+│ Raspberry Pi 5 — Raspberry Pi OS + Docker (192.168.1.2) │
+│  Mosquitto broker (container)                           │
+│  Home Assistant Container: MQTT entities · virtual      │
+│    devices · dashboard · MCP Server integration         │
+│  AI agent (Python, systemd timer):                      │
+│    MCP client ──► OpenRouter (LLM, in the cloud)        │
+│    ──► HA tool call ──► room messages via MQTT          │
+└─────────────────────────────────────────────────────────┘
+  Future option: AWS Lambda + API Gateway (/ha-event, /chat) for the
+  agent and the chat bot (Discord or Telegram), reaching HA via Nabu Casa
 ```
 
 ### 2.2 Components
 
-1. **Sensor nodes** — ESP32-C6 + 7 sensors + 5" DWIN display + WS2812B LED bar. Two breadboard rigs during development, three finished nodes on custom PCBs in 3D-printed enclosures for the final product. Room placement: **🗳 TEAM DECISION** (§10). Early on, an **emulator ESP32** stands in for all three nodes with simulated data (§3.1a).
-2. **Wi-Fi router** — home network and internet uplink (already owned).
-3. **Raspberry Pi 5 running Home Assistant OS** (already owned) — hosts the **Mosquitto MQTT broker add-on**, turns MQTT payloads into HA entities, runs automations, hosts virtual devices and the dashboard.
-4. **Hand-off to the agent** — an HA automation sends a state snapshot to the cloud agent's HTTPS endpoint (e.g. via `rest_command`) when something relevant changes. HA's *AI Task* integration only runs against LLM integrations configured inside HA, so it can't target our Lambda harness; it stays useful for quick in-HA experiments.
-5. **Cloud AI agent** — a small custom harness on **AWS Lambda behind API Gateway (HTTP API)**. It calls the LLM with the snapshot, a system prompt and the tools exposed by HA.
-6. **Action via MCP** — the LLM *decides*; MCP is *how* the decision is executed. The harness acts as an **MCP client** to **HA's Model Context Protocol Server** integration: it lists HA's tools, hands them to the model, and runs the tool calls the model makes. HA's entity-exposure settings limit exactly which devices/services the agent can touch.
+1. **Sensor nodes** — ESP32-C6 + 7 sensors + 5" DWIN display + WS2812B LED bar. Two breadboard rigs during development, three finished nodes on custom PCBs in 3D-printed enclosures for the final product, in the **kitchen, bedroom and living room**. Early on, an **emulator ESP32** stands in for all three nodes with simulated data (§3.1a).
+2. **Wi-Fi router** — home network and internet uplink (already owned). The Pi (`192.168.1.2`) and the emulator (`192.168.1.4`) have fixed addresses set in the router.
+3. **Raspberry Pi 5 running Raspberry Pi OS + Docker** (already owned) — runs **Home Assistant Container** and a separate **Mosquitto** container. HA turns MQTT payloads into entities, runs automations, hosts virtual devices and the dashboard.
+4. **When the agent runs** — a **systemd timer every 5 minutes**. Calling it from HA automations/helpers when something changes a lot is being worked on — **open discussion** (§6). HA's *AI Task* integration only runs against LLM integrations configured inside HA, so it isn't the production path; it stays useful for quick in-HA experiments.
+5. **AI agent** — a small custom **Python** harness **on the Pi** (`ai/`). It reads the home state from HA, calls the LLM through OpenRouter with a system prompt and the allowed tools, and publishes the results. **AWS Lambda behind API Gateway** stays a **future option** (§6).
+6. **Action via MCP** — the LLM *decides*; MCP is *how* the decision is executed. The harness acts as an **MCP client** to **HA's Model Context Protocol Server** integration: it lists HA's tools, hands the allowed ones to the model, and runs the tool calls the model makes. HA's entity-exposure settings and the harness's allowlist limit exactly which devices the agent can touch.
 7. **Real and virtual devices** — HA service calls hit real devices where we have them, and **virtual devices** (template/helper entities) for thermostat, lights, fan, purifier, humidifier, etc. in the prototype.
-8. **Feedback to the node** — HA publishes the AI's message to the node's `.../display` topic. The screen always shows all environmental readings, plus a **dedicated AI feedback section** that keeps showing the latest AI message until a new one arrives. The LED bar's role is a **🗳 TEAM DECISION** (§3.5).
-9. **Chat control** — a **chat bot** (Discord or Telegram — **🗳 TEAM DECISION**, §6) sends commands such as "turn off all the lights" to a second API Gateway route on the *same* Lambda, which runs the same LLM + MCP logic and replies in the chat.
+8. **Feedback to the node** — the agent publishes a short message per room to each node's `.../display` topic (retained). The screen always shows all environmental readings, plus a **dedicated AI feedback section** that keeps showing the latest AI message until a new one arrives. The LED bar's role is a **🗳 TEAM DECISION** (§3.5).
+9. **Chat control** — a **chat bot** (Discord or Telegram — **🗳 TEAM DECISION**, §6) for commands such as "turn off all the lights", running the same LLM + MCP logic and replying in the chat. Where it runs is open (the future Lambda option has a `/chat` route for it).
 10. **Dashboard** — real-time HA dashboard including a 3D/floor-plan view. HA has no native 3D floor plan, so this needs a community Lovelace card or a custom one.
 
 ### 2.3 Flows
 
-**Autonomous (sensor-driven):**
-`sensor → ESP32-C6 → MQTT (.../sensors) → Mosquitto → HA entities → HA automation → API Gateway → Lambda harness → LLM decides → MCP call → HA MCP Server → HA service call → real/virtual device → dashboard update + message to node display`
+**Autonomous (sensor-driven), as built:**
+`sensor → ESP32-C6 → MQTT (.../sensors) → Mosquitto → HA entities → (every 5 min) agent on the Pi → MCP GetLiveContext → OpenRouter LLM decides → MCP call → HA → real/virtual device → dashboard update + room messages to the node displays`
 
-**Chat-driven:**
-`Chat message or command (Discord or Telegram) → API Gateway → Lambda → LLM → MCP call → HA → device → reply in the chat` (Discord adds a 3-second acknowledge step — §6)
+**Chat-driven (planned):**
+`Chat message or command (Discord or Telegram) → agent → LLM → MCP call → HA → device → reply in the chat` (Discord adds a 3-second acknowledge step — §6)
 
 ---
 
@@ -111,14 +107,14 @@
 | Phase | What | Parts |
 |---|---|---|
 | **Development** | **Two identical breadboard rigs** — **Rig H** for the Hardware subteam, **Rig S** for the Software subteam. Identical wiring so code and measurements transfer 1:1. Stored in project boxes between sessions. | Dev-only: Adafruit breakouts, ESP32-C6-DevKitC-1-N8, breadboards. Shared: displays, LD2410C, PMS5003, LED strip, connectors |
-| **Final product** | **Three sensor nodes** — custom PCB with **SMT parts**, each in a **3D-printed enclosure**. | SMT sensors + ESP32-C6 on the PCB (or the DevKit plugged into headers); PMS5003 and LD2410C as modules; displays, LED strip, connectors, LD2410C and both PMS5003s reused from dev |
+| **Final product** | **Three sensor nodes** — custom PCB with the **ESP32-C6 DevKit and the sensor breakout boards plugged into sockets**, each in a **3D-printed enclosure**. | DevKit + breakouts on sockets (custom footprints); PMS5003 and LD2410C as modules; displays, LED strip, connectors, LD2410C and both PMS5003s reused from dev |
 
 **Unit allocation:**
 
 | Part | Qty owned | Rig H | Rig S | Spare | Final nodes |
 |---|---|---|---|---|---|
-| ESP32-C6-DevKitC-1-N8 | 3 | 1 | 1 | 1 | Only if the DevKit-on-headers fallback is used (all 3 move into the final nodes) |
-| SHT41, SGP40, SCD41, BH1750, VL53L0X breakouts | 2 each | 1 | 1 | — | — (replaced by SMT parts) |
+| ESP32-C6-DevKitC-1-N8 | 3 | 1 | 1 | 1 | All 3 move into the final nodes (on sockets) |
+| SHT41, SGP40, SCD41, BH1750, VL53L0X breakouts | 2 each | 1 | 1 | — | Move into the final nodes (on sockets); node 3 needs a third set (purchase TBD) |
 | PMS5003 kit | 2 | 1 | 1 | — | Both move to final nodes; **buy 1 more** for node 3 |
 | LD2410C | 3 | 1 | 1 | 1 | All 3 move to final nodes |
 | DWIN 5" display | 3 | 1 | 1 | 1 | All 3 move to final nodes |
@@ -133,7 +129,9 @@
 
 ### 3.1a Emulator ESP32 — early AI testing (AI subteam; owner: @spicybutter, PM)
 
-So the AI subteam can build and test the Home Assistant + cloud AI pipeline **before the Software subteam's firmware is ready**, one spare ESP32 board from @spicybutter's own stock runs as a **sensor-data emulator**. It has no sensors attached. The emulator belongs to the **AI subteam** (code in `ai/emulator/`); @spicybutter (PM) builds and maintains it.
+So the AI subteam can build and test the Home Assistant + AI pipeline **before the Software subteam's firmware is ready**, one spare ESP32 board from @spicybutter's own stock runs as a **sensor-data emulator**. It has no sensors attached. The emulator belongs to the **AI subteam** (code in `ai/emulator/`); @spicybutter (PM) builds and maintains it.
+
+**Status:** built, network-tested and running on the team network since Sep 27, at **`192.168.1.4`** (fixed in the router).
 
 - **Board:** a LuatOS ESP32-C3 Core, running C on ESP-IDF v6.1 (the emulator shares no code with the node firmware, only the MQTT contract). Full guide: `ai/emulator/README.md`.
 - **Three emulated nodes on one board:** it publishes as `emu-kitchen`, `emu-bedroom` and `emu-living-room`, each with its own topics and its own MQTT connection and Last Will, so HA sees three independent devices — the same count as the final product.
@@ -141,36 +139,33 @@ So the AI subteam can build and test the Home Assistant + cloud AI pipeline **be
 - **Every reading in the system:** each emulated node publishes the full sensor set from §3.3 — temperature, humidity, VOC Index, CO₂, lux, distance, PM1.0/PM2.5/PM10 and presence — as fake but plausible values.
 - **Same MQTT contract as the real nodes (§4):** same topic pattern, same JSON fields and units, plus `.../status` (online/offline) — so nothing in HA or the agent changes when real nodes replace the emulated ones. It also subscribes to each emulated node's `.../display` topic and prints the AI messages over serial, which tests the feedback path end to end.
 - **Useful test behavior:** values drift slowly like a real room, with scripted events the agent should react to (e.g. CO₂ climbing, a hot room with presence, a PM2.5 spike, presence turning off).
-- **Control panel:** the emulator serves a web page (`http://intellithings-emu.local/`) where the AI team triggers those events with one click, forces any value into a range, sees system status and reads the AI messages each node received. The same commands work over MQTT on `intellithings/emulator/cmd` (a reserved namespace real nodes never use).
-- **Schema coordination:** until the MQTT schema is fixed on Oct 4, the emulator's JSON is the working draft (`docs/interfaces/mqtt.md`); the Software subteam's firmware and the AI subteam's emulator both follow the agreed schema after that.
+- **Control panel:** the emulator serves a web page (`http://192.168.1.4/` or `http://intellithings-emu.local/`) where the AI team triggers those events with one click, forces any value into a range, sees system status and reads the AI messages each node received. The same commands work over MQTT on `intellithings/emulator/cmd` (a reserved namespace real nodes never use).
+- **Schema coordination:** the MQTT schema was agreed on Oct 4 ([`interfaces/mqtt.md`](interfaces/mqtt.md)); the Software subteam's firmware and the emulator both follow it.
 - **Retirement:** once the rigs publish real data, the emulated nodes are disabled in HA (the emulator stays available for testing the agent and dashboard without hardware).
 
 ### 3.2 Microcontroller
 
 **Chip: ESP32-C6** — Wi-Fi 6 (2.4 GHz) + BLE 5 + 802.15.4 (unused), single RISC-V core @160 MHz, 30 GPIO nominal, 2 full UARTs + 1 LP-UART, RMT peripheral, no PSRAM.
 
-Why C6: RISC-V is an official upstream Rust target (no forked Xtensa toolchain like S3), it has a mature Rust-on-ESP-IDF community, and it has enough GPIO headroom (~12 "safe" pins on the DevKitC-1) for this node. C5/C61 were set aside as newer chips (stable ESP-IDF support only since v6.0, March 2026), which would stack new-chip risk on top of the team's first Rust project.
+Why C6: RISC-V is an official upstream Rust target (no forked Xtensa toolchain like S3), Espressif maintains first-party bare-metal Rust support for it (`esp-hal`, `esp-radio`), and it has enough GPIO headroom (~12 "safe" pins on the DevKitC-1) for this node. C5/C61 were set aside as newer chips, which would stack new-chip risk on top of the team's first Rust project.
 
-- **Dev:** Espressif **ESP32-C6-DevKitC-1-N8** (Adafruit PID 5672) ×3. Two USB-C ports: USB-UART bridge (GPIO16/17) + native USB/JTAG (GPIO12/13) — flash and debug at the same time. 8 MB flash leaves room for OTA.
-- **Final — plan: bare ESP32-C6 chip if time allows.** A bare chip means designing the 40 MHz crystal, external SPI flash, RF matching network and PCB antenna (following Espressif's hardware design guidelines and reference layout) and tuning the antenna.
-- **Final — fallback: plug the ESP32-C6 dev board into the PCB.** The PCB gets headers matching the DevKitC-1's pin layout, and the dev board (with its certified WROOM-1 module, antenna, USB and regulator) plugs in:
-  - **Female headers (preferred):** the DevKit plugs in and can be pulled out — easy to swap, reflash or reuse. More flexible.
-  - **Male headers, soldered:** the DevKit is pushed onto male pins and soldered down — sturdier, but permanent.
-  - Switch to this fallback if the bare-chip layout isn't ready by the PCB layout session (Oct 25). The three DevKits from the dev rigs can move into the final nodes when the rigs are retired. Keep the DevKit's antenna end past the board edge, clear of copper and metal.
+- **Dev:** Espressif **ESP32-C6-DevKitC-1-N8** (Adafruit PID 5672) ×3. Two USB-C ports: USB-UART bridge (GPIO16/17) + native USB/JTAG (GPIO12/13). Flashing and the serial monitor go through `cargo run` (espflash). 8 MB flash leaves room for OTA.
+- **Final — decided: plug the ESP32-C6 DevKit into sockets on the PCB.** The dev board (with its certified WROOM-1 module, antenna, USB and regulator) plugs into female headers, so it can be pulled out to swap, reflash or reuse. The three DevKits from the dev rigs move into the final nodes. Keep the DevKit's antenna end past the board edge, clear of copper and metal. (A bare ESP32-C6 chip was considered and dropped.)
 
 ### 3.3 Sensors
 
 | Measures | Dev part (bought) | Interface / addr | Supply | Output | Final-PCB form |
 |---|---|---|---|---|---|
-| Temp + humidity | Adafruit **SHT41** (PID 5776) | I2C 0x44 | 3–5 V | °C, %RH (±0.2 °C, ±1.8 %RH) | SHT41 chip (SMT) |
-| TVOC | Adafruit **SGP40** (PID 4829) | I2C 0x59 | 3–5 V | VOC Index 0–500 (uses SHT41 data for compensation) | SGP40 chip (SMT) |
-| CO₂ | Adafruit **SCD41** (PID 5190) | I2C 0x62 | 3–5 V | CO₂ 400–5000 ppm (+ temp/RH) | SCD41 module (SMT) |
-| Ambient light | Adafruit **BH1750** (PID 4681) | I2C 0x23 | 3–5 V | lux | BH1750 chip (SMT) |
-| Distance | Adafruit **VL53L0X** ToF (PID 3317) | I2C 0x29 | 3–5 V | mm, ~30–1000 mm (≈1.2 m max) | VL53L0X module (SMT) + cover window |
+| Temp + humidity | Adafruit **SHT41** (PID 5776) | I2C 0x44 | 3–5 V | °C, %RH (±0.2 °C, ±1.8 %RH) | Breakout on a socket |
+| TVOC | Adafruit **SGP40** (PID 4829) | I2C 0x59 | 3–5 V | VOC Index 0–500 (uses SHT41 data for compensation) | Breakout on a socket |
+| CO₂ | Adafruit **SCD41** (PID 5190) | I2C 0x62 | 3–5 V | CO₂ 400–5000 ppm (+ temp/RH) | Breakout on a socket |
+| Ambient light | Adafruit **BH1750** (PID 4681) | I2C 0x23 | 3–5 V | lux | Breakout on a socket |
+| Distance | Adafruit **VL53L0X** ToF (PID 3317) | I2C 0x29 | 3–5 V | mm, ~30–1000 mm (≈1.2 m max) | Breakout on a socket + window |
 | PM1.0 / 2.5 / 10 | **PMS5003** + breadboard adapter kit (Adafruit PID 3686) | UART 9600 baud | **5 V**, 3.3 V logic | Binary frames, µg/m³ | Same module (fan unit) on a board connector |
 | Human presence | Hi-Link **LD2410C** mmWave (Qoroos 3-pack) | GPIO (OUT pin) | 5 V (check module datasheet), 3.3 V logic | HIGH/LOW presence | Same module on header/connector |
 
-- All five I2C parts share **one bus (2 pins)**; default addresses don't conflict.
+- All five I2C parts share **one bus (2 pins: SDA GPIO6, SCL GPIO7, 100 kHz)**; default addresses don't conflict. **All five read correctly on the rigs (Oct 18).**
+- **Final PCB:** the breakout boards plug into 5- and 6-pin sockets; custom footprints for each breakout are being made (Hardware).
 - **LD2410C wiring:** VCC/GND/OUT only (boolean presence, no UART used). Its UART output (distance, moving vs. stationary) is available later if a UART frees up.
 - **VL53L0X range:** ~3 cm–1.2 m — good for "someone at the desk / something in front of the unit," not for measuring across a room.
 - **Before first power-on:** confirm the LD2410C's supply voltage from the Qoroos listing/datasheet — sources disagree between modules.
@@ -187,12 +182,13 @@ Why C6: RISC-V is an official upstream Rust target (no forked Xtensa toolchain l
 | Operating temp | −20 to 70 °C |
 | Qty | 3 — used on the dev rigs, then moved into the three final nodes |
 
-- **⚠ Set UART2 to TTL mode before wiring it to the ESP32.** In RS232 mode the display drives RS232 voltage levels, which the ESP32's 3.3 V pins can't take.
-- **Working model:** screens are designed in DWIN's **DGUS** tool and loaded onto the display from an SD card. The ESP32 then only writes values into display variables ("VP addresses") with short UART frames (`5A A5 <len> 82 <VP addr> <data>`), so all the graphics work happens on the display itself.
-- **Screen layout rule (dev and final):** all environmental readings are **always on screen**, and a **dedicated AI feedback section** shows the latest AI message. That message **stays until a new one replaces it** — no timeout.
-- **GUI plan (Software subteam):**
-  - **Dev GUI** — simple: sensor readouts, connection status and the AI feedback box. Just enough to test the driver and the VP address map.
-  - **Final GUI** — designed properly for the product: layout, icons/gauges, AI section styling (with the message's time), and matching the enclosure's bezel.
+- **⚠ Set UART2 to TTL mode before wiring it to the ESP32.** In RS232 mode the display drives RS232 voltage levels, which the ESP32's 3.3 V pins can't take. (Done on the rigs: UART pins soldered and every screen talks to its ESP32, Oct 18.)
+- **Working model:**
+  - **The UI is custom DGUS structures written by the team** (owner: **@rakkicow, PM**), not made in DWIN's DGUS design tool. LVGL was dropped.
+  - **Each node's ESP32-C6 writes values to its own display** as variables ("VP addresses") in short UART frames (`5A A5 <len> 82 <VP addr> <data>`), so the graphics work happens on the display.
+  - **The full map is the [display VP map](interfaces/display-vp-map.md)** (v1.0).
+  - The rooms page and the Wi-Fi setup page in that map aren't used. Which of the other pages the firmware drives is an **open discussion** with the Software subteam.
+- **Screen layout rule (dev and final):** all environmental readings are **always on screen**, and a **dedicated AI feedback section** shows the latest AI message. That message **stays until a new one replaces it** — no timeout. **How much text fits in that section is still being tested** on the real display.
 - Verify the 8-pin pinout against the DWIN datasheet before connecting — it carries both 12 V and serial lines.
 
 ### 3.5 LED bar — WS2812B
@@ -216,7 +212,7 @@ Two BTF-Lighting WS2812B strips were bought to compare. Both are 5 V, individual
 | D. Mix | e.g. air-quality gauge by default, with status alerts and AI-action animations layered on top |
 
 - **Connectors:** 3-pin SM pigtails, 15 cm, for quick connect/disconnect on the rigs and in the final nodes.
-- **Driver:** ESP32-C6 **RMT** peripheral (e.g. `ws2812-esp32-rmt-driver` / `smart-leds` in Rust), one GPIO.
+- **Driver:** the node's **ESP32-C6 drives the bar** on one GPIO. How the firmware talks to the strip (e.g. the RMT peripheral) is **still being worked out** (Hardware/Software to-do).
 - **Signal level:** WS2812B powered at 5 V expects ≥ 0.7 × VDD (≈3.5 V) for a logic high, and the ESP32 outputs 3.3 V. It often works on a short wire, but the **final PCB includes a 3.3 V → 5 V level shifter** (e.g. 74AHCT1G125) on the data line. On the dev rigs, try direct drive first and add a shifter if the strip flickers.
 - **Good practice:** ~330 Ω series resistor on the data line, a bulk capacitor (~470–1000 µF) across the strip's 5 V/GND, and power fed to the strip directly, not through the ESP32 board.
 - **Current:** up to ~60 mA per LED at full white. Cap brightness in firmware and size the 5 V rail from the final LED count.
@@ -225,25 +221,20 @@ Two BTF-Lighting WS2812B strips were bought to compare. Both are 5 V, individual
 
 | Block | Pins | Peripheral |
 |---|---|---|
-| 5 × I2C sensors | 2 (SDA, SCL) | 1 I2C bus |
-| PMS5003 | 1–2 (RX, + optional SET pin to sleep the fan) | UART0 |
+| 5 × I2C sensors | 2 (SDA **GPIO6**, SCL **GPIO7**) | 1 I2C bus |
+| PMS5003 | 1–2 (RX, + optional SET pin to sleep the fan) | UART |
 | LD2410C OUT | 1 | GPIO |
-| DWIN display | 2 (TX, RX) | UART1 |
-| WS2812B LED bar | 1 (data) | RMT |
+| DWIN display | 2 (TX, RX) | UART |
+| WS2812B LED bar | 1 (data) | TBD |
 | **Total** | **7–8 pins, 2 UARTs** | fits in the C6's ~12 safe pins |
 
-Reserved on the DevKitC-1: GPIO12/13 (native USB), GPIO16/17 (UART bridge); strapping pins GPIO4, 5, 8, 9, 15 need care — don't put the LED data or LD2410C OUT on them.
+The pin assignments live in [`interfaces/pin-map.md`](interfaces/pin-map.md); only the I2C pins are fixed so far. Reserved on the DevKitC-1: GPIO12/13 (native USB), GPIO16/17 (UART bridge), GPIO24–30 (module); strapping pins GPIO4, 5, 8, 9, 15 need care — don't put the LED data or LD2410C OUT on them.
 
 ### 3.7 Power
 
 The display needs 12 V; everything else runs from 5 V or 3.3 V.
 
-**Input options (not final — picked during PCB design):**
-
-| Option | Adapter | Connector | On-board conversion |
-|---|---|---|---|
-| **12 V in** | 12 V wall adapter | Barrel jack | 12 V → display directly; **buck 12 V → 5 V**; 5 V → 3.3 V |
-| **5 V in** | 5 V wall adapter | USB-C or barrel jack | **boost 5 V → 12 V** for the display; 5 V → loads directly; 5 V → 3.3 V |
+**Input — decided: 5 V over USB-C.** The schematic has a **power-only USB-C receptacle** with 5.1 kΩ pull-downs on CC1/CC2 (so USB-C chargers supply 5 V). On board: **boost 5 V → 12 V** for the display (part TBD); 5 V → loads directly; 3.3 V from the DevKit. (A 12 V barrel-jack input was the alternative considered.)
 
 | Rail | Loads |
 |---|---|
@@ -251,7 +242,7 @@ The display needs 12 V; everything else runs from 5 V or 3.3 V.
 | **5 V** | PMS5003, LD2410C, WS2812B LED bar |
 | **3.3 V** | ESP32-C6, the five I2C sensors (on the dev rigs, the DevKit's own regulator) |
 
-- **The LED bar dominates the 5 V budget** (e.g. 30 LEDs at full white ≈ 1.8 A). Brightness caps in firmware keep real draw far below that. With 5 V input, check the adapter can cover the LED bar + display boost + everything else (a 5 V / 3 A USB-C adapter gives 15 W).
+- **The LED bar dominates the 5 V budget** (e.g. 30 LEDs at full white ≈ 1.8 A). Brightness caps in firmware keep real draw far below that. Check the USB-C adapter can cover the LED bar + display boost + everything else (a 5 V / 3 A USB-C adapter gives 15 W).
 - **Common ground** between the supply, all rails, the display and the ESP32 — the UART and LED data lines depend on it.
 - No level shifters needed for PMS5003 / LD2410C (3.3 V logic); one needed for the LED data line (§3.5).
 - **Dev rigs:** 12 V adapter for the display + a 5 V supply/buck for the PMS5003, LD2410C and LED strip; the DevKit can stay on USB as long as grounds are tied together.
@@ -259,13 +250,13 @@ The display needs 12 V; everything else runs from 5 V or 3.3 V.
 
 ### 3.8 Final PCB & enclosure
 
-- **PCB (×3 nodes + spares):** ESP32-C6 (§3.2), the five I2C sensors as SMT parts, power input and conversion (§3.7), LED level shifter, and connectors for the display (8-pin 2.0 mm), PMS5003, LD2410C and LED bar (3-pin). The breakout boards on the dev rigs are the reference circuits — copy their pull-ups, decoupling and regulators.
+- **PCB (×3 nodes + spares):** sockets for the ESP32-C6 DevKit (§3.2) and the five I2C breakout boards (custom footprints), USB-C power input and the 5→12 V boost (§3.7), LED level shifter, and connectors for the display (8-pin 2.0 mm), PMS5003, LD2410C and LED bar (3-pin). **Current schematic (Oct 18):** DevKit + all I2C sensors + USB-C power in `hardware/IntelliThings.kicad_sch`; display, PMS5003, LD2410C and LED bar are added as Software confirms them.
 - **Option — split into several PCBs** (ordered together, no extra production time):
 
 | Board | Contents | Why separate |
 |---|---|---|
 | **Sensor PCB** | SHT41, SGP40, SCD41, BH1750, VL53L0X | Sits near the vents and windows, away from heat from the ESP32 and power parts — better temperature/CO₂ readings |
-| **ESP PCB** | ESP32-C6 (bare chip) — or header sockets for the plug-in DevKit as fallback | The bare-chip vs. DevKit choice only affects this board |
+| **ESP PCB** | Header sockets for the plug-in DevKit | Keeps the DevKit's antenna clear of the other boards |
 | **Connector / power PCB** | Power input and conversion, LED level shifter, connectors for the display, PMS5003, LD2410C, LED bar | Heavy connectors and power parts stay off the sensor board |
 
   Boards connect with board-to-board headers or short cables (e.g. JST); the I2C bus and power run between them.
@@ -275,28 +266,29 @@ The display needs 12 V; everything else runs from 5 V or 3.3 V.
   - **VL53L0X needs an unobstructed window** (IR-transparent cover or open hole).
   - **BH1750 needs a light window** facing the room.
   - **LD2410C** radar sees through thin plastic but not metal — no metal or ground pour in front of it.
-  - Bare-chip ESP32-C6: keep the antenna area clear of copper, components and enclosure metal.
-- **Enclosure (×3):** 3D-printed, designed around the PCB(s), display bezel, LED bar slot, PMS5003 airflow path and sensor windows.
-- **Ordering (JLCPCB):** from order placed to delivery by DHL air is usually **~7 days**. A **stencil** for SMT soldering can be added if needed — it may add **~1 day**. Splitting into several PCBs doesn't add production time.
+  - ESP32-C6 DevKit: keep its antenna end clear of copper, components and enclosure metal.
+- **Enclosure (×3):** 3D-printed, designed around the PCB(s), display bezel, LED bar slot, PMS5003 airflow path and sensor windows. A general shape for the final design exists (Oct 18); the electronics housing is being brainstormed.
+- **Ordering (JLCPCB):** from order placed to delivery by DHL air is usually **~7 days**. A **stencil** can be added if needed — it may add **~1 day**. Splitting into several PCBs doesn't add production time.
 
 ---
 
-## 4. Firmware (ESP32-C6, Rust + ESP-IDF) — Software subteam
+## 4. Firmware (ESP32-C6, `no_std` Rust) — Software subteam
 
-Full design: `software/Firmware_Architecture.md`. Summary:
+Current toolchain and build steps: `software/README.md` and `software/firmware/README.md`. Full design: `software/Firmware_Architecture.md` (being rewritten for the `no_std` stack). Summary:
 
-- **Toolchain (confirmed Sept 26 against the [esp-rs/esp-idf](https://github.com/esp-rs/esp-idf) repo):**
-  - **ESP-IDF v6.1.0** — set `ESP_IDF_VERSION = "v6.1"` (ESP-IDF's tag for 6.1.0; the esp-rs CI uses the same value).
-  - **Rust crates:** `esp-idf-sys` **0.38.1**, `esp-idf-hal` **0.47.0**, `esp-idf-svc` **0.53.0** — the first releases with ESP-IDF 6.1 compatibility fixes; the esp-rs CI builds the ESP32-C6 target (`riscv32imac-esp-espidf`) against v6.1 in its nightly CI runs.
-  - **Rust: nightly** (with `rust-src`), because `std` on this target is built from source with `-Zbuild-std=std,panic_abort`. Minimum Rust 1.82. The exact nightly date is pinned in `rust-toolchain.toml` after the first successful build on the rigs (Sep 27).
-  - **MQTT is no longer built into ESP-IDF v6** — add it as a managed component in `Cargo.toml` (`[[package.metadata.esp-idf-sys.extra_components]]` → `remote_component = { name = "espressif/mqtt", version = "1.*" }`). The esp-rs CI tests this on v6.0 / ESP32-C3 only, so verify it on the C6 rig.
-  - Third-party crates (WS2812 RMT driver, sensor drivers) must be checked against `esp-idf-hal` 0.47 / `embedded-hal` 1.0. `esp-idf-hal`'s timer drivers aren't available on ESP-IDF 6+ (not needed by this design).
-- **Runtime model:** `std::thread` maps to FreeRTOS tasks; `Arc<Mutex<…>>` / `mpsc` cover shared state. Sensor crates: `sht4x`, `sgp40`, `vl53l0x`, `bh1750`, `scd4x` (check each against the `embedded-hal` version `esp-idf-hal` uses; hand-rolled register reads are the fallback). `serde_json` for payloads.
-- **Threads:** `main` (boot + supervisor/reconnect), `sensor_i2c` (2–5 s), `pms5003_uart` (10–30 s), `presence_gpio` (edge/poll), `mqtt_publish` (interval or on-change), `dwin_display` (0.5–1 s), `led_bar` (animation tick, ~30–50 ms); MQTT receive handled in a callback.
-- **Display driver:** writes sensor values and the AI message to DGUS VP addresses over UART1 at 115200 baud, using the VP address map from the GUI design. Sensor fields refresh continuously; the AI section is only rewritten when a new message arrives.
-- **LED bar driver:** RMT-based WS2812B output with a global brightness cap; patterns follow the team's LED bar decision (§3.5).
-- **Shared state:** one `Arc<SharedState>` holding the latest `SensorSnapshot`, `SystemStatus` and the latest AI message.
-- **MQTT topics** (`<node_id>` derived from the chip's MAC, so one firmware image fits every node):
+- **Toolchain:** bare-metal **`no_std` Rust** (not ESP-IDF/FreeRTOS), from the `esp-generate` template, using Espressif's own crates:
+  - `esp-hal` ~1.2.2, `esp-rtos` 0.4 with **Embassy** (`embassy-executor` 0.10, `embassy-net` 0.9), and `esp-radio` 1.0.0-beta.1 for Wi-Fi.
+  - **Stable Rust** (≥1.95, edition 2024), target `riscv32imac-unknown-none-elf`.
+  - **`cargo run`** builds, flashes and opens the serial monitor (espflash).
+  - New crates must support `no_std`, the ESP32-C6 and the current `esp-hal`/Embassy versions.
+- **Status (Oct 18):**
+  - Wi-Fi + DHCP working.
+  - **All five I2C sensor drivers (SHT41, SGP40, SCD41, BH1750, VL53L0X) read correctly** on the rigs, sharing one async I2C bus (GPIO6/7, 100 kHz).
+  - Next: MQTT, PMS5003, LD2410C, the display and the LED bar.
+- **Runtime model:** Embassy async tasks on one core, instead of OS threads. Sensor reads, MQTT publish/subscribe, the display and the LED bar share the latest readings, connection state and AI message.
+- **Display driver:** writes sensor values, connection state, the clock and the AI message to the display's VP addresses over UART at 115200 baud, as defined in the [display VP map](interfaces/display-vp-map.md). Sensor fields refresh every 0.5–1 s; the AI section is only rewritten when a new message arrives.
+- **LED bar:** driven by the ESP32 with a global brightness cap; the method is still being worked out; patterns follow the team's LED bar decision (§3.5).
+- **MQTT topics** (`<node_id>` derived from the chip's MAC, so one firmware image fits every node; full list in [`interfaces/mqtt.md`](interfaces/mqtt.md)):
 
 | Topic | Direction | Content |
 |---|---|---|
@@ -304,29 +296,37 @@ Full design: `software/Firmware_Architecture.md`. Summary:
 | `intellithings/<node_id>/status` | publish (retained, LWT) | `online` / `offline` |
 | `intellithings/<node_id>/display` | subscribe (HA publishes **retained**) | `{"text": "...", "ts": "2026-10-18T14:05:00-04:00"}` — latest AI message; retained so a node that reboots re-shows it |
 
-- **Provisioning:** Wi-Fi credentials and broker address in NVS, not hardcoded.
-- **Robustness:** tolerate N consecutive sensor failures before flagging a fault; supervisor loop drives Wi-Fi/MQTT reconnect.
-- **Code layout:** `main.rs` plus four module groups — `hardware/` (bus setup, one file per sensor), `network/` (Wi-Fi, MQTT), `ui/` (DWIN display, LED bar), `system/` (state, NVS config, logging, errors). Modules talk through the shared system state. A **baseline firmware** (boot → Wi-Fi → MQTT → placeholder snapshot) is built together first, then the groups work in parallel — see `docs/Collaboration_Guidelines.md` §2.
+- **Wi-Fi settings:** compiled into the firmware from the local, gitignored `software/firmware/.cargo/esp-config.toml`. Accepted for the prototype; there's no on-device Wi-Fi setup.
+- **Robustness:** tolerate N consecutive sensor failures before flagging a fault; reconnect Wi-Fi/MQTT automatically.
+- **Code layout:** see `software/README.md`; sensor drivers live in `software/firmware/src/sensors/`. The **baseline firmware** (boot → Wi-Fi → MQTT → snapshot) comes first, then the groups work in parallel — see `docs/Collaboration_Guidelines.md` §2.
 
 ---
 
 ## 5. Home Assistant Hub (Raspberry Pi 5) — AI subteam
 
-- **HAOS** on the Pi 5 with the **Mosquitto broker add-on**.
-- **MQTT entities** built from each node's `.../sensors` JSON topic (one entity per field), with `.../status` as availability so a dropped node shows as unavailable immediately. Three final nodes → three devices in HA. The emulator's three nodes (§3.1a) are the first devices set up; they're disabled once real nodes come online.
-- **Virtual devices** for everything we don't physically own (thermostat, lights, fan, purifier, humidifier, dehumidifier, smart plug).
-- **Hand-off automation:** triggers on meaningful changes (threshold crossings, presence changes, periodic check), throttled so we don't call the LLM on every reading, and POSTs a compact snapshot to the agent endpoint.
-- **MCP Server integration** enabled and secured, exposing only the entities/services the agent should control.
-- **Remote access for the agent: Home Assistant Cloud (Nabu Casa)** — gives HA a secure public URL so the cloud agent can reach HA's MCP server from outside the home network, with no router port-forwarding. $6.50/month or $65/year.
-- **Dashboard:** live readings per node/room, device states, recent AI decisions, and a 3D/floor-plan view.
+- **Home Assistant Container** in Docker on **Raspberry Pi OS** (Pi at `192.168.1.2`), with **Mosquitto in its own container** (login required). Setup: `ai/deployment/`. HA add-ons aren't available in this setup; moving to HAOS stays an option if a needed tool requires it (e.g. some 3D floor-plan tools).
+- **MQTT entities** for each node (one entity per field, created by MQTT discovery), with `.../status` as availability so a dropped node shows as unavailable immediately. The emulator's three nodes (§3.1a) are the first devices set up; they're disabled once real nodes come online. Entity names: [`interfaces/ha-entities.md`](interfaces/ha-entities.md) (draft).
+- **Virtual devices** for everything we don't physically own (thermostat, lights, fan, purifier, humidifier, dehumidifier, smart plug). A first set and a custom dashboard exist (Oct 13); more are being added for the agent to control.
+- **AI summaries in HA:** MQTT sensors for each room's AI message, the overall summary and the agent's "thinking" status, shown on the dashboard.
+- **When the agent runs:** every 5 minutes, plus (in progress) HA automations or helpers that trigger it on big changes — **open discussion** (§6).
+- **MCP Server integration** enabled and secured, exposing only the entities/services the agent should control. The agent connects with a long-lived access token.
+- **Remote access (only for the future cloud option): Home Assistant Cloud (Nabu Casa)** — a secure public URL so a cloud agent could reach HA's MCP server without router port-forwarding. $6.50/month or $65/year; not needed while the agent runs on the Pi.
+- **Dashboard:** live readings per node/room, device states, recent AI decisions, and a 3D/floor-plan view (in progress; plan in `ai/docs/3d-floorplan-plan.md`).
 
 ---
 
-## 6. Cloud AI Agent — AI subteam
+## 6. AI Agent — AI subteam
 
 - **Custom harness, not a third-party agent framework.** OpenClaw (general autonomous daemon) and Hermes Agent (hosted, memory-centric) were evaluated and not adopted: our loop is narrow (snapshot in → LLM + tools → MCP actions out), a small harness is easier for students to debug, and depending on a hosted product would reintroduce the lock-in we criticize in Miloco.
-- **Hosting: AWS Lambda + API Gateway (HTTP API).** Two routes into the same function: `/ha-event` (from HA) and `/chat` (the chat bot's webhook). Effectively free at our volume.
-- **🗳 TEAM DECISION — chat bot: Discord or Telegram.** Both work on Lambda with no always-on server:
+- **Runs on the Pi today** (`ai/`; details in `ai/README.md` and `ai/docs/inference.md`). Each run:
+  - Reads every Assist-exposed entity from HA's MCP Server (`GetLiveContext`).
+  - Asks the LLM through OpenRouter for a validated JSON reply: an overall summary (≤255 characters) and one short message per room (≤60 characters).
+  - May make **one allowlisted turn-on call** (`intent__HassTurnOn`; currently only the virtual "Turn Cooling On").
+  - Publishes the room messages to the node displays and the summaries to the HA dashboard.
+  - Current model: `openai/gpt-5.4-mini`.
+- **When it runs: hybrid, and an open discussion.** A systemd timer runs it every 5 minutes. HA automations or helpers that trigger it on big sensor changes are being worked on.
+- **Future option — AWS Lambda + API Gateway (HTTP API).** Two routes into the same function: `/ha-event` (from HA) and `/chat` (the chat bot's webhook). Effectively free at our volume. Not built; kept as an option (`ai/docs/cloud.md`).
+- **🗳 TEAM DECISION — chat bot: Discord or Telegram.** Both can run without an always-on server on the Lambda option:
 
 | | **Discord** | **Telegram** |
 |---|---|---|
@@ -342,8 +342,9 @@ Full design: `software/Firmware_Architecture.md`. Summary:
   - **What that means for MCP:** OpenRouter doesn't connect to MCP servers itself. The harness is the MCP client — it fetches HA's tool list from the MCP Server, converts the tools to OpenAI-style function definitions, sends them with the prompt, runs any tool calls the model returns against HA, and sends the results back until the model gives a final answer. This loop works with any provider, so it carries over whichever model wins.
   - **Compare models on:** correct tool choice, not acting when nothing needs doing, latency, and cost per decision.
 - **Prompt design:** system prompt with household comfort targets, the snapshot (all sensor values + presence + time, per node), and rules for when *not* to act. Ask the model for a short human-readable explanation to send to the node's display.
-- **Security:** keep HA tokens and API keys (OpenRouter, chat bot token) in AWS Secrets Manager/Lambda environment config, never in code; verify every chat request (Discord signature or Telegram secret token); restrict the bot to known channels/users; expose the minimum set of HA entities via MCP.
-- **Latency:** Lambda cold starts add ~1–2 s — fine for automations and chat.
+- **Security:** keep HA tokens and API keys (OpenRouter, chat bot token) out of the repo — in the ignored root `.env` on the Pi today, or AWS Secrets Manager/Lambda environment config for the cloud option; verify every chat request (Discord signature or Telegram secret token); restrict the bot to known channels/users; expose the minimum set of HA entities via MCP.
+- **Latency:** a full run (read state, model call, optional tool call, publish) is bounded at 120 s; on the Lambda option, cold starts would add ~1–2 s.
+- **Local models:** running a model on the Pi itself is being explored; research notes in `ai/docs/research/local-llm-pi5.md`.
 
 ---
 
@@ -456,55 +457,55 @@ How each subteam divides its work — roles inside each team, KiCad sheet owners
 |---|---|---|
 | Hardware | **@LiamWatson-Purdue** | Power (1) · MCU (2) · I/O (3) |
 | Software | **@LukeTuthill** | Sensors & I/O (2) · Networking & MQTT (2) · Display & LED (2) · System Services (2) |
-| AI — Cloud | **@ProgrammingJohn** (Cloud AI Lead) | LLM / agent logic · AWS & chat integration |
-| AI — Local | **Undecided** (Local AI Lead) | HA devices & automation · HA interface & dashboard |
+| AI | **@ProgrammingJohn** | HA side (devices, automations, dashboard) · Agent side (LLM / agent logic, chat integration) |
 
 *The groups show how each subteam's work can be divided; they are not fixed assignments. We may not split people into groups at all — it depends on the work, and tasks are assigned by the leads.*
 
-**PMs — @spicybutter and @rakkicow:** coordinate the subteams and are code owners on every path, so either can approve any PR. @spicybutter also builds and maintains the AI subteam's **emulator ESP32** (§3.1a), which feeds simulated data from three nodes into Home Assistant during early development.
+**PMs — @spicybutter and @rakkicow:** coordinate the subteams and are code owners on every path, so either can approve any PR. @spicybutter also builds and maintains the AI subteam's **emulator ESP32** (§3.1a). @rakkicow owns the **display UI** and its VP map (§3.4).
 
 ### Hardware subteam (owns **Rig H**) — lead @LiamWatson-Purdue
 - Build both breadboard rigs to one shared wiring diagram so Rig H and Rig S stay identical; own the **pin map** (shared with Software).
 - Pre-power checks: set the DWIN display to **TTL mode**, confirm its 8-pin pinout, confirm LD2410C supply voltage.
-- Power design: input option (§3.7), 5 V/3.3 V rails, LED bar power and brightness budget; measure current draw on the rig.
-- Test both WS2812B strips (look, diffusion, current, fit) and pick the one for the final bar.
-- Final PCB: schematic from the breakout reference designs, ESP32-C6 bare chip (or DevKit-on-headers fallback), single board or sensor/ESP/connector split, layout with placement rules (§3.8), JLCPCB order (+ stencil if needed), SMT soldering and assembly of **3 nodes**.
+- Power design: USB-C 5 V input and the 5→12 V boost (§3.7), 5 V/3.3 V rails, LED bar power and brightness budget; measure current draw on the rig.
+- Test both WS2812B strips (look, diffusion, current, fit), pick the one for the final bar, and work out how to drive it.
+- Final PCB: schematic with the DevKit and the breakout boards on sockets (**custom footprints** for each breakout), single board or sensor/ESP/connector split, layout with placement rules (§3.8), JLCPCB order (+ stencil if needed), assembly of **3 nodes**.
 - Enclosure design and 3D printing ×3.
 - *Skills:* circuits, datasheets, PCB CAD, soldering, CAD.
 
 ### Software subteam (owns **Rig S**) — lead @LukeTuthill
-- ESP32-C6 firmware in **Rust on ESP-IDF v6.1.0**: firmware structure and shared state/MQTT scaffolding first, then driver tasks assigned across the team — I2C sensors, PMS5003 frame parsing, LD2410C GPIO, **DWIN DGUS display driver**, **WS2812B LED bar (RMT)**.
-- **Display GUI:** a simple dev GUI for testing, then the polished final GUI (§3.4), plus the VP address map.
+- ESP32-C6 firmware in **`no_std` Rust (`esp-hal` + Embassy)**: firmware structure and MQTT scaffolding first, then driver tasks assigned across the team — I2C sensors (done Oct 18), PMS5003 frame parsing, LD2410C GPIO, **DWIN display driver** (writing the [VP map](interfaces/display-vp-map.md)), **WS2812B LED bar**.
+- **Display:** drive the screens @rakkicow builds; how many of the UI's pages to support is an open discussion.
 - Own the **MQTT topic contract** (§4); get clean data showing as HA entities, together with the AI subteam.
-- Data quality: averaging, retries, dropped-reading recovery, fault reporting; Wi-Fi/MQTT reconnect; NVS provisioning; OTA if in scope.
+- Data quality: averaging, retries, dropped-reading recovery, fault reporting; Wi-Fi/MQTT reconnect; OTA if in scope.
 - Bring the firmware up on the final PCBs (pin map changes only).
 - *Skills:* Rust (or C with willingness to learn Rust), embedded basics, Git/GitHub. Recruitment listed Embedded C, so members should work through the Rust-on-ESP material below alongside the first sessions.
 - **Learning resources:**
   - [Espressif – Rust on ESP (official docs)](https://docs.espressif.com/projects/rust/) — Espressif's official Rust documentation hub
   - [The Rust on ESP Book](https://docs.espressif.com/projects/rust/book/) — the basics of Rust on ESP chips. **Start here.**
-  - [esp-rs/esp-idf](https://github.com/esp-rs/esp-idf) — the repo for Rust on ESP-IDF (`esp-idf-sys`, `esp-idf-hal`, `esp-idf-svc`): source, examples, changelogs and CI
+  - [esp-rs/esp-hal](https://github.com/esp-rs/esp-hal) — the repo for bare-metal Rust on ESP chips: source, examples and changelogs
 
-### AI subteam
-Led by a **Local AI Team Lead** (**undecided**) and a **Cloud AI Team Lead** (**@ProgrammingJohn**), who oversee the AI team together. The work splits into a local side and a cloud side:
-- **Local (Raspberry Pi / Home Assistant):** MQTT broker, MQTT entities for all nodes, virtual devices, hand-off automations, HA's MCP Server (secured, minimal exposed entities), Nabu Casa remote access, real-time dashboard including the 3D/floor-plan view.
-- **Cloud (AWS):** Lambda + API Gateway harness with the MCP client loop, OpenRouter model testing, prompt design, chat bot (Discord or Telegram, per team decision).
+### AI subteam — lead @ProgrammingJohn
+One lead oversees the whole AI subteam. The work divides into two reference groups:
+- **HA side (Raspberry Pi / Home Assistant):** MQTT broker, MQTT entities for all nodes, virtual devices, automations that trigger the agent, HA's MCP Server (secured, minimal exposed entities), real-time dashboard including the 3D/floor-plan view.
+- **Agent side:** the Python agent and its MCP client loop, OpenRouter model testing, prompt design, chat bot (Discord or Telegram, per team decision), and the future Lambda option.
 - **Emulator ESP32 (owner: @spicybutter, PM):** three simulated nodes on the real MQTT schema, with scripted events for agent testing (§3.1a).
-- *Skills:* Python (Lambda), YAML/HA config, API usage; no data-science background needed.
+- *Skills:* Python, YAML/HA config, API usage; no data-science background needed.
 
 ### Interfaces between subteams
 
 Each contract is written in `docs/interfaces/` in the repo before anyone builds against it, and changed only with the agreement of the teams on both sides.
 
-| Contract | Between | Due |
+| Contract | Between | Status |
 |---|---|---|
-| Rig wiring diagram + pin map + power rails | Hardware ↔ Software | Oct 4 |
-| MQTT topic + JSON payload schema (emulator follows it too) | Software ↔ AI | Oct 4 |
-| `/ha-event` snapshot format (HA → cloud agent) | Local AI ↔ Cloud AI | Oct 4 |
-| AI message format (`text`, `ts`) + max length for the AI section | AI ↔ Software | Oct 18 |
-| HA entity names + exposed MCP tools | AI, shared with all | Oct 18 |
-| `/chat` request format (after the Discord/Telegram decision) | Cloud AI | Oct 25 |
-| Final PCB pin map | Hardware → Software | Oct 25 |
-| Final GUI layout ↔ enclosure bezel | Software ↔ Hardware | Nov 1 |
+| Rig wiring diagram + pin map + power rails ([`pin-map.md`](interfaces/pin-map.md)) | Hardware ↔ Software | Stub: I2C pins and power confirmed, rest TBD |
+| MQTT topics + JSON payloads — the single list of every topic ([`mqtt.md`](interfaces/mqtt.md)) | Software ↔ AI | Agreed Oct 4 |
+| Display VP map ([`display-vp-map.md`](interfaces/display-vp-map.md)) | Software ↔ display UI (@rakkicow) | v1.0 |
+| AI message format (`text`, `ts`) + max length for the AI section | AI ↔ Software | Format agreed; **length still being tested** on the display |
+| HA entity names + exposed MCP tools ([`ha-entities.md`](interfaces/ha-entities.md)) | AI, shared with all | Draft (what's built) |
+| `/ha-event` snapshot format (HA → cloud agent) | AI | Only for the future Lambda option |
+| `/chat` request format (after the Discord/Telegram decision) | AI | Due Oct 25 |
+| Final PCB pin map | Hardware → Software | Due Oct 25 |
+| Final GUI layout ↔ enclosure bezel | Software ↔ Hardware | Due Nov 1 |
 
 ---
 
@@ -515,18 +516,18 @@ Work sessions run every Sunday, 1:00–4:00 PM, except holidays and breaks — *
 | # | Date | Hardware | Software | AI |
 |---|---|---|---|---|
 | 1–3 | Sep 6, 13, 20 ✓ | Kickoff phase: project introduction, brainstorming, BOM finalized, dev parts ordered (Adafruit, Amazon, displays/LED strips) | same | same; OpenRouter credits bought Sep 24 |
-| 4 | **Sep 27** | **Put dev parts on the breadboards** (Rig H + Rig S); power checks. Displays and LED strips join the rigs when the air shipment arrives (set displays to TTL mode first) | **Set up the firmware structure** (ESP-IDF v6.1 project on the confirmed crates, first build → pin the nightly date, module layout, `system/state.rs`, `network/mqtt.rs`) and **start driver development** | **Set up MQTT** (Mosquitto) and **test MQTT data into Home Assistant** using the **emulator ESP32** (3 simulated nodes, PM); **start the cloud AI pipeline** (Lambda + API Gateway + OpenRouter) |
-| 5 | Oct 4 | Finish both rigs; wiring diagram + pin map; measure current | I2C sensor drivers; MQTT publish from the rig; topic contract fixed | MQTT entities from the agreed schema (emulator data); virtual devices; first OpenRouter prompt tests on emulated scenarios |
+| 4 | Sep 27 ✓ | Two ESP32-C6 rigs wired with the I2C sensors (Rig H + Rig S) | Rust setup chosen: **`no_std` + Embassy** from the `esp-generate` template; hello-world builds and flashes with `cargo run` | Mosquitto in Docker + HA MCP context collection on a 5-min timer; **emulator ESP32** publishing 3 simulated nodes into HA |
+| 5 | Oct 4 ✓ | Screens received and tested | I2C sensor firmware working on the breadboard; Wi-Fi working | **LLM pipeline working:** OpenRouter decisions, one MCP action, summary on the HA dashboard; virtual devices + custom dashboard (finished Oct 13); MQTT schema agreed |
 | — | Oct 11 | *No session (break)* | | |
-| 6 | Oct 18 | Compare LED strips and pick one; PCB schematic (bare-chip ESP32-C6 attempt) | PMS5003, LD2410C, DWIN driver + **dev GUI**, LED bar; MQTT subscribe | HA → Lambda hand-off; MCP client loop against HA's MCP Server; Nabu Casa remote access; start switching from emulated to real rig data |
-| 7 | Oct 25 | PCB layout — **bare chip vs. DevKit-on-headers decided here**; final pin map to Software | Feature-complete on the rigs; AI messages on the display; robustness | Chat bot (Discord or Telegram); model comparison on OpenRouter; decision logic |
-| 8 | Nov 1 | PCB review; **order PCBs (+ stencil if needed) from JLCPCB, SMT parts, 1 PMS5003, adapters**; start enclosure CAD | **Final GUI** design; hardening (reconnects, fault handling) | Dashboard incl. 3D/floor-plan view; full-pipeline tests on the rigs |
-| 9 | Nov 8 | PCBs arrive (~7–8 days after ordering); **start SMT assembly**; enclosure CAD + test prints | Final GUI on the display; support integration tests | Pick final model; dashboard polish |
+| 6 | Oct 18 ✓ | UART pins soldered for every screen; **schematic: DevKit + all I2C sensors + USB-C 5 V power**; general shape of the final CAD | **All five I2C sensor drivers read correctly** | Pipeline restructured; **room messages to each node's display topic**; dashboard shows the new MQTT summary entities; static IPs for the Pi and the emulator |
+| 7 | Oct 25 | PCB layout (DevKit + breakouts on sockets, custom footprints); LED strip driving; final pin map to Software | Feature-complete on the rigs: MQTT, PMS5003, LD2410C, display, LED bar; AI messages on the display; robustness | 3D floor plan; more virtual devices for the agent; model testing across examples; chat bot (Discord or Telegram) |
+| 8 | Nov 1 | PCB review; **order PCBs (+ stencil if needed) from JLCPCB, parts, 1 PMS5003, adapters**; start enclosure CAD | **Final GUI** on the display (with @rakkicow); hardening (reconnects, fault handling) | Dashboard incl. 3D/floor-plan view; full-pipeline tests on the rigs |
+| 9 | Nov 8 | PCBs arrive (~7–8 days after ordering); **start assembly**; enclosure CAD + test prints | Final GUI on the display; support integration tests | Pick final model; dashboard polish |
 | 10 | Nov 15 | **Finish assembly of 3 nodes**; print enclosures; order a PCB re-spin now if a board needs a fix | Bring-up on the 3 PCBs; flash final firmware | Add all 3 nodes to HA; test on assembled nodes |
 | — | Nov 22, Nov 29 | *No sessions (Thanksgiving break)* — any re-spin boards arrive; finish assembly or enclosure prints that slipped | | |
 | 11 | Dec 6 | Final verification of the 3 nodes and the complete pipeline; enclosures fitted — **project complete, prep for ECE SPARK** | same | same |
 
-**PCB lead time:** JLCPCB order → DHL delivery is usually ~7 days (+~1 day with a stencil). Ordering on Nov 1 puts boards in hand by the Nov 8 session and leaves room for one re-spin (ordered by Nov 15, delivered before Dec 6). If the bare-chip layout isn't ready by Oct 25, switch to the DevKit-on-headers fallback rather than slip the order.
+**PCB lead time:** JLCPCB order → DHL delivery is usually ~7 days (+~1 day with a stencil). Ordering on Nov 1 puts boards in hand by the Nov 8 session and leaves room for one re-spin (ordered by Nov 15, delivered before Dec 6).
 
 ---
 
@@ -535,8 +536,12 @@ Work sessions run every Sunday, 1:00–4:00 PM, except holidays and breaks — *
 | Decision | Options | Details |
 |---|---|---|
 | **What the LED bar shows** | A. Status only · B. AI feedback · C. Air-quality gauge · D. Mix of these | §3.5 |
-| **Where the 3 final nodes go** | Rooms such as bedroom, living room, kitchen, study/desk, entryway — or one large space split into zones for the demo | Affects the dashboard floor plan, HA areas, the agent prompt (which room each reading describes) and which virtual devices each node relates to |
 | **Chat bot platform** | Discord (slash commands, in the team's server) · Telegram (plain messages, simpler code) | §6 |
+| **When the agent runs** | The 5-min timer plus HA automations/helpers on big changes — thresholds, cooldowns and what counts as "big" | Open discussion; being worked on (§6) |
+| **Which display pages to use** | Home, sensors, alert, night, away, boot, toast, action chips, "thinking" line | Open discussion with Software; rooms and Wi-Fi setup pages are not used (§3.4) |
+| **"Thinking" text on the display** | Whether nodes show the agent's thinking status, and with what text | Open discussion ([`interfaces/mqtt.md`](interfaces/mqtt.md)) |
+
+**Decided since Sept 26:** the 3 final nodes go in the **kitchen, bedroom and living room**; final nodes use the **DevKit on sockets** with **breakout boards on sockets**; power input is **USB-C 5 V**.
 
 ---
 
@@ -553,9 +558,11 @@ Work sessions run every Sunday, 1:00–4:00 PM, except holidays and breaks — *
 | Doc | Contents | Status |
 |---|---|---|
 | `docs/Collaboration_Guidelines.md` | Subteam roles, GitHub workflow, KiCad / firmware / AI collaboration rules, code review, cross-team hand-offs | Current |
-| `software/Firmware_Architecture.md` | Toolchain, threads, shared state, DWIN display driver, LED bar, MQTT topics, boot sequence, module layout | Current (updated Sept 26) |
-| `ai/AI_Agent_Notes.md` | Agent harness, HA hand-off, OpenRouter + MCP client loop, hosting, chat bot options, Nabu Casa, security | Current (updated Sept 26) |
-| `hardware/Hardware_BOM_Candidates.md` | Hardware design decisions and trade-offs (chip, boards, display, LED bar, sensors, power, PCB structure) | Current (updated Sept 26) |
+| `docs/interfaces/` | Shared contracts: MQTT topics, display VP map, HA entities, pin map | Current |
+| `software/README.md`, `software/firmware/README.md` | Current firmware toolchain, build steps and layout | Current |
+| `software/Firmware_Architecture.md` | Firmware design: tasks, shared state, display driver, LED bar, MQTT, boot sequence | Being rewritten for the `no_std` stack |
+| `ai/README.md`, `ai/docs/` | The running AI pipeline (`inference.md`), design notes (`architecture.md`), roadmap, cloud option, 3D floor-plan plan, local-model research | Current |
+| `hardware/Hardware_BOM_Candidates.md` | Hardware design decisions and trade-offs (chip, boards, display, LED bar, sensors, power, PCB structure) | Current (updated Oct 18) |
 | `hardware/Full_Parts_List.md` | Per-part specs reference (interface, voltage, output, quantity, source) | Current (updated Sept 26). The old `IntelliThings_BOM.xlsx` is outdated |
 | `IntelliThings_Slides.md` | Kickoff presentation (Sept 6) | **Archived** — kept as a record, no further updates |
 
@@ -572,7 +579,7 @@ Work sessions run every Sunday, 1:00–4:00 PM, except holidays and breaks — *
 - [Adafruit – SHT41 (5776)](https://www.adafruit.com/product/5776) · [SGP40 (4829)](https://www.adafruit.com/product/4829) · [SCD41 (5190)](https://www.adafruit.com/product/5190) · [BH1750 (4681)](https://www.adafruit.com/product/4681) · [VL53L0X (3317)](https://www.adafruit.com/product/3317) · [PMS5003 kit (3686)](https://www.adafruit.com/product/3686) · [ESP32-C6-DevKitC-1-N8 (5672)](https://www.adafruit.com/product/5672)
 - [espboards.dev – LD2410](https://www.espboards.dev/sensors/ld2410/)
 - [Espressif – Rust on ESP (official docs)](https://docs.espressif.com/projects/rust/) · [The Rust on ESP Book](https://docs.espressif.com/projects/rust/book/)
-- [esp-rs/esp-idf – esp-idf-sys / -hal / -svc (repo, CI, changelogs)](https://github.com/esp-rs/esp-idf) · [esp-idf-sys](https://crates.io/crates/esp-idf-sys) · [esp-idf-hal](https://crates.io/crates/esp-idf-hal) · [esp-idf-svc](https://crates.io/crates/esp-idf-svc) on crates.io
+- [esp-rs/esp-hal (repo, examples, changelogs)](https://github.com/esp-rs/esp-hal) · [esp-hal](https://crates.io/crates/esp-hal) on crates.io · [Embassy](https://embassy.dev/)
 - [Trading Economics – USD/CNY](https://tradingeconomics.com/china/currency)
 - [Nabu Casa – Home Assistant Cloud pricing](https://www.nabucasa.com/pricing/)
 - [AWS Lambda pricing](https://aws.amazon.com/lambda/pricing) · [API Gateway pricing](https://aws.amazon.com/api-gateway/pricing)

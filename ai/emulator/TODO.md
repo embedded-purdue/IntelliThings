@@ -31,16 +31,16 @@ session with the network and the Home Assistant Pi.
   mock snapshot, `docs/interfaces/README.md`
 
 > The board now runs a build with the team Wi-Fi from `sdkconfig.local`. The broker is still
-> `homeassistant.local`, which doesn't exist until the Mosquitto add-on is set up; if the Pi
+> `homeassistant.local`, which doesn't exist until the Mosquitto broker is set up; if the Pi
 > doesn't resolve by that name, put its IP in `sdkconfig.local` and rebuild.
 
 ## To test at the next team session
 
 ### Setup
 
-- [x] Home Assistant Mosquitto add-on running on the Pi at `192.168.1.2:1883`
+- [x] Mosquitto broker (its own Docker container next to HA Container) running on the Pi at `192.168.1.2:1883`
   (`homeassistant.local` doesn't resolve on the team network — use the IP). The emulator
-  currently logs in as the add-on's internal `homeassistant` user — [ ] create a dedicated
+  currently logs in as the broker's `homeassistant` user — [ ] create a dedicated
   MQTT login for it
 - [x] `sdkconfig.local` filled in (team Wi-Fi + broker), `sdkconfig` deleted, rebuilt, flashed
 - [x] Laptop subscriber: no Mosquitto clients on the dev PC, so the tests used a small
@@ -73,7 +73,7 @@ session with the network and the Home Assistant Pi.
   reset/reflash also publishes `offline`, then `online` once it reconnects
 - [x] After a reboot: resubscribes; retained `display` messages re-delivered and printed with
   `[retained]`; a cleared topic stays cleared
-- [x] Broker restart (Mosquitto add-on restarted 15:50): all four connections reconnected by
+- [x] Broker restart (Mosquitto container restarted 15:50): all four connections reconnected by
   themselves (`mqtt_reconnects` = 1 each), statuses back to retained `online`, publishing
   resumed, retained `display` messages re-delivered with `[retained]`; no reboot
 
