@@ -4,6 +4,7 @@
 #include <string.h>
 
 #include "cJSON.h"
+#include "esp_app_desc.h"
 #include "esp_log.h"
 #include "esp_system.h"
 #include "esp_timer.h"
@@ -18,7 +19,6 @@
 
 static const char *TAG = "ctrl";
 
-#define FW_VERSION "0.1.0"
 #define CMD_MAX_LEN 1024
 #define DURATION_MAX_S 86400
 #define DISPLAY_TEXT_MAX 400
@@ -431,7 +431,7 @@ char *ctrl_state_json(void)
     bool synced = time_iso8601(ts, sizeof(ts));
 
     cJSON *root = cJSON_CreateObject();
-    cJSON_AddStringToObject(root, "fw", FW_VERSION);
+    cJSON_AddStringToObject(root, "fw", esp_app_get_description()->version);
     cJSON_AddStringToObject(root, "hostname", CONFIG_EMU_HOSTNAME);
     cJSON_AddNumberToObject(root, "uptime_s", (double)(now / 1000000LL));
     cJSON_AddNumberToObject(root, "free_heap", esp_get_free_heap_size());

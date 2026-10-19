@@ -10,5 +10,10 @@ if(EXISTS "${CMAKE_CURRENT_LIST_DIR}/sdkconfig.local")
     list(APPEND SDKCONFIG_DEFAULTS "sdkconfig.local")
 endif()
 
+# Firmware version: the only place it's set. Shown in the panel, /api/state and the app
+# header (esp_app_get_description). "-dev" until v2.1.0 is released; v0.1.0 is frozen in
+# ../releases/v0.1.0/.
+set(PROJECT_VER "2.1.0-dev")
+
 include($ENV{IDF_PATH}/tools/cmake/project.cmake)
 project(esp32_c3_emulator)

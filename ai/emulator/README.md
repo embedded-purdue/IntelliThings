@@ -2,6 +2,12 @@
 
 Owner: @spicybutter (PM) · AI subteam · status and test log: [`TODO.md`](TODO.md)
 
+> **Versions.** The board runs **v0.1.0**, which this guide describes. **v2.1.0** is being built
+> in `esp32_c3_emulator/` (plan: [`PLAN-v2.1.0.md`](PLAN-v2.1.0.md)), so the source there may be
+> ahead of the board. v0.1.0 is frozen in [`releases/v0.1.0/`](releases/v0.1.0/README.md)
+> (git tag `emulator-v0.1.0`), with steps to [fall back](releases/v0.1.0/README.md#falling-back)
+> if a newer version misbehaves.
+
 One **LuatOS ESP32-C3 Core** board with no sensors attached that pretends to be **three
 IntelliThings sensor nodes**: kitchen, bedroom and living room. It publishes on exactly the
 same MQTT topics and JSON schema as the real nodes, so the AI team can build and test the
@@ -681,7 +687,7 @@ and the agent don't care which one they're talking to.
 
 ```
 esp32_c3_emulator/
-├── CMakeLists.txt            picks up sdkconfig.local if present
+├── CMakeLists.txt            picks up sdkconfig.local if present; PROJECT_VER = firmware version
 ├── sdkconfig.defaults        target, flash, partitions, lwIP tuning (no secrets)
 ├── sdkconfig.local.example   credentials template
 └── main/
