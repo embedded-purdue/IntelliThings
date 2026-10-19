@@ -1,221 +1,221 @@
-# IntelliThings — ESP32-C6 Firmware Architecture (Rust + ESP-IDF)
-*Software subteam (lead @LukeTuthill) | Last updated Sept 26, 2026*
+# IntelliThings — ESP32-C6 Firmware Architecture (`no_std` Rust)
+*Software subteam (lead @LukeTuthill) | Draft rewrite, Oct 18, 2026 — **for @LukeTuthill's review***
 
-> Detailed firmware design for the sensor nodes. Summary and current decisions live in `docs/Project_Guideline.md` §4; team workflow in `docs/Collaboration_Guidelines.md` §2. If anything here disagrees with the Project Guideline, the guideline wins.
+> Detailed firmware design for the sensor nodes, rewritten for the bare-metal `no_std` stack the
+> team chose on Sep 27 (the earlier version described Rust `std` on ESP-IDF).
+> - **Current** = what's in `software/firmware/` today.
+> - **Proposed** = a suggestion for the Software lead to accept, change or drop.
 >
-> **Node hardware this firmware targets:** ESP32-C6 · 5 I2C sensors (SHT41, SGP40, SCD41, BH1750, VL53L0X) · PMS5003 on UART · LD2410C OUT pin on GPIO · **DWIN DMG80480T050_09WN 5" display over UART (DGUS)** · **WS2812B LED bar via RMT** · MQTT only (no Matter).
+> Current decisions are summarized in `docs/Project_Guideline.md` §4; workflow in
+> `docs/Collaboration_Guidelines.md` §2; build steps in `software/README.md` and
+> `software/firmware/README.md`. If anything here disagrees with the Project Guideline, the
+> guideline wins.
+>
+> **Node hardware:**
+> - ESP32-C6-DevKitC-1 (on sockets in the final PCB).
+> - 5 I2C sensors (SHT41, SGP40, SCD41, BH1750, VL53L0X).
+> - PMS5003 on UART; LD2410C OUT pin on GPIO.
+> - **DWIN DMG80480T050_09WN 5" display over UART** (custom DGUS UI, VP map).
+> - **WS2812B LED bar** driven by the ESP32.
+> - MQTT only (no Matter).
 
 ---
 
-## 1. Toolchain (confirmed Sept 26 against [esp-rs/esp-idf](https://github.com/esp-rs/esp-idf))
+## 1. Toolchain (current)
 
 | Item | Version / setting |
 |---|---|
-| ESP-IDF | **v6.1.0** → `ESP_IDF_VERSION = "v6.1"` (ESP-IDF's tag for 6.1.0) |
-| `esp-idf-sys` | **0.38.1** |
-| `esp-idf-hal` | **0.47.0** |
-| `esp-idf-svc` | **0.53.0** |
-| Rust | **nightly + `rust-src`** — `std` for `riscv32imac-esp-espidf` is built from source (`-Zbuild-std=std,panic_abort`). Minimum Rust 1.82. The exact nightly date is pinned in `rust-toolchain.toml` after the first clean build (Sep 27). |
-| Target | `riscv32imac-esp-espidf` (ESP32-C6) |
+| Runtime | Bare-metal **`no_std`**, not an ESP-IDF/FreeRTOS application; generated from the `esp-generate` template |
+| HAL | `esp-hal` ~1.2.2 (`unstable` features enabled — experimental APIs, not a nightly compiler) |
+| RTOS / async | `esp-rtos` 0.4.0 with Embassy (`embassy-executor` 0.10.0, `embassy-time` 0.5.0) |
+| Networking | `embassy-net` 0.9.1 on `smoltcp` 0.14; Wi-Fi through `esp-radio` 1.0.0-beta.1 |
+| Heap | `esp-alloc` 0.11 (64 KiB heap in `main`) |
+| Rust | **stable** + `rust-src`, minimum **1.95**, edition 2024 (`rust-toolchain.toml`) |
+| Target | `riscv32imac-unknown-none-elf` |
+| Flash / monitor | `cargo run` → `espflash flash --monitor --chip esp32c6` |
+| Package | `intelli_things` |
 
-These are the first crate releases with ESP-IDF 6.1 compatibility fixes; the esp-rs CI builds the C6 target against v6.1 in its nightly runs.
+- **Check every new crate** for `no_std`, the ESP32-C6 and compatibility with the current
+  `esp-hal` and Embassy versions before adding it.
+- **MQTT:** no client is configured yet. **Proposed:** pick a `no_std` async MQTT client that
+  runs on `embassy-net` (for example `rust-mqtt`), and check it supports Last Will, retained
+  publishes and QoS 1 subscribe, which the [MQTT contract](../docs/interfaces/mqtt.md) needs.
+- **Socket budget:** `StackResources<2>` today (DHCP + one more). MQTT plus DNS/SNTP will need a
+  larger value.
 
-**ESP-IDF v6 changes that affect us:**
-- **MQTT moved out of ESP-IDF** into a managed component. Add to `Cargo.toml`:
-  ```toml
-  [[package.metadata.esp-idf-sys.extra_components]]
-  remote_component = { name = "espressif/mqtt", version = "1.*" }
-  ```
-  The esp-rs CI tests this on v6.0 / ESP32-C3 only — verify it on the C6 rig first thing.
-- `esp-idf-hal`'s timer drivers aren't available on ESP-IDF 6+ (not needed here — use `std::thread::sleep` / `std::time`).
+---
 
-**Starter config:**
-```toml
-# .cargo/config.toml
-[build]
-target = "riscv32imac-esp-espidf"
-[target.'cfg(target_os = "espidf")']
-linker = "ldproxy"
-[unstable]
-build-std = ["std", "panic_abort"]
-[env]
-ESP_IDF_VERSION = "v6.1"
+## 2. Tasks (current → proposed)
 
-# rust-toolchain.toml
-[toolchain]
-channel = "nightly"          # replace with the pinned nightly-YYYY-MM-DD
-components = ["rust-src"]
+**Current:** one `main` task initializes the hardware, then reads the five I2C sensors in turn
+once a second and prints them. `wifi.rs` provides Wi-Fi + DHCP + a ping smoke test (with a
+background `network_task`), but the call in `main` is commented out while sensor work goes on.
+
+**Proposed:** one Embassy task per job. The C6 has a single core, so the rule is that **no task
+blocks for long**; every wait is an `.await`.
+
+| Task | Job | Period | Owns |
+|---|---|---|---|
+| `main` | Init, spawn the tasks, then supervise (Wi-Fi/MQTT state) | once, then loop | — |
+| `network_task` (exists) | Runs the `embassy-net` stack | continuous | Wi-Fi interface |
+| `i2c_sensors` | SHT41 → SGP40 (with SHT41 compensation) → SCD41 → BH1750 → VL53L0X | 1–5 s (SCD41 updates ~every 5 s) | I2C bus |
+| `pms5003` | Read and checksum PMS5003 frames (`0x42 0x4D`) | 10–30 s | its UART |
+| `presence` | LD2410C OUT pin, edge-triggered with debounce | on change | its GPIO |
+| `mqtt` | Connect with Last Will, publish `…/sensors` + `…/status`, subscribe to `…/display` | interval TBD (contract: not yet agreed) | the MQTT socket |
+| `display` | Write the VP map: sensor block every 0.5–1 s, AI message only when it changes | 0.5–1 s | the display UART |
+| `led_bar` | Patterns with a global brightness cap | ~30–50 ms tick | the LED data pin |
+
+Peripherals that only one task uses (UARTs, GPIOs, the LED pin) **move into that task**.
+
+---
+
+## 3. Shared state (proposed)
+
+Tasks never call each other; they share the **latest values** through a few
+`embassy_sync` primitives in `static`s:
+
+- **Latest reading of each sensor:** e.g. a `Mutex<CriticalSectionRawMutex, SensorSnapshot>`,
+  written by the sensor tasks and read by `mqtt` and `display`. A missing or failed sensor is
+  `None`, so the display can show *Waiting* (VP value `0x8000`) and MQTT can skip or flag it.
+- **Connection state** (Wi-Fi, MQTT): a `Watch` or `Signal` that `display` and `led_bar` follow.
+- **Latest AI message** (`text`, `ts`): set by `mqtt` when a `…/display` message arrives,
+  read by `display`. It is **kept until a different message arrives** (no timeout), as the
+  layout rule requires.
+
+```
+Sensor tasks ──► latest readings ──┬──► mqtt (publish …/sensors)
+                                   └──► display (VP sensor block)
+mqtt (…/display arrives) ──► latest AI message ──► display (VP message block)
+Wi-Fi / MQTT state ──► display (VP connection block) · led_bar
 ```
 
-**FreeRTOS is underneath `std`:** `std::thread::spawn` becomes a FreeRTOS task, and `std::sync::{Mutex, mpsc, Arc}` work normally. Plain `std` covers task creation, IPC and shared state; raw FreeRTOS primitives via `esp-idf-sys` are only for edge cases.
-
-**Driver crates:**
-- Sensors (`embedded-hal`-based, used with `esp-idf-hal`'s `I2cDriver`): `sht4x`, `sgp40`, `vl53l0x`, `bh1750`, `scd4x`. **Check each against `esp-idf-hal` 0.47 / `embedded-hal` 1.0** before pinning; a hand-rolled register read is a fine fallback — all five have simple, documented I2C register maps.
-- LED bar: RMT via a crate such as `ws2812-esp32-rmt-driver` / `smart-leds` (check against `esp-idf-hal` 0.47), or hand-rolled RMT bit timing.
-- Display: no crate needed — the DWIN DGUS frame format is simple enough to write directly over `esp-idf-hal`'s UART driver.
-- Serialization: `serde` + `serde_json` for MQTT payloads.
-
-**Learning resources:** [Rust on ESP docs](https://docs.espressif.com/projects/rust/) · [The Rust on ESP Book](https://docs.espressif.com/projects/rust/book/) (start here) · [esp-rs/esp-idf repo](https://github.com/esp-rs/esp-idf)
+**Current:** the I2C sensors share the bus through a `RefCell` inside the one `main` task, and
+each borrow is released before the next driver call. The VL53L0X driver holds a bus handle
+for its whole lifetime, which is why the `RefCell` approach was needed. **Proposed:** if the
+sensors move into their own task, keep the bus in that one task, or use an
+`embassy-embedded-hal` shared-bus wrapper.
 
 ---
 
-## 2. Task / Thread Layout
+## 4. Display — DWIN over UART
 
-One RISC-V core, so the goal is that no task blocks the others for long (PMS5003 warm-up, Wi-Fi reconnects and MQTT publishes are the main blocking risks).
+- **Contract:** [`docs/interfaces/display-vp-map.md`](../docs/interfaces/display-vp-map.md)
+  (v1.0, display UI by @rakkicow).
+- **Wiring:** UART at **115200 8N1, 3.3 V TTL**. The display must be in **TTL mode** (done on the
+  rigs).
+- **No graphics on the ESP32.** The UI is custom DGUS structures by @rakkicow (not DWIN's DGUS
+  tool; LVGL dropped). The ESP32 only writes VP frames:
+  `5A A5 <len> 82 <VP hi> <VP lo> <data…>`. The display answers `5A A5 03 82 4F 4B`.
+- **Minimum for a working node:**
 
-| # | Thread | Responsibility | Approx. period | Priority | Stack |
-|---|---|---|---|---|---|
-| 0 | `main` | Boot sequence, NVS, Wi-Fi, MQTT init, spawns the rest, then a supervisor/reconnect loop | once, then loop | default | default |
-| 1 | `sensor_i2c` | Polls SHT41 → SGP40 (with SHT41 compensation) → VL53L0X → BH1750 → SCD41 on the shared I2C bus; writes shared state | 2–5 s (SCD41 updates ~every 5 s) | normal | ~4–6 KB |
-| 2 | `pms5003_uart` | Reads PMS5003 binary frames (start bytes `0x42 0x4D`, checksum-verified); optionally sleeps the fan via SET pin between reads | 10–30 s (~30 s warm-up if sleeping) | normal | ~2–3 KB |
-| 3 | `presence_gpio` | LD2410C **OUT** pin — GPIO interrupt on both edges with debounce, or a 200–500 ms poll | event / poll | normal | ~1–2 KB |
-| 4 | `mqtt_publish` | Snapshots shared state, publishes the JSON snapshot — interval or on-change | 5–15 s or on-change | normal | ~3 KB |
-| 5 | MQTT callback | Receives the retained AI message on `.../display`, writes it into shared state (not its own thread — `esp-idf-svc`'s client delivers via callback) | event | — | — |
-| 6 | `dwin_display` | Writes sensor values to DGUS VP addresses continuously; rewrites the AI section only when a new message arrives | 0.5–1 s | normal | ~2 KB |
-| 7 | `led_bar` | Drives the WS2812B bar via RMT with a brightness cap; patterns follow the LED bar team decision | ~30–50 ms animation tick | low | ~1–2 KB |
+  | Block | VPs | When |
+  |---|---|---|
+  | Sensor readings | `0x1000–0x1009`, one 10-word frame | Every 0.5–1 s. `0x8000` = no reading; temperature/humidity × 10 |
+  | Connection | `wifi`, `hub`, `synced_ago` (`0x1010–0x1012`) | On change |
+  | Clock | `unix_time` + `utc_offset` (`0x1020–0x1022`) | Once after SNTP |
+  | AI message | `message_text` (`0x1100`, up to 512 bytes in 3 frames) + `message_ts` (`0x10FE`) | Only when a different message arrives |
+  | Reset | `inputs_reset` (`0x103F` = `0x5AA5`) | At boot |
 
-Total: 6 spawned threads + 1 MQTT callback + `main`.
-
----
-
-## 3. Shared State & Concurrency
-
-A few `Arc<Mutex<…>>` structs, since most consumers only want the latest value:
-
-```rust
-struct SensorSnapshot {
-    temp_c: f32, humidity_pct: f32,        // SHT41
-    voc_index: u16,                         // SGP40
-    co2_ppm: u16,                           // SCD41
-    lux: f32,                               // BH1750
-    distance_mm: u16,                       // VL53L0X
-    pm1_0: u16, pm2_5: u16, pm10: u16,      // PMS5003
-    presence: bool,                         // LD2410C OUT
-    last_updated: Instant,
-}
-
-enum SystemStatus {
-    WifiConnecting,
-    WifiConnected,
-    MqttConnected,
-    MqttDisconnected,
-    SensorFault(&'static str),   // e.g. "pms5003_timeout", "i2c_nack"
-    Normal,
-}
-
-struct AiMessage {
-    text: String,
-    ts: String,        // from the payload, shown in the final GUI
-    is_new: bool,      // display rewrites the AI section only when set
-}
-
-struct SharedState {
-    sensors: Mutex<SensorSnapshot>,
-    status: Mutex<SystemStatus>,
-    ai_message: Mutex<Option<AiMessage>>,   // persists until replaced — no timeout
-}
-```
-
-Field names above are internal; the **published JSON field names follow the MQTT schema contract fixed Oct 4** (shared with the AI team and its emulator ESP32).
-
-Wrap once in `Arc<SharedState>` and clone into each thread. Use `mpsc` only where order matters (e.g. discrete presence-change events). The I2C driver sits in `Arc<Mutex<I2cDriver>>` so a second consumer can be added later without refactoring.
+- **Not used:** the rooms page and the Wi-Fi setup page. Whether to drive the other pages
+  (alert, night, away, boot, toast, action chips, "thinking") is an **open discussion** with
+  @rakkicow.
+- **AI message length:** still to be **tested on the real display**. The pipeline sends room
+  messages of at most 60 characters today.
+- **Units:** MQTT carries °C. The display's `units` VP (`0x1030`) selects °F/°C on screen.
 
 ---
 
-## 4. Display — DWIN DGUS over UART
+## 5. LED bar — WS2812B
 
-- **UART1, 115200 baud, 8N1.** The display's UART2 must be set to **TTL mode** before wiring (RS232 levels would damage the ESP32 pins).
-- The screens are designed in DWIN's **DGUS** tool and loaded from an SD card. The ESP32 only writes values into display variables (VP addresses): `5A A5 <len> 82 <VP addr hi> <VP addr lo> <data…>`.
-- **Layout rule:** all environmental readings are always on screen; a **dedicated AI section** shows the latest AI message and **keeps it until a new one arrives** — no timeout, no page switching.
-- **Dev GUI** (simple readouts + connection status + AI box) first, **final GUI** later. The **VP address map** is shared between whoever designs screens and whoever writes the driver — keep it in `docs/interfaces/`.
-- Text for the AI section must respect the max length agreed with the AI team (contract due Oct 18).
-
----
-
-## 5. LED Bar — WS2812B via RMT
-
-- One GPIO (not a strapping pin), RMT peripheral, 3.3 V → 5 V level shifter on the final PCB (try direct drive on the rigs first).
-- **Global brightness cap** in firmware — at full white each LED can draw ~60 mA, and the bar dominates the 5 V budget.
-- **What the bar shows is a 🗳 TEAM DECISION:** A. status only · B. AI feedback · C. air-quality gauge · D. mix. The driver should expose a small pattern API (`solid`, `pulse`, `gauge(level)`, `flash`) so any option is a configuration change, not a rewrite.
-- If option A or D is chosen, the earlier status mapping still works: blue pulse = Wi-Fi connecting, cyan = MQTT connecting, dim green = normal, purple = AI message received, yellow = sensor fault, orange = MQTT lost, red = Wi-Fi lost.
+- **The ESP32 drives the bar** on one GPIO (not a strapping pin). How (e.g. the RMT peripheral
+  through `esp-hal`) is still being worked out with Hardware.
+- **Global brightness cap in firmware:** each LED can draw ~60 mA at full white, and the bar
+  dominates the 5 V budget.
+- **What the bar shows is a 🗳 team decision** (status / AI feedback / air-quality gauge / mix).
+  **Proposed:** a small pattern API (`solid`, `pulse`, `gauge(level)`, `flash`), so any choice is
+  configuration, not a rewrite.
 
 ---
 
-## 6. MQTT Topics
+## 6. MQTT (contract summary)
+
+Full list of topics and payloads: [`docs/interfaces/mqtt.md`](../docs/interfaces/mqtt.md).
 
 | Topic | Direction | Content |
 |---|---|---|
-| `intellithings/<node_id>/sensors` | publish | One JSON snapshot of all readings |
-| `intellithings/<node_id>/status` | publish (retained, Last Will) | `online` / `offline` |
-| `intellithings/<node_id>/display` | subscribe (HA publishes **retained**) | `{"text": "...", "ts": "2026-10-18T14:05:00-04:00"}` — latest AI message; retained so a rebooted node re-shows it |
+| `intellithings/<node_id>/sensors` | publish, QoS 0 | One JSON snapshot of all readings (°C), `ts` once SNTP has synced |
+| `intellithings/<node_id>/status` | publish, retained, **Last Will** | `online` / `offline` |
+| `intellithings/<node_id>/display` | subscribe, QoS 1 (published retained) | `{"text": "...", "ts": "..."}` |
 
-`<node_id>` comes from the C6's efuse MAC, so one firmware image fits every node. The AI team's emulator ESP32 publishes as `emu-kitchen`, `emu-bedroom` and `emu-living-room` on the same topics and schema.
-
-**Payload fields, QoS and retained flags:** see the draft contract in [`docs/interfaces/mqtt.md`](../docs/interfaces/mqtt.md) (to be agreed Oct 4). The emulator already publishes it, so the baseline firmware's placeholder snapshot should use the same field names.
-
----
-
-## 7. Boot Sequence (`main`)
-
-1. `esp_idf_svc::sys::link_patches()` + logger init.
-2. NVS init — Wi-Fi credentials and broker address live here, not in code.
-3. System event loop + Wi-Fi (`BlockingWifi`), updating `SystemStatus` as it goes.
-4. Init I2C bus, UART0 (PMS5003, 9600), UART1 (DWIN, 115200), GPIO input (LD2410C OUT), RMT (LED bar).
-5. MQTT client (`EspMqttClient`, from the `espressif/mqtt` managed component): Last Will on `.../status`, connect, subscribe to `.../display`, publish `online`.
-6. Spawn the worker threads from §2 with clones of `Arc<SharedState>`; exclusively-owned drivers (UARTs, GPIO, RMT) move into their thread.
-7. `main` becomes the supervisor loop: watches Wi-Fi/MQTT health and drives reconnects.
+- **`<node_id>` comes from the chip's MAC,** so one firmware image fits every node. Each real
+  node ID must be added to the AI pipeline's `ai/config/display_nodes.json` to receive room
+  messages.
+- **Broker:** `192.168.1.2:1883`, login required.
 
 ---
 
-## 8. Error Handling
+## 7. Boot sequence (proposed)
 
-- Every sensor read returns `Result`; tolerate N consecutive failures (small retry with backoff) before setting `SensorFault(...)`, so one dropped transaction doesn't flap the status.
-- Wi-Fi/MQTT disconnects surface through the event loop/callback; the supervisor re-drives connection state and updates `SystemStatus`.
-- 8 MB flash leaves room for OTA (`ota_0`/`ota_1`); whether OTA is in scope this semester is still open (see §10).
+1. `esp_hal::init`, heap, `esp_rtos::start`.
+2. Display UART up; write `inputs_reset`; boot checklist steps (optional, see §4).
+3. Wi-Fi (`esp-radio`) + DHCP; spawn `network_task`.
+4. SNTP for the clock (needed for `ts` and the display clock).
+5. MQTT connect with Last Will → publish `online` → subscribe to `…/display`.
+6. Spawn the sensor, display, LED and presence tasks.
+7. `main` supervises: reconnects Wi-Fi/MQTT and updates the connection state.
+
+**Wi-Fi settings:** compiled in from the local, gitignored `.cargo/esp-config.toml` (`WIFI_SSID`,
+`WIFI_PASSWORD`). Accepted for the prototype; no on-device Wi-Fi setup is planned.
 
 ---
 
-## 9. Module Layout
+## 8. Error handling
+
+- **Current:** every sensor read returns a `Result`; errors are printed and the loop continues.
+  The SCD41 start is retried each cycle until it succeeds.
+- **Proposed:** tolerate N consecutive failures (small retry with backoff) before marking a
+  sensor as faulted, so one dropped transaction doesn't flap the reading; a faulted sensor shows
+  as `0x8000` on the display.
+- **Proposed:** Wi-Fi and MQTT drops are handled by `main`'s supervisor loop with backoff.
+- 8 MB flash leaves room for OTA; whether OTA is in scope is still open.
+
+---
+
+## 9. Code layout
 
 ```
 software/firmware/src/
-├── main.rs            boot, start threads, supervisor loop
-├── hardware/
-│   ├── bus.rs         I²C / UART setup
-│   └── sensors/       sht41.rs  sgp40.rs  scd41.rs  bh1750.rs  vl53l0x.rs  pms5003.rs  ld2410c.rs
-├── network/
-│   ├── wifi.rs
-│   └── mqtt.rs
-├── ui/
-│   ├── display.rs     DWIN DGUS driver
-│   └── led.rs         WS2812B LED bar (RMT)
-└── system/
-    ├── state.rs       shared state
-    ├── config.rs      NVS settings
-    ├── logging.rs
-    └── errors.rs
+├── main.rs            init, (today) the sensor loop
+├── lib.rs             module exports
+├── wifi.rs            Wi-Fi, DHCP, network_task, ping smoke test
+└── sensors/           one file per sensor: sht41.rs  sgp40.rs  scd41.rs  bh1750.rs  vl53l0.rs
+                       (+ mod.rs, sensor.rs: a shared Sensor trait, work in progress)
 ```
 
-**Baseline firmware first** (target merged by Oct 4): boot → Wi-Fi → MQTT → publish a placeholder snapshot in the agreed schema. Then module tasks are assigned and built in parallel. Final-PCB bring-up (Nov 15) should only need pin-map changes.
+**Proposed additions:** `mqtt.rs`, `display.rs` (VP writes; the drop-in `dwin_vp.rs` constants
+from @rakkicow), `led.rs`, `state.rs` (the shared state in §3), and `pms5003.rs` / `ld2410c.rs`
+under `sensors/`.
 
 ---
 
-## 10. Open Items
+## 10. Open items
 
 | Item | Status |
 |---|---|
-| Pinned nightly date | Set on Sep 27 after the first clean build |
-| MQTT managed component on C6 + v6.1 | Verify on the rig Sep 27 |
-| Third-party crates vs. `esp-idf-hal` 0.47 | Check each sensor/LED crate as it's added |
-| What the LED bar shows | 🗳 Team decision (Project Guideline §10) |
-| PMS5003 SET-pin sleep vs. always-on fan | Decide with Hardware by Oct 4 (affects a GPIO + warm-up delay) |
-| Publish cadence (interval vs. on-change) | Decide with AI team before the Oct 18 MCP tests |
-| OTA this semester or later | Decide before the baseline is finalized |
+| MQTT client crate for `no_std`/Embassy | To choose and verify on the rig |
+| Pin assignments for the display UART, PMS5003, LD2410C, LED data | TBD with Hardware ([`pin-map.md`](../docs/interfaces/pin-map.md)) |
+| How to drive the LED strip | Hardware/Software to-do |
+| Which display pages to drive | Open discussion with @rakkicow |
+| AI message length on the display | Needs testing |
+| Publish cadence (interval vs. on-change) | Not agreed yet |
+| PMS5003 SET-pin sleep vs. always-on fan | Decide with Hardware |
+| OTA this semester or later | Open |
 
 ---
 
 ## Sources
 
-- [esp-rs/esp-idf – esp-idf-sys / -hal / -svc (repo, CI, changelogs)](https://github.com/esp-rs/esp-idf) · [esp-idf-sys](https://crates.io/crates/esp-idf-sys) · [esp-idf-hal](https://crates.io/crates/esp-idf-hal) · [esp-idf-svc](https://crates.io/crates/esp-idf-svc)
-- [Espressif – Rust on ESP](https://docs.espressif.com/projects/rust/) · [The Rust on ESP Book](https://docs.espressif.com/projects/rust/book/)
+- [esp-rs/esp-hal](https://github.com/esp-rs/esp-hal) · [Embassy](https://embassy.dev/) ·
+  [The Rust on ESP Book](https://docs.espressif.com/projects/rust/book/) ·
+  [Rust on ESP docs](https://docs.espressif.com/projects/rust/)
 - [DWIN – DMG80480T050_09W specifications](https://www.dwin-global.com/5-0-inch-hmi-tft-lcd-modeldmg80480t050_09windustrial-product/)
