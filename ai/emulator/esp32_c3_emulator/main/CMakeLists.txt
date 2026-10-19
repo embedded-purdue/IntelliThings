@@ -14,6 +14,8 @@ idf_component_register(
         "app_config.c"
         "event_log.c"
         "history.c"
+        "demo_home.c"
+        "demo_engine.c"
     INCLUDE_DIRS "."
     PRIV_REQUIRES esp_app_format esp_wifi esp_netif esp_event esp_timer esp_http_server nvs_flash
 )
@@ -34,3 +36,12 @@ endfunction()
 
 embed_gzipped_asset("web/index.html")
 embed_gzipped_asset("../../GUIDE.md")  # ai/emulator/GUIDE.md, served at /guide.md
+
+# Demo home tables: demo/demo_home.json -> demo_data.c (validated by the generator).
+set(demo_json "${CMAKE_CURRENT_SOURCE_DIR}/../demo/demo_home.json")
+set(demo_c "${CMAKE_CURRENT_BINARY_DIR}/demo_data.c")
+add_custom_command(OUTPUT "${demo_c}"
+    COMMAND "${python}" "${CMAKE_CURRENT_SOURCE_DIR}/../tools/gen_demo.py" "${demo_json}" "${demo_c}"
+    DEPENDS "${demo_json}" "${CMAKE_CURRENT_SOURCE_DIR}/../tools/gen_demo.py"
+    VERBATIM)
+target_sources(${COMPONENT_LIB} PRIVATE "${demo_c}")

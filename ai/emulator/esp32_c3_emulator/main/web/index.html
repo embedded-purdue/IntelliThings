@@ -196,6 +196,40 @@ label.inline { display: inline-flex; gap: 6px; align-items: center; color: var(-
 .edge-list table { width: 100%; border-collapse: collapse; }
 .edge-list td { padding: 3px 6px; border-bottom: 1px solid var(--line); }
 
+/* demo */
+.demo-top { display: flex; gap: 22px; align-items: center; flex-wrap: wrap; }
+.rollbtn { width: 150px; height: 150px; border-radius: 50%; border: 0; flex: none; color: #fff; cursor: pointer;
+  background: radial-gradient(circle at 35% 30%, #ff7676, #c81e1e 70%); font-weight: 800; letter-spacing: .06em;
+  box-shadow: 0 8px 0 #8d1414, 0 14px 24px rgba(0,0,0,.25); display: flex; flex-direction: column;
+  align-items: center; justify-content: center; line-height: 1.1; transition: transform .08s, box-shadow .08s; padding: 0; }
+.rollbtn .rb1 { font-size: 28px; } .rollbtn .rb2 { font-size: 13px; } .rollbtn .rb3 { font-size: 11px; font-weight: 600; margin-top: 4px; opacity: .9; }
+.rollbtn:hover { border: 0; filter: brightness(1.05); }
+.rollbtn:active:not(:disabled) { transform: translateY(6px); box-shadow: 0 2px 0 #8d1414, 0 6px 12px rgba(0,0,0,.25); }
+.rollbtn:disabled { background: radial-gradient(circle at 35% 30%, #c3c8d1, #7d8494 70%); box-shadow: 0 8px 0 #5c6270; opacity: 1; cursor: default; }
+.rollbtn.spin { animation: glow .5s ease-in-out infinite alternate; background: radial-gradient(circle at 35% 30%, #ffb36b, #e0661b 70%); box-shadow: 0 8px 0 #9a4310; }
+@keyframes glow { to { filter: brightness(1.3); } }
+.demo-status { flex: 1; min-width: 260px; }
+.demo-now { font-size: 16px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.dhome { display: grid; grid-template-columns: repeat(auto-fill, minmax(215px, 1fr)); gap: 12px; }
+.darea { border: 1px solid var(--line); border-radius: 10px; padding: 8px 8px 6px; min-width: 0; }
+.darea h3 { margin: 0 0 4px; font-size: 14px; display: flex; gap: 6px; align-items: center; justify-content: space-between; padding: 0 4px; }
+.drow { display: flex; justify-content: space-between; gap: 8px; padding: 3px 4px; border-radius: 6px; border: 0;
+  background: none; width: 100%; text-align: left; font-size: 13px; }
+.drow:hover { background: var(--bg); border: 0; }
+.drow .dl { color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.drow .dv { font-variant-numeric: tabular-nums; font-weight: 650; white-space: nowrap; }
+.drow .dv small { color: var(--muted); font-weight: 500; margin-left: 4px; }
+.drow.abn .dv { color: var(--warn); }
+.drow.abn .dl::after { content: " \26A0"; color: var(--warn); }
+.drow.spinning .dv { color: var(--accent); }
+.drow.landed { animation: land 1s ease-out; }
+@keyframes land { from { background: var(--accent-soft); } to { background: transparent; } }
+.presets { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 6px; margin-top: 10px; }
+.preset { text-align: left; display: flex; gap: 8px; align-items: center; padding: 6px 10px; }
+.preset .pid { color: var(--muted); font-variant-numeric: tabular-nums; min-width: 26px; }
+.preset .pn { flex: 1; }
+.preset.current { border-color: var(--accent); background: var(--accent-soft); }
+
 /* modal */
 .modal { position: fixed; inset: 0; z-index: 40; background: rgba(10,14,22,.45); display: flex; align-items: flex-start;
   justify-content: center; padding: 40px 12px; overflow-y: auto; }
@@ -309,6 +343,48 @@ legend { font-weight: 650; padding: 0 6px; }
         <p class="muted">Min = max gives a fixed value. Values move like a real room unless “jump instantly” is ticked. Temperature is in °C.</p>
       </div>
     </section>
+  </div>
+
+  <div class="view" id="view-demo" hidden>
+    <section class="card" data-card="democtl" data-title="Demo mode (experimental)" data-guide="demo-mode">
+      <div class="demo-top">
+        <button id="roll-btn" class="rollbtn" title="Stands in for the game buzzer"><span class="rb1">ROLL</span><span class="rb2">THE HOUSE</span><span class="rb3" id="roll-sub"></span></button>
+        <div class="demo-status">
+          <div class="demo-now"><span class="badge" id="demo-state">…</span><b id="demo-step">…</b><span class="badge" id="demo-group"></span></div>
+          <div class="muted" id="demo-next"></div>
+          <div class="row">
+            <label class="inline"><input type="checkbox" id="demo-publish"> Publish to <code>intellithings/emulator/demo/#</code></label>
+          </div>
+          <div class="row">
+            <label class="inline"><input type="checkbox" id="demo-loop"> Scenario loop</label>
+            <label class="inline">every <input type="number" id="demo-interval" min="10" max="3600" step="5"> s</label>
+            <label class="inline">picks <select id="demo-source"><option value="presets">presets</option><option value="random">random rolls</option><option value="mix">presets + rolls</option></select></label>
+          </div>
+        </div>
+      </div>
+      <button class="link more-btn" data-more="demoset">more: roll settings ▾</button>
+      <div data-more-body="demoset" hidden>
+        <div class="row">
+          <label class="inline">Roll length (s) <input type="number" id="ds-roll" min="1" max="15"></label>
+          <label class="inline">Hold after a roll (s) <input type="number" id="ds-hold" min="0" max="3600"></label>
+          <label class="inline">Values <select id="ds-spread"><option value="normal">lean to normal</option><option value="uniform">anywhere within the caps</option></select></label>
+          <label class="inline">Abnormal chance (%) <input type="number" id="ds-abn" min="0" max="100"></label>
+          <label class="inline">Rolls in the mix (%) <input type="number" id="ds-mix" min="0" max="100"></label>
+          <button class="primary" id="ds-apply">Apply</button>
+        </div>
+        <p class="muted">“Lean to normal”: each value stays in its normal range except with the abnormal chance, when it can land anywhere within its caps. Presses during the roll and the hold are ignored, like the buzzer.</p>
+      </div>
+    </section>
+    <section class="card" data-card="demohome" data-title="Demo home" data-guide="demo-mode">
+      <div class="dhome" id="dhome"><div class="empty">Loading the demo home…</div></div>
+      <p class="muted">Amber ⚠ = outside the normal range. Click a value for its last changes.</p>
+    </section>
+    <section class="card" data-card="presets" data-title="Preset library" data-guide="demo-mode">
+      <div class="tabs" id="preset-groups"></div>
+      <div class="presets" id="presets"></div>
+    </section>
+  </div>
+
     <section class="card" data-card="ai" data-title="AI messages" data-guide="ai-messages">
       <div class="aiboxes" id="aiboxes"></div>
       <div class="summary" id="summary"></div>
@@ -317,14 +393,6 @@ legend { font-weight: 650; padding: 0 6px; }
         <div class="msgs" id="msgs"><div class="empty">No AI messages yet.</div></div>
       </div>
     </section>
-  </div>
-
-  <div class="view" id="view-demo" hidden>
-    <section class="card" data-card="demo" data-title="Demo mode (experimental)" data-guide="the-panel">
-      <p>Demo mode stands in for the ECE SPARK <b>demo master</b>: a whole demo home with 50 preset scenarios, a scenario loop and a <b>Roll the house</b> button in place of the game buzzer. It publishes only under <code>intellithings/emulator/demo/#</code>.</p>
-      <p class="muted">Coming in the next firmware update (phase 4 of <code>ai/emulator/PLAN-v2.1.0.md</code>). The Dev tab keeps running meanwhile.</p>
-    </section>
-  </div>
 
   <section class="card" data-card="log" data-title="System log" data-guide="system-log">
     <div class="logbar">
@@ -386,7 +454,7 @@ const store = {
 const PREF_DEFAULTS = { temp: "both", win: 600, style: "line", refresh: 1500, theme: "auto", tab: "dev" };
 const prefs = Object.assign({}, PREF_DEFAULTS, store.get("prefs", {}));
 const savePrefs = () => store.set("prefs", prefs);
-const LAYOUT_DEFAULTS = { collapsed: { status: true }, hidden: {}, more: {} };
+const LAYOUT_DEFAULTS = { collapsed: { status: true, presets: true }, hidden: {}, more: {} };
 let layout = Object.assign({}, JSON.parse(JSON.stringify(LAYOUT_DEFAULTS)), store.get("layout", {}));
 const saveLayout = () => store.set("layout", layout);
 
@@ -634,8 +702,9 @@ function drawChart(cv, data, o) {
   ctx.font = "11px system-ui, sans-serif";
   const pts = [];
   for (let i = 0; i < data.t.length; i++) if (Number.isFinite(data.v[i])) pts.push([data.t[i], data.v[i]]);
+  const cat = o.cat || (o.presence ? ["empty", "present"] : null);
   let lo, hi;
-  if (o.presence) { lo = -0.15; hi = 1.15; }
+  if (cat) { lo = -0.15; hi = cat.length - 0.85; }
   else if (pts.length) {
     lo = Math.min(...pts.map((p) => p[1])); hi = Math.max(...pts.map((p) => p[1]));
     const pad = (hi - lo) * 0.12 || Math.max(1, Math.abs(hi) * 0.05);
@@ -645,11 +714,11 @@ function drawChart(cv, data, o) {
   const Y = (v) => T + ph - (v - lo) / (hi - lo) * ph;
   // grid + y labels
   ctx.strokeStyle = line; ctx.fillStyle = muted; ctx.lineWidth = 1; ctx.textAlign = "right"; ctx.textBaseline = "middle";
-  const yt = o.presence ? [0, 1] : (() => { const st = niceStep(hi - lo, 4), a = []; for (let v = Math.ceil(lo / st) * st; v <= hi; v += st) a.push(v); return a; })();
+  const yt = cat ? cat.map((_, i) => i) : (() => { const st = niceStep(hi - lo, 4), a = []; for (let v = Math.ceil(lo / st) * st; v <= hi; v += st) a.push(v); return a; })();
   for (const v of yt) {
     const y = Math.round(Y(v)) + 0.5;
     ctx.beginPath(); ctx.moveTo(L, y); ctx.lineTo(w - R, y); ctx.stroke();
-    ctx.fillText(o.presence ? (v ? "present" : "empty") : Number(v.toFixed(6)).toString(), L - 6, y);
+    ctx.fillText(cat ? cat[v] : Number(v.toFixed(6)).toString(), L - 6, y);
   }
   // x labels
   const span = data.end - data.start;
@@ -667,7 +736,7 @@ function drawChart(cv, data, o) {
   }
   ctx.save();
   ctx.beginPath(); ctx.rect(L, T, pw, ph); ctx.clip();
-  const style = o.presence && (o.style === "line" || o.style === "area" || o.style === "band") ? "step" : o.style;
+  const style = cat && (o.style === "line" || o.style === "area" || o.style === "band") ? "step" : o.style;
   ctx.strokeStyle = acc; ctx.fillStyle = acc; ctx.lineWidth = 2; ctx.lineJoin = "round";
   const bins = () => {
     const nb = Math.max(1, Math.min(60, pts.length)), bw = span / nb, out = [];
@@ -680,7 +749,7 @@ function drawChart(cv, data, o) {
   };
   if (style === "bars") {
     ctx.globalAlpha = 0.75;
-    const base = o.presence ? Y(0) : T + ph;
+    const base = cat ? Y(0) : T + ph;
     for (const b of bins()) {
       const x0 = X(b.t0) + 1, x1 = X(b.t1) - 1, y = Y(b.sum / b.n);
       ctx.fillRect(x0, Math.min(y, base), Math.max(1, x1 - x0), Math.abs(base - y));
@@ -718,7 +787,7 @@ function drawChart(cv, data, o) {
       const x = X(best[0]), y = Y(best[1]);
       ctx.strokeStyle = muted; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(x, T); ctx.lineTo(x, T + ph); ctx.stroke();
       ctx.fillStyle = acc; ctx.beginPath(); ctx.arc(x, y, 4, 0, Math.PI * 2); ctx.fill();
-      const label = clock(upToDate(best[0])) + "  " + (o.presence ? (best[1] >= 0.5 ? "present" : "empty") : best[1].toFixed(o.dec) + (o.unit ? " " + o.unit : ""));
+      const label = clock(upToDate(best[0])) + "  " + (cat ? cat[Math.round(best[1])] : best[1].toFixed(o.dec) + (o.unit ? " " + o.unit : ""));
       ctx.font = "12px system-ui, sans-serif";
       const tw = ctx.measureText(label).width + 12, bx = Math.min(Math.max(x - tw / 2, L), w - R - tw);
       ctx.fillStyle = cssVar("--card"); ctx.strokeStyle = line;
@@ -975,6 +1044,202 @@ function ingestMessages(items) {
     el("div", { class: "text", text: m.text }))));
 }
 
+// ============================================================ demo mode
+const DEMO = { meta: null, values: null, seq: -1, rows: [], rolling: false, spin: null, spinning: new Set(), landTimers: [], group: "all", state: null, formFilled: false };
+const GROUP_BADGE = { normal: "ok", air: "warn", heat_cold: "warn", security: "bad", energy: "warn", hazard: "bad", random: "acc" };
+async function initDemo() {
+  try { DEMO.meta = await api("/api/demo/meta"); } catch (e) { setTimeout(initDemo, 3000); return; }
+  if (!DEMO.meta.entities) return;
+  const M = DEMO.meta;
+  DEMO.rows = M.entities.map((e, i) => {
+    const v = el("b"), alt = el("small");
+    const row = el("button", { class: "drow", title: e.key, onclick: () => openDemoEntity(i) },
+      el("span", { class: "dl", text: e.label }), el("span", { class: "dv" }, v, alt));
+    return { row, v, alt, e };
+  });
+  $("dhome").replaceChildren(...M.areas.map((a, ai) => el("div", { class: "darea" },
+    el("h3", {}, el("span", { text: a.label }), a.node_id ? el("span", { class: "badge acc", title: "Also published as this node's demo sensors", text: a.node_id }) : null),
+    DEMO.rows.filter((r) => r.e.area === ai).map((r) => r.row))));
+  renderPresetGroups();
+  $("roll-btn").onclick = async () => {
+    if (await cmd({ action: "demo", op: "roll" })) startRoll(((STATE && STATE.demo.roll_s) || 4) * 1000);
+  };
+  $("demo-publish").onchange = (e) => cmd({ action: "demo", op: "publish", on: e.target.checked });
+  $("demo-loop").onchange = (e) => cmd({ action: "demo", op: "loop", on: e.target.checked });
+  $("demo-interval").onchange = (e) => cmd({ action: "demo", op: "loop", interval_s: Number(e.target.value) });
+  $("demo-source").onchange = (e) => cmd({ action: "demo", op: "loop", source: e.target.value });
+  $("ds-apply").onclick = async () => {
+    if (await cmd({ action: "demo", op: "settings", roll_s: Number($("ds-roll").value), hold_s: Number($("ds-hold").value),
+      spread: $("ds-spread").value, abnormal_pct: Number($("ds-abn").value) })) {
+      cmd({ action: "demo", op: "loop", mix_pct: Number($("ds-mix").value) });
+    }
+  };
+  if (STATE) renderDemo(STATE.demo);
+  fetchDemo(true);
+}
+function demoText(e, v) {
+  if (v === null || v === undefined) return { main: "–", alt: "" };
+  if (e.type === "bool") return { main: e.labels[v >= 0.5 ? 1 : 0], alt: "" };
+  if (e.type === "enum") return { main: e.options[Math.round(v)] || "?", alt: "" };
+  if (e.unit === "°C") {
+    const c = v.toFixed(1) + " °C", f = cToF(v).toFixed(1) + " °F";
+    return prefs.temp === "f" ? { main: f, alt: "" } : prefs.temp === "c" ? { main: c, alt: "" } : { main: c, alt: f };
+  }
+  return { main: v.toFixed(e.dec) + (e.unit ? " " + e.unit : ""), alt: "" };
+}
+function demoAbnormal(e, v) {
+  if (e.type === "number" && e.normal) return v < e.normal[0] || v > e.normal[1];
+  if (e.type === "enum" && e.normal_options) return !e.normal_options.includes(e.options[Math.round(v)]);
+  return false;
+}
+function setRow(i, v, cls) {
+  const R = DEMO.rows[i], t = demoText(R.e, v);
+  R.v.textContent = t.main; R.alt.textContent = t.alt;
+  R.row.classList.toggle("abn", demoAbnormal(R.e, v));
+  R.row.classList.remove("spinning");
+  if (cls) { R.row.classList.remove(cls); void R.row.offsetWidth; R.row.classList.add(cls); }
+}
+function randomFor(e) {
+  if (e.type === "bool") return Math.random() < 0.5 ? 1 : 0;
+  if (e.type === "enum") return Math.floor(Math.random() * e.options.length);
+  return e.min + Math.random() * (e.max - e.min);
+}
+// Slot machine: every value spins until the board publishes the landed values.
+function startRoll(ms) {
+  if (DEMO.rolling || !DEMO.rows.length) return;
+  DEMO.rolling = true;
+  DEMO.landTimers.forEach(clearTimeout);
+  DEMO.landTimers = [];
+  DEMO.spinning = new Set(DEMO.rows.map((_, i) => i));
+  DEMO.rows.forEach((R) => { R.row.classList.add("spinning"); R.row.classList.remove("abn"); });
+  clearInterval(DEMO.spin);
+  DEMO.spin = setInterval(() => DEMO.spinning.forEach((i) => {
+    const R = DEMO.rows[i], t = demoText(R.e, randomFor(R.e));
+    R.v.textContent = t.main; R.alt.textContent = t.alt;
+  }), 70);
+  clearTimeout(DEMO.safety);
+  DEMO.safety = setTimeout(() => { if (DEMO.rolling) fetchDemo(true); }, (ms || 4000) + 6000);
+  schedulePoll();
+}
+// Settle one value at a time, top to bottom.
+function landRoll() {
+  clearTimeout(DEMO.safety);
+  DEMO.rows.forEach((_, i) => DEMO.landTimers.push(setTimeout(() => {
+    DEMO.spinning.delete(i);
+    setRow(i, DEMO.values[i], "landed");
+    if (!DEMO.spinning.size) { clearInterval(DEMO.spin); DEMO.rolling = false; }
+  }, i * 22)));
+}
+function tweenChange(old) {
+  DEMO.rows.forEach((R, i) => {
+    const a = old ? old[i] : null, b = DEMO.values[i];
+    if (a === b) { setRow(i, b); return; }
+    if (R.e.type !== "number" || a === null || a === undefined || reduceMotion) { setRow(i, b, old ? "landed" : null); return; }
+    const t0 = performance.now();
+    const step = (now) => {
+      const k = Math.min(1, (now - t0) / 600), v = a + (b - a) * (1 - Math.pow(1 - k, 3));
+      const t = demoText(R.e, Number(v.toFixed(R.e.dec)));
+      R.v.textContent = t.main; R.alt.textContent = t.alt;
+      if (k < 1) requestAnimationFrame(step); else setRow(i, b, "landed");
+    };
+    requestAnimationFrame(step);
+  });
+}
+async function fetchDemo(force) {
+  if (!DEMO.meta || DEMO.fetching) return;
+  DEMO.fetching = true;
+  try {
+    const d = await api("/api/demo");
+    if (d.values) {
+      const old = DEMO.values, changed = d.seq !== DEMO.seq;
+      DEMO.values = d.values;
+      DEMO.seq = d.seq;
+      if (DEMO.rolling) {
+        if (changed || force) landRoll();
+      } else if (changed || force) tweenChange(old);
+    }
+  } catch (e) { /* the next poll retries */ }
+  DEMO.fetching = false;
+}
+function renderPresetGroups() {
+  const M = DEMO.meta;
+  const add = (key, label) => el("button", { class: DEMO.group === key ? "active" : "", onclick: () => { DEMO.group = key; renderPresetGroups(); } }, label);
+  $("preset-groups").replaceChildren(add("all", `All ${M.presets.length}`),
+    ...M.groups.map((g) => add(g.key, `${g.label} (${M.presets.filter((p) => p.group === g.key).length})`)));
+  renderPresets();
+}
+function renderPresets() {
+  if (!DEMO.meta) return;
+  const cur = STATE && STATE.demo && STATE.demo.step.scenario_id;
+  $("presets").replaceChildren(...DEMO.meta.presets.filter((p) => DEMO.group === "all" || p.group === DEMO.group).map((p) =>
+    el("button", { class: "preset" + (p.id === cur ? " current" : ""), title: "Apply and hold this preset", onclick: () => cmd({ action: "demo", op: "preset", id: p.id }) },
+      el("span", { class: "pid", text: "#" + p.id }), el("span", { class: "pn", text: p.name }),
+      el("span", { class: "badge " + (GROUP_BADGE[p.group] || ""), text: p.group.replace("_", " & ") }))));
+}
+const mmss = (s) => Math.floor(s / 60) + ":" + pad2(Math.floor(s % 60));
+function renderDemo(d) {
+  if (!d || !DEMO.meta) return;
+  const prev = DEMO.state;
+  DEMO.state = d;
+  const st = $("demo-state");
+  st.className = "badge " + ({ looping: "ok", rolling: "acc", hold: "warn" }[d.state] || "");
+  st.textContent = d.state;
+  $("demo-step").textContent = (d.step.scenario_id ? `#${d.step.scenario_id} ` : "") + d.step.scenario;
+  const g = $("demo-group");
+  g.className = "badge " + (GROUP_BADGE[d.step.group] || "");
+  g.textContent = d.step.group.replace("_", " & ");
+  $("demo-next").textContent = d.state === "rolling" ? "Rolling… the values land when the board publishes them"
+    : d.state === "hold" ? `Holding for ${mmss(d.step_left_s)}` + (d.loop ? ", then the loop resumes" : "")
+    : d.state === "looping" ? `Next ${d.loop_source === "random" ? "roll" : d.loop_source === "mix" ? "step" : "preset"} in ${mmss(d.step_left_s)}`
+    : "Idle: turn on the loop, pick a preset or roll the house";
+  const btn = $("roll-btn"), sub = $("roll-sub");
+  btn.disabled = d.state === "rolling" || d.lock_left_s > 0;
+  btn.classList.toggle("spin", d.state === "rolling");
+  sub.textContent = d.state === "rolling" ? "rolling…" : d.lock_left_s > 0 ? "locked " + mmss(d.lock_left_s) : d.publish ? "" : "not publishing";
+  const setIf = (id, prop, v) => { const x = $(id); if (document.activeElement !== x) x[prop] = v; };
+  setIf("demo-publish", "checked", d.publish);
+  setIf("demo-loop", "checked", d.loop);
+  setIf("demo-interval", "value", d.interval_s);
+  setIf("demo-source", "value", d.loop_source);
+  if (!DEMO.formFilled) {
+    $("ds-roll").value = d.roll_s; $("ds-hold").value = d.hold_s; $("ds-spread").value = d.spread;
+    $("ds-abn").value = d.abnormal_pct; $("ds-mix").value = d.mix_pct;
+    DEMO.formFilled = true;
+  }
+  if (d.state === "rolling" && !DEMO.rolling) startRoll(d.roll_left_ms);
+  if (d.seq !== DEMO.seq) fetchDemo();
+  if (!prev || prev.step.scenario_id !== d.step.scenario_id) renderPresets();
+}
+async function openDemoEntity(i) {
+  const e = DEMO.meta.entities[i], area = DEMO.meta.areas[e.area];
+  const cv = el("canvas", { class: "chart" }), tbl = el("div", { class: "vwrap" });
+  const range = e.type === "number"
+    ? ` · caps ${e.min} – ${e.max} ${e.unit}` + (e.normal ? ` · normal ${e.normal[0]} – ${e.normal[1]}` : " · derived from other values")
+    : e.type === "enum" ? ` · options: ${e.options.join(", ")}` : ` · ${e.labels.join(" / ")}`;
+  openModal(`${area.label} · ${e.label}`, [
+    el("p", { class: "muted", style: "margin-top:0" }, el("code", { text: e.key }), range),
+    cv, el("h3", { style: "font-size:14px;margin:16px 0 0", text: "Last changes" }), tbl]);
+  let h;
+  try { h = await api("/api/demo/history"); } catch (err) { tbl.replaceChildren(el("p", { class: "empty", text: "Couldn't load the history." })); return; }
+  const scale = Math.pow(10, e.type === "number" ? e.dec : 0);
+  const items = h.items.map((it) => ({ t: it.t_s, v: it.v[i] / scale,
+    name: it.preset ? `#${it.preset} ${(DEMO.meta.presets[it.preset - 1] || {}).name || ""}` : `Random roll #${it.roll}` }));
+  const f = e.unit === "°C" && prefs.temp === "f";
+  const conv = f ? cToF : (x) => x;
+  const end = nowUp(), start = items.length ? Math.min(items[0].t, end - 60) - 10 : end - 600;
+  const ts = items.map((x) => x.t), vs = items.map((x) => conv(x.v));
+  if (items.length) { ts.push(end); vs.push(vs[vs.length - 1]); }
+  drawChart(cv, { t: ts, v: vs, start, end },
+    { style: "step", dec: e.dec, unit: f ? "°F" : e.unit, cat: e.type === "bool" ? e.labels : e.type === "enum" ? e.options : null, hoverX: null });
+  tbl.replaceChildren(el("table", { class: "vtable" },
+    el("thead", {}, el("tr", {}, el("th", { text: "Time" }), el("th", { text: "Value" }), el("th", { text: "Scenario" }))),
+    el("tbody", {}, items.slice().reverse().map((x) => {
+      const t = demoText(e, x.v);
+      return el("tr", {}, el("td", { text: clock(upToDate(x.t)) }),
+        el("td", { text: t.main + (t.alt ? " · " + t.alt : "") + (demoAbnormal(e, x.v) ? " ⚠" : "") }), el("td", { text: x.name }));
+    }))));
+}
+
 // ============================================================ status + badges
 function renderStatus(s) {
   const kv = (k, v) => el("div", { class: "kv" }, el("div", { class: "k", text: k }), el("div", { class: "v", text: v }));
@@ -1064,7 +1329,7 @@ function setupLog() {
 const EDGE_DEFS = {
   nodesOut: { d: "M200,62 C270,62 270,112 330,112", label: "sensors · status", lx: 265, ly: 70, name: "Rooms → broker" },
   nodesIn: { d: "M330,132 C270,132 270,92 200,92", label: "display", lx: 228, ly: 118, name: "Broker → rooms (AI messages)" },
-  ctrlOut: { d: "M200,166 C265,166 265,156 330,156", label: "state · test msgs", lx: 265, ly: 152, name: "Control → broker" },
+  ctrlOut: { d: "M200,166 C265,166 265,156 330,156", label: "state · demo · test msgs", lx: 265, ly: 152, name: "Control → broker" },
   ctrlIn: { d: "M330,176 C265,176 265,190 200,190", label: "cmd · ai/*", lx: 265, ly: 200, name: "Broker → control" },
   panel: { d: "M110,262 L110,206", label: "HTTP /api/cmd", lx: 118, ly: 238, name: "Panel / scripts → control" },
   toHA: { d: "M480,112 C540,112 540,72 600,72", label: "expected · not visible", lx: 546, ly: 62, name: "Broker → Home Assistant", exp: true },
@@ -1105,7 +1370,7 @@ function edgesFor(ev) {
   switch (ev.kind) {
     case "sensors": return ["nodesOut"];
     case "status": return ev.topic.includes("/emulator/") ? ["ctrlOut"] : ["nodesOut"];
-    case "state": case "display_out": return ["ctrlOut"];
+    case "state": case "display_out": case "demo": return ["ctrlOut"];
     case "display_in": {
       const out = ROUTE.lastDisplayOut[ev.topic];
       return out !== undefined && ev.t_ms - out < 3000 ? ["nodesIn"] : ["agentOut", "nodesIn"];
@@ -1397,7 +1662,8 @@ async function openSettings() {
 // ============================================================ poll loop
 function schedulePoll() {
   clearTimeout(pollTimer);
-  pollTimer = setTimeout(() => poll(), document.hidden ? 5000 : prefs.refresh);
+  const rolling = DEMO.rolling || (STATE && STATE.demo && STATE.demo.state === "rolling");
+  pollTimer = setTimeout(() => poll(), document.hidden ? 5000 : rolling ? 400 : prefs.refresh);
 }
 async function poll(now) {
   if (polling) return;
@@ -1409,7 +1675,7 @@ async function poll(now) {
     if (STATE && p.state.uptime_s + 5 < STATE.uptime_s) {
       // The board rebooted: start over.
       Object.keys(SEQ).forEach((k) => (SEQ[k] = 0));
-      LOG.lines = []; LOG.cmds = []; ALLMSGS = []; ROUTE.events = [];
+      LOG.lines = []; LOG.cmds = []; ALLMSGS = []; ROUTE.events = []; DEMO.seq = -1;
       STATE = null; H = null;
       toast(false, "The emulator rebooted");
       polling = false;
@@ -1428,6 +1694,7 @@ async function poll(now) {
     ingestLog(p);
     ingestRoutes(p.routes.items);
     drawRoute();
+    renderDemo(STATE.demo);
     if (MODAL && MODAL.onUpdate) MODAL.onUpdate();
   } catch (e) {
     unreachable = true;
@@ -1460,6 +1727,7 @@ async function init() {
   buildEmulate();
   buildAI();
   buildRoute();
+  initDemo();
   $("btn-apply").onclick = applyRanges;
   $("btn-normal").onclick = () => cmd({ node: selected, action: "clear" });
   $("btn-reset").onclick = () => cmd({ node: selected, action: "reset" });

@@ -146,6 +146,7 @@ const char *route_kind_name(route_kind_t kind)
         [ROUTE_STATE] = "state",             [ROUTE_DISPLAY_OUT] = "display_out",
         [ROUTE_DISPLAY_IN] = "display_in",   [ROUTE_CMD_MQTT] = "cmd_mqtt",
         [ROUTE_CMD_HTTP] = "cmd_http",       [ROUTE_AI_IN] = "ai_in",
+        [ROUTE_DEMO] = "demo",
     };
     return kind < ROUTE_KIND_COUNT ? names[kind] : "?";
 }

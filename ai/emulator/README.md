@@ -703,10 +703,14 @@ esp32_c3_emulator/
 ├── partitions.csv            nvs + two 1.9 MB app slots (ota_0, ota_1)
 ├── sdkconfig.local.example   credentials template
 ├── tools/gzip_asset.py       gzips web assets at build time
+├── tools/gen_demo.py         demo/demo_home.json -> demo_data.c at build time (v2)
+├── demo/demo_home.json       demo home: areas, entities, caps, 50 presets (v2, draft)
 └── main/
     ├── app_config.[ch]       runtime broker/publish settings in NVS (v2)
     ├── event_log.[ch]        system log hook, command log, MQTT route events (v2)
     ├── history.[ch]          reading history for the plots (plain C, v2)
+    ├── demo_home.[ch]        demo home: preset fill, random roll, rules (plain C, v2)
+    ├── demo_engine.[ch]      demo loop / roll / hold task and demo topics (v2)
     ├── Kconfig.projbuild     "IntelliThings Emulator" menu
     ├── idf_component.yml     espressif/mqtt, cjson, mdns
     ├── main.c                boot, sim task, 3 s publish cycle

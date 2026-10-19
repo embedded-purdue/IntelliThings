@@ -1,0 +1,148 @@
+{
+  "format": 1,
+  "about": "Demo home for the emulator's demo mode (stand-in for the ECE SPARK demo master). Entities, caps and presets are a DRAFT for the AI team; see ai/emulator/PLAN-v2.1.0.md section 4. tools/gen_demo.py turns this into C at build time.",
+
+  "fill_rules": {
+    "normal": "numbers: random inside the normal range; bools: true with probability normal_p; enums: a random normal option",
+    "presence": "nobody home -> empty; at night only bedrooms are occupied; otherwise normal_p",
+    "light": "off in an empty room; at night off in a bedroom (asleep), on elsewhere; on in the evening; 50 % in the morning, 20 % in the afternoon",
+    "lock": "locked when nobody is home or at night, otherwise 50 %",
+    "car": "away when nobody is home, otherwise parked (80 %) or away",
+    "off": "false / first option"
+  },
+  "derive_rules": {
+    "pm1": "0.65 x PM2.5 of the same room",
+    "pm10": "1.4 x PM2.5 of the same room",
+    "lux": "lights on 250-600; off: morning 100-500, afternoon 200-800, evening 5-60, night 0-3",
+    "distance": "someone present 300-900 mm, empty 1000-1200 mm"
+  },
+
+  "templates": {
+    "node_room": [
+      {"field": "temperature_c", "label": "Temperature", "type": "number", "unit": "°C", "dec": 1, "caps": [15.6, 37.8], "normal": [20, 24]},
+      {"field": "humidity_pct", "label": "Humidity", "type": "number", "unit": "%", "dec": 1, "caps": [15, 85], "normal": [35, 55]},
+      {"field": "voc_index", "label": "VOC Index", "type": "number", "unit": "", "dec": 0, "caps": [1, 500], "normal": [80, 150]},
+      {"field": "co2_ppm", "label": "CO₂", "type": "number", "unit": "ppm", "dec": 0, "caps": [400, 3000], "normal": [450, 900]},
+      {"field": "pm2_5_ugm3", "label": "PM2.5", "type": "number", "unit": "µg/m³", "dec": 0, "caps": [0, 300], "normal": [2, 12]},
+      {"field": "pm1_0_ugm3", "label": "PM1.0", "type": "number", "unit": "µg/m³", "dec": 0, "caps": [0, 300], "derive": "pm1"},
+      {"field": "pm10_ugm3", "label": "PM10", "type": "number", "unit": "µg/m³", "dec": 0, "caps": [0, 450], "derive": "pm10"},
+      {"field": "presence", "label": "Presence", "type": "bool", "labels": ["empty", "present"], "normal_p": 0.6, "fill": "presence"},
+      {"field": "distance_mm", "label": "Distance", "type": "number", "unit": "mm", "dec": 0, "caps": [30, 1200], "derive": "distance"},
+      {"field": "light_on", "label": "Lights", "type": "bool", "labels": ["off", "on"], "fill": "light"},
+      {"field": "lux", "label": "Light level", "type": "number", "unit": "lux", "dec": 1, "caps": [0, 1500], "derive": "lux"},
+      {"field": "window_open", "label": "Window", "type": "bool", "labels": ["closed", "open"], "normal_p": 0.1}
+    ]
+  },
+
+  "areas": [
+    {"key": "home", "label": "Home", "entities": [
+      {"field": "time_of_day", "label": "Time of day", "type": "enum", "options": ["morning", "afternoon", "evening", "night"]},
+      {"field": "anyone_home", "label": "Anyone home", "type": "bool", "labels": ["no", "yes"], "normal_p": 0.75},
+      {"field": "front_door_locked", "label": "Front door", "type": "bool", "labels": ["unlocked", "locked"], "fill": "lock"}
+    ]},
+    {"key": "outside", "label": "Outside", "entities": [
+      {"field": "temperature_c", "label": "Temperature", "type": "number", "unit": "°C", "dec": 1, "caps": [-20, 40], "normal": [5, 25]},
+      {"field": "humidity_pct", "label": "Humidity", "type": "number", "unit": "%", "dec": 0, "caps": [10, 100], "normal": [30, 80]},
+      {"field": "condition", "label": "Weather", "type": "enum", "options": ["clear", "cloudy", "rain", "snow", "storm"], "normal": ["clear", "cloudy", "rain"]},
+      {"field": "wind_kph", "label": "Wind", "type": "number", "unit": "km/h", "dec": 0, "caps": [0, 90], "normal": [0, 25]},
+      {"field": "pm2_5_ugm3", "label": "PM2.5", "type": "number", "unit": "µg/m³", "dec": 0, "caps": [0, 300], "normal": [2, 15]}
+    ]},
+    {"key": "kitchen", "label": "Kitchen", "node_room": "kitchen", "template": "node_room",
+     "override": {"temperature_c": {"normal": [20, 25]}}},
+    {"key": "living_room", "label": "Living room", "node_room": "living-room", "template": "node_room"},
+    {"key": "master_bedroom", "label": "Master bedroom", "node_room": "bedroom", "sleep_area": true, "template": "node_room",
+     "override": {"temperature_c": {"normal": [19, 23]}}},
+    {"key": "second_bedroom", "label": "Second bedroom", "sleep_area": true, "entities": [
+      {"field": "temperature_c", "label": "Temperature", "type": "number", "unit": "°C", "dec": 1, "caps": [15.6, 37.8], "normal": [19, 23]},
+      {"field": "humidity_pct", "label": "Humidity", "type": "number", "unit": "%", "dec": 1, "caps": [15, 85], "normal": [35, 55]},
+      {"field": "co2_ppm", "label": "CO₂", "type": "number", "unit": "ppm", "dec": 0, "caps": [400, 3000], "normal": [450, 900]},
+      {"field": "presence", "label": "Presence", "type": "bool", "labels": ["empty", "present"], "normal_p": 0.4, "fill": "presence"},
+      {"field": "light_on", "label": "Lights", "type": "bool", "labels": ["off", "on"], "fill": "light"},
+      {"field": "window_open", "label": "Window", "type": "bool", "labels": ["closed", "open"], "normal_p": 0.1}
+    ]},
+    {"key": "garage", "label": "Garage", "entities": [
+      {"field": "temperature_c", "label": "Temperature", "type": "number", "unit": "°C", "dec": 1, "caps": [-10, 45], "normal": [8, 25]},
+      {"field": "door_open", "label": "Garage door", "type": "bool", "labels": ["closed", "open"], "fill": "off"},
+      {"field": "car", "label": "Car", "type": "enum", "options": ["away", "parked", "running"], "normal": ["away", "parked"], "fill": "car"},
+      {"field": "presence", "label": "Presence", "type": "bool", "labels": ["empty", "present"], "normal_p": 0.1, "fill": "presence"},
+      {"field": "light_on", "label": "Lights", "type": "bool", "labels": ["off", "on"], "fill": "light"}
+    ]},
+    {"key": "patio", "label": "Patio", "entities": [
+      {"field": "door_open", "label": "Patio door", "type": "bool", "labels": ["closed", "open"], "fill": "off"},
+      {"field": "light_on", "label": "Patio light", "type": "bool", "labels": ["off", "on"], "fill": "off"},
+      {"field": "motion", "label": "Motion", "type": "bool", "labels": ["none", "detected"], "fill": "off"}
+    ]},
+    {"key": "garden", "label": "Garden", "entities": [
+      {"field": "soil_moisture_pct", "label": "Soil moisture", "type": "number", "unit": "%", "dec": 0, "caps": [5, 60], "normal": [20, 40]},
+      {"field": "sprinkler_on", "label": "Sprinkler", "type": "bool", "labels": ["off", "on"], "fill": "off"},
+      {"field": "motion", "label": "Motion", "type": "bool", "labels": ["none", "detected"], "fill": "off"}
+    ]}
+  ],
+
+  "groups": [
+    {"key": "normal", "label": "Normal"},
+    {"key": "air", "label": "Air quality"},
+    {"key": "heat_cold", "label": "Heat & cold"},
+    {"key": "security", "label": "Security"},
+    {"key": "energy", "label": "Energy waste"},
+    {"key": "hazard", "label": "Hazard"}
+  ],
+
+  "presets": [
+    {"name": "Quiet weekday morning", "group": "normal", "set": {"home.time_of_day": "morning", "home.anyone_home": true, "kitchen.presence": true, "kitchen.light_on": true, "master_bedroom.presence": false, "outside.temperature_c": 12, "outside.condition": "cloudy"}},
+    {"name": "Everyone at work", "group": "normal", "set": {"home.time_of_day": "afternoon", "home.anyone_home": false, "home.front_door_locked": true, "garage.car": "away", "outside.condition": "clear", "outside.temperature_c": 18}},
+    {"name": "Family dinner", "group": "normal", "set": {"home.time_of_day": "evening", "home.anyone_home": true, "kitchen.presence": true, "living_room.presence": true, "kitchen.temperature_c": 23.5, "kitchen.co2_ppm": 850, "kitchen.voc_index": 160, "kitchen.pm2_5_ugm3": 14}},
+    {"name": "Movie night", "group": "normal", "set": {"home.time_of_day": "evening", "home.anyone_home": true, "living_room.presence": true, "living_room.light_on": false, "living_room.co2_ppm": 880, "kitchen.presence": false}},
+    {"name": "Everyone asleep", "group": "normal", "set": {"home.time_of_day": "night", "home.anyone_home": true, "master_bedroom.presence": true, "second_bedroom.presence": true, "home.front_door_locked": true, "master_bedroom.co2_ppm": 820, "outside.temperature_c": 7}},
+    {"name": "Weekend gardening", "group": "normal", "set": {"home.time_of_day": "afternoon", "home.anyone_home": true, "garden.motion": true, "patio.door_open": true, "outside.condition": "clear", "outside.temperature_c": 24, "garden.soil_moisture_pct": 30}},
+    {"name": "Rainy afternoon reading", "group": "normal", "set": {"home.time_of_day": "afternoon", "home.anyone_home": true, "outside.condition": "rain", "outside.temperature_c": 11, "outside.humidity_pct": 88, "living_room.presence": true, "living_room.light_on": true}},
+    {"name": "Working from home", "group": "normal", "set": {"home.time_of_day": "afternoon", "home.anyone_home": true, "second_bedroom.presence": true, "second_bedroom.co2_ppm": 760, "living_room.presence": false, "kitchen.presence": false}},
+    {"name": "Sunny Saturday, windows open", "group": "normal", "set": {"home.time_of_day": "afternoon", "home.anyone_home": true, "outside.condition": "clear", "outside.temperature_c": 23, "living_room.window_open": true, "living_room.presence": true, "living_room.temperature_c": 23.5, "living_room.co2_ppm": 470}},
+    {"name": "Cooking breakfast", "group": "normal", "set": {"home.time_of_day": "morning", "home.anyone_home": true, "kitchen.presence": true, "kitchen.light_on": true, "kitchen.voc_index": 145, "kitchen.pm2_5_ugm3": 11, "kitchen.co2_ppm": 780, "kitchen.humidity_pct": 52}},
+    {"name": "Late-night snack", "group": "normal", "set": {"home.time_of_day": "night", "home.anyone_home": true, "kitchen.presence": true, "kitchen.light_on": true, "master_bedroom.presence": true}},
+    {"name": "Kids home from school", "group": "normal", "set": {"home.time_of_day": "afternoon", "home.anyone_home": true, "home.front_door_locked": false, "living_room.presence": true, "second_bedroom.presence": true}},
+    {"name": "Guests over", "group": "normal", "set": {"home.time_of_day": "evening", "home.anyone_home": true, "living_room.presence": true, "kitchen.presence": true, "living_room.co2_ppm": 890, "living_room.temperature_c": 23.8}},
+    {"name": "Early workout", "group": "normal", "set": {"home.time_of_day": "morning", "home.anyone_home": true, "master_bedroom.presence": true, "master_bedroom.light_on": true, "master_bedroom.temperature_c": 22.5, "master_bedroom.humidity_pct": 54}},
+    {"name": "Cool autumn evening", "group": "normal", "set": {"home.time_of_day": "evening", "home.anyone_home": true, "outside.temperature_c": 8, "outside.condition": "clear", "living_room.presence": true, "living_room.temperature_c": 21, "living_room.window_open": false}},
+    {"name": "Snowy morning", "group": "normal", "set": {"home.time_of_day": "morning", "home.anyone_home": true, "outside.condition": "snow", "outside.temperature_c": -4, "outside.humidity_pct": 85, "garage.car": "parked", "garage.temperature_c": 6, "kitchen.presence": true}},
+    {"name": "Quiet Sunday afternoon", "group": "normal", "set": {"home.time_of_day": "afternoon", "home.anyone_home": true, "living_room.presence": true, "outside.condition": "cloudy", "outside.temperature_c": 16}},
+    {"name": "Laundry day", "group": "normal", "set": {"home.time_of_day": "afternoon", "home.anyone_home": true, "garage.presence": true, "garage.light_on": true, "kitchen.humidity_pct": 54}},
+    {"name": "Reading in bed", "group": "normal", "set": {"home.time_of_day": "night", "home.anyone_home": true, "master_bedroom.presence": true, "master_bedroom.light_on": true, "living_room.presence": false}},
+    {"name": "Arriving home", "group": "normal", "set": {"home.time_of_day": "evening", "home.anyone_home": true, "home.front_door_locked": false, "garage.door_open": true, "garage.car": "parked", "garage.presence": true, "garage.light_on": true}},
+
+    {"name": "Burnt toast", "group": "air", "set": {"home.time_of_day": "morning", "home.anyone_home": true, "kitchen.presence": true, "kitchen.light_on": true, "kitchen.pm2_5_ugm3": 160, "kitchen.voc_index": 420, "kitchen.co2_ppm": 1100, "kitchen.temperature_c": 25}},
+    {"name": "Stuffy bedroom overnight", "group": "air", "set": {"home.time_of_day": "night", "home.anyone_home": true, "master_bedroom.presence": true, "master_bedroom.window_open": false, "master_bedroom.co2_ppm": 1850, "master_bedroom.temperature_c": 24}},
+    {"name": "Cleaning spray", "group": "air", "set": {"home.time_of_day": "afternoon", "home.anyone_home": true, "living_room.presence": true, "living_room.voc_index": 430, "living_room.pm2_5_ugm3": 20}},
+    {"name": "Wildfire smoke, windows open", "group": "air", "set": {"home.time_of_day": "afternoon", "home.anyone_home": true, "outside.pm2_5_ugm3": 180, "outside.condition": "clear", "outside.temperature_c": 29, "kitchen.window_open": true, "living_room.window_open": true, "living_room.presence": true, "living_room.pm2_5_ugm3": 95, "kitchen.pm2_5_ugm3": 80}},
+    {"name": "Candles in the living room", "group": "air", "set": {"home.time_of_day": "evening", "home.anyone_home": true, "living_room.presence": true, "living_room.light_on": false, "living_room.voc_index": 320, "living_room.pm2_5_ugm3": 45}},
+    {"name": "Crowded living room", "group": "air", "set": {"home.time_of_day": "evening", "home.anyone_home": true, "living_room.presence": true, "living_room.co2_ppm": 2200, "living_room.temperature_c": 26, "living_room.window_open": false}},
+    {"name": "Fresh paint in the bedroom", "group": "air", "set": {"home.time_of_day": "afternoon", "home.anyone_home": true, "master_bedroom.presence": false, "master_bedroom.window_open": false, "master_bedroom.voc_index": 480}},
+    {"name": "Dusty after vacuuming", "group": "air", "set": {"home.time_of_day": "afternoon", "home.anyone_home": true, "living_room.presence": true, "living_room.pm2_5_ugm3": 70}},
+
+    {"name": "Hot empty living room", "group": "heat_cold", "set": {"home.time_of_day": "afternoon", "home.anyone_home": false, "living_room.presence": false, "living_room.temperature_c": 33, "outside.temperature_c": 34, "outside.condition": "clear"}},
+    {"name": "Cold snap, bedroom window open", "group": "heat_cold", "set": {"home.time_of_day": "night", "home.anyone_home": true, "outside.temperature_c": -12, "outside.condition": "snow", "master_bedroom.window_open": true, "master_bedroom.temperature_c": 16.2, "master_bedroom.presence": true}},
+    {"name": "Heat wave, nobody home", "group": "heat_cold", "set": {"home.time_of_day": "afternoon", "home.anyone_home": false, "outside.temperature_c": 39, "outside.condition": "clear", "kitchen.temperature_c": 31, "living_room.temperature_c": 34, "master_bedroom.temperature_c": 32}},
+    {"name": "Overheated bedroom while asleep", "group": "heat_cold", "set": {"home.time_of_day": "night", "home.anyone_home": true, "master_bedroom.presence": true, "master_bedroom.temperature_c": 29.5, "master_bedroom.humidity_pct": 65}},
+    {"name": "Freezing garage, door open", "group": "heat_cold", "set": {"home.time_of_day": "night", "home.anyone_home": true, "outside.temperature_c": -15, "outside.condition": "snow", "garage.temperature_c": -8, "garage.door_open": true}},
+    {"name": "Humid summer evening", "group": "heat_cold", "set": {"home.time_of_day": "evening", "home.anyone_home": true, "outside.temperature_c": 31, "outside.humidity_pct": 90, "living_room.presence": true, "living_room.humidity_pct": 75, "living_room.temperature_c": 28}},
+
+    {"name": "Garage door open at night", "group": "security", "set": {"home.time_of_day": "night", "home.anyone_home": true, "master_bedroom.presence": true, "garage.door_open": true, "garage.car": "parked"}},
+    {"name": "Front door unlocked while away", "group": "security", "set": {"home.time_of_day": "afternoon", "home.anyone_home": false, "home.front_door_locked": false}},
+    {"name": "Patio motion at 3 am", "group": "security", "set": {"home.time_of_day": "night", "home.anyone_home": true, "master_bedroom.presence": true, "patio.motion": true, "patio.light_on": false}},
+    {"name": "Patio door open in a storm", "group": "security", "set": {"home.time_of_day": "evening", "home.anyone_home": true, "outside.condition": "storm", "outside.wind_kph": 70, "patio.door_open": true, "living_room.presence": true}},
+    {"name": "Someone in the kitchen while away", "group": "security", "set": {"home.time_of_day": "afternoon", "home.anyone_home": false, "home.front_door_locked": true, "kitchen.presence": true, "kitchen.light_on": false}},
+    {"name": "Garden motion at night", "group": "security", "set": {"home.time_of_day": "night", "home.anyone_home": true, "master_bedroom.presence": true, "garden.motion": true, "patio.light_on": false}},
+
+    {"name": "Lights on in empty rooms", "group": "energy", "set": {"home.time_of_day": "afternoon", "home.anyone_home": false, "living_room.presence": false, "living_room.light_on": true, "kitchen.presence": false, "kitchen.light_on": true}},
+    {"name": "Sprinkler running in the rain", "group": "energy", "set": {"home.time_of_day": "morning", "home.anyone_home": true, "outside.condition": "rain", "garden.sprinkler_on": true, "garden.soil_moisture_pct": 55}},
+    {"name": "Window open, heating on", "group": "energy", "set": {"home.time_of_day": "evening", "home.anyone_home": true, "outside.temperature_c": 2, "living_room.window_open": true, "living_room.presence": true, "living_room.temperature_c": 23.5}},
+    {"name": "All lights on at noon", "group": "energy", "set": {"home.time_of_day": "afternoon", "home.anyone_home": true, "outside.condition": "clear", "living_room.presence": true, "living_room.light_on": true, "kitchen.presence": false, "kitchen.light_on": true, "master_bedroom.presence": false, "master_bedroom.light_on": true}},
+    {"name": "Garage light left on overnight", "group": "energy", "set": {"home.time_of_day": "night", "home.anyone_home": true, "master_bedroom.presence": true, "garage.presence": false, "garage.light_on": true}},
+
+    {"name": "Kitchen fire hazard", "group": "hazard", "set": {"home.time_of_day": "evening", "home.anyone_home": true, "kitchen.presence": false, "kitchen.temperature_c": 37, "kitchen.pm2_5_ugm3": 280, "kitchen.voc_index": 490, "kitchen.co2_ppm": 2600, "living_room.presence": true}},
+    {"name": "Car running in a closed garage", "group": "hazard", "set": {"home.time_of_day": "morning", "home.anyone_home": true, "garage.car": "running", "garage.door_open": false, "garage.presence": true, "garage.light_on": true}},
+    {"name": "Mould risk in the bedroom", "group": "hazard", "set": {"home.time_of_day": "morning", "home.anyone_home": true, "master_bedroom.humidity_pct": 82, "master_bedroom.window_open": false, "master_bedroom.temperature_c": 22}},
+    {"name": "Smoke in the bedroom at night", "group": "hazard", "set": {"home.time_of_day": "night", "home.anyone_home": true, "master_bedroom.presence": true, "master_bedroom.pm2_5_ugm3": 240, "master_bedroom.voc_index": 450}},
+    {"name": "CO₂ building up in a closed bedroom", "group": "hazard", "set": {"home.time_of_day": "night", "home.anyone_home": true, "second_bedroom.presence": true, "second_bedroom.window_open": false, "second_bedroom.co2_ppm": 2900}}
+  ]
+}

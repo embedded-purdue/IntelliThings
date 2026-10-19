@@ -22,6 +22,9 @@
 | `intellithings/emulator/status` | emulator → anyone | 1 | **yes** | `online` / `offline` | [Emulator](#reserved-intellithingsemulator) |
 | `intellithings/emulator/state` | emulator → anyone | 0 | **yes** | Emulator status JSON | [Emulator](#reserved-intellithingsemulator) |
 | `intellithings/emulator/cmd` | anyone → emulator | 1 | **no** | Command JSON | [Emulator](#reserved-intellithingsemulator) |
+| `intellithings/emulator/demo/state` *(experimental)* | emulator → anyone | 1 | **yes** | Demo state JSON | [Emulator](#reserved-intellithingsemulator) |
+| `intellithings/emulator/demo/home` *(experimental)* | emulator → anyone | 1 | **yes** | Demo-home values JSON | [Emulator](#reserved-intellithingsemulator) |
+| `intellithings/emulator/demo/<node_id>/sensors` *(experimental)* | emulator → anyone | 1 | **yes** | Sensor snapshot JSON | [Emulator](#reserved-intellithingsemulator) |
 | `homeassistant/<component>/<unique_id>/config` | setup script → HA | 1 | **yes** | HA MQTT discovery config | [HA discovery](#home-assistant-discovery-homeassistant) |
 
 **Reserved namespaces:** `intellithings/ai/#` and `intellithings/emulator/#`. A `<node_id>` must
@@ -115,6 +118,17 @@ mustn't publish or depend on anything under it.
 | `intellithings/emulator/status` | emulator → broker | `online` / `offline`, retained, Last Will |
 | `intellithings/emulator/state` | emulator → broker | retained JSON status, every 3 s and after each command |
 | `intellithings/emulator/cmd` | anyone → emulator | JSON command, **not retained**. A retained command is ignored on reconnect |
+| `intellithings/emulator/demo/state` | emulator → broker | *Experimental (v2.1.0).* Retained demo-mode state: mode, loop, current preset or roll, timers |
+| `intellithings/emulator/demo/home` | emulator → broker | *Experimental.* Retained values for the whole demo home, grouped by area |
+| `intellithings/emulator/demo/<node_id>/sensors` | emulator → broker | *Experimental.* Retained; the [`…/sensors`](#sensor-snapshot-sensors) schema for each node's demo room (`emu-kitchen`, `emu-bedroom`, `emu-living-room`) |
+
+The emulator's **demo mode** is a test stand-in for the demo master. With it the AI team can
+build HA entities and agent behaviour for demo mode before the real demo master exists.
+- **Publishing:** off after every boot; turned on from the emulator's panel or a `demo` command.
+- **Not the agreed demo topics:** the payloads and the 61-entity demo home are a draft. Full
+  payloads: `ai/emulator/GUIDE.md` (*Demo mode over MQTT and HTTP*); entities and caps:
+  `ai/emulator/esp32_c3_emulator/demo/demo_home.json`.
+- **Once `intellithings/demo/#` is agreed,** these payloads should follow it.
 
 ## Home Assistant discovery: `homeassistant/…`
 

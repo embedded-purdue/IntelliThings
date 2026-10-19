@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Checks the emulator's HTTP API end to end against a running board.
 
-    python api_check.py [--host 192.168.1.4] [--broker-test]
+    python api_check.py [--host 192.168.1.4] [--broker-test] [--demo]
 
 Standard library only. Covers the v0.1.0 API (commands, validation, state, meta, messages)
 and the v2.1.0 additions (poll, history, config, guide). It changes the rooms while it runs and
@@ -75,7 +75,11 @@ def wait_publish(seconds=None):
 
 
 def test_v01():
-    st, s = get("/api/state")
+    for _ in range(20):  # right after a boot the first snapshot can still be on its way
+        st, s = get("/api/state")
+        if st == 200 and all(n["reading"] is not None for n in s["nodes"]):
+            break
+        time.sleep(0.5)
     check("state: 200 and core fields", st == 200 and all(
         k in s for k in ("fw", "uptime_s", "free_heap", "wifi", "mqtt", "time", "nodes")), st)
     check("state: three nodes with readings", len(s["nodes"]) == 3 and all(
@@ -283,6 +287,72 @@ def restore_config(original):
               and c["saved"] is False and c["host"] == original["host"], r)
 
 
+def demo_state():
+    return get("/api/state")[1]["demo"]
+
+
+def wait_demo(cond, timeout):
+    t0 = time.time()
+    while time.time() - t0 < timeout:
+        d = demo_state()
+        if cond(d):
+            return d
+        time.sleep(0.3)
+    return demo_state()
+
+
+def test_demo():
+    st, m = get("/api/demo/meta")
+    check("demo meta: areas, entities, 50 presets", st == 200 and len(m["areas"]) > 0
+          and len(m["entities"]) > 0 and len(m["presets"]) == 50, st)
+    st, d = get("/api/demo")
+    check("demo: values for every entity", st == 200 and len(d["values"]) == len(m["entities"]))
+    before = demo_state()
+    bad = [
+        ("unknown op", {"action": "demo", "op": "dance"}),
+        ("missing op", {"action": "demo"}),
+        ("preset 51", {"action": "demo", "op": "preset", "id": 51}),
+        ("loop interval 5 s", {"action": "demo", "op": "loop", "interval_s": 5}),
+        ("spread wild", {"action": "demo", "op": "settings", "spread": "wild"}),
+        ("publish without on", {"action": "demo", "op": "publish"}),
+    ]
+    for name, body in bad:
+        st, r = cmd(body)
+        check(f"demo rejected: {name}", st == 400 and r.get("ok") is False, r)
+    try:
+        st, r = cmd({"action": "demo", "op": "settings", "roll_s": 1, "hold_s": 3})
+        check("demo: settings roll 1 s, hold 3 s", st == 200 and r["ok"], r)
+        wait_demo(lambda x: x["state"] in ("idle", "looping"), 130)  # an earlier hold must end
+        st, r = cmd({"action": "demo", "op": "preset", "id": 35})
+        d = demo_state()
+        check("demo: preset #35 applied and held", st == 200 and d["step"]["scenario_id"] == 35
+              and d["state"] == "hold", d["step"])
+        wait_demo(lambda x: x["state"] == "idle", 6)
+        seq = demo_state()["seq"]
+        st, r = cmd({"action": "demo", "op": "roll"})
+        check("demo: roll accepted", st == 200 and r["ok"], r)
+        st, r = cmd({"action": "demo", "op": "roll"})
+        check("demo: second press ignored while rolling", st == 400, r)
+        d = wait_demo(lambda x: x["seq"] != seq and x["state"] != "rolling", 5)
+        check("demo: roll landed and holds", d["seq"] == seq + 1 and d["step"]["source"] == "roll"
+              and d["state"] == "hold" and d["lock_left_s"] > 0, d)
+        st, r = cmd({"action": "demo", "op": "roll"})
+        check("demo: press ignored during the hold", st == 400 and "locked" in r.get("msg", ""), r)
+        d = wait_demo(lambda x: x["state"] == "idle", 6)
+        check("demo: back to idle after the hold", d["state"] == "idle", d["state"])
+        st, r = cmd({"action": "demo", "op": "loop", "on": True, "interval_s": 10, "source": "presets"})
+        seq = demo_state()["seq"]
+        d = wait_demo(lambda x: x["seq"] >= seq + 2, 14)
+        check("demo: loop steps through presets", d["state"] == "looping" and d["seq"] >= seq + 2, d)
+        st, h = get("/api/demo/history")
+        check("demo: history kept", st == 200 and len(h["items"]) >= 3)
+    finally:
+        cmd({"action": "demo", "op": "loop", "on": before["loop"], "interval_s": before["interval_s"],
+             "source": before["loop_source"]})
+        cmd({"action": "demo", "op": "settings", "roll_s": int(before["roll_s"]),
+             "hold_s": before["hold_s"], "spread": before["spread"]})
+
+
 def mqtt_counts():
     s = get("/api/state")[1]
     return s["mqtt"]["emulator_connected"], [n["mqtt"] for n in s["nodes"]]
@@ -325,6 +395,7 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawTextHelpFormatter)
     ap.add_argument("--host", default="192.168.1.4")
     ap.add_argument("--broker-test", action="store_true")
+    ap.add_argument("--demo", action="store_true", help="also test demo mode (about 1 min)")
     a = ap.parse_args()
     BASE = "http://" + a.host
 
@@ -335,6 +406,8 @@ def main():
         test_poll()
         test_history()
         test_guide()
+        if a.demo:
+            test_demo()
         cfg = test_config()
         if a.broker_test:
             test_broker(cfg)

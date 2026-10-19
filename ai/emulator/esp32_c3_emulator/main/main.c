@@ -4,6 +4,7 @@
 #include <stdio.h>
 
 #include "ai_message.h"
+#include "demo_engine.h"
 #include "esp_app_desc.h"
 #include "app_config.h"
 #include "emulator_ctrl.h"
@@ -168,6 +169,8 @@ void app_main(void)
     ctrl_init();
     nodes_init();
     history_init(15);
+    demo_home_init();
+    demo_engine_init();
     mqtt_nodes_init();
 
     if (!CONFIG_EMU_WIFI_SSID[0]) {

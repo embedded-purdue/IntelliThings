@@ -10,6 +10,7 @@
 #include "ai_message.h"
 #include "app_config.h"
 #include "cJSON.h"
+#include "demo_engine.h"
 #include "emulator_ctrl.h"
 #include "esp_http_server.h"
 #include "esp_log.h"
@@ -672,6 +673,165 @@ static esp_err_t config_reset_post(httpd_req_t *req)
 }
 
 // ---------------------------------------------------------------------------
+// Demo mode: GET /api/demo/meta (static), /api/demo (current values), /api/demo/history
+
+static jw_t *jw_begin(httpd_req_t *req)
+{
+    static jw_t w;  // httpd runs one handler at a time
+    w.req = req;
+    w.err = ESP_OK;
+    w.n = 0;
+    httpd_resp_set_type(req, "application/json");
+    httpd_resp_set_hdr(req, "Cache-Control", "no-store");
+    return &w;
+}
+
+static esp_err_t jw_end(jw_t *w)
+{
+    jw_flush(w);
+    return w->err != ESP_OK ? w->err : httpd_resp_send_chunk(w->req, NULL, 0);
+}
+
+static void jw_num(jw_t *w, float v, int dec)
+{
+    jw_printf(w, "%.*f", dec, (double)v);
+}
+
+static esp_err_t demo_meta_get(httpd_req_t *req)
+{
+    jw_t *w = jw_begin(req);
+    jw_raw(w, "{\"areas\":[");
+    for (int a = 0; a < DEMO_AREA_COUNT; a++) {
+        const demo_area_t *ar = &DEMO_AREAS[a];
+        vnode_t *node = ar->node_room[0] ? node_find(ar->node_room) : NULL;
+        jw_raw(w, a ? ",{\"key\":" : "{\"key\":");
+        jw_str(w, ar->key);
+        jw_raw(w, ",\"label\":");
+        jw_str(w, ar->label);
+        jw_raw(w, ",\"node_id\":");
+        if (node) {
+            jw_str(w, node->id);
+        } else {
+            jw_raw(w, "null");
+        }
+        jw_printf(w, ",\"sleep_area\":%s}", jbool(ar->sleep_area));
+    }
+    jw_raw(w, "],\"entities\":[");
+    static const char *const types[] = {"number", "bool", "enum"};
+    for (int e = 0; e < DEMO_ENTITY_COUNT; e++) {
+        const demo_entity_t *d = &DEMO_ENTITIES[e];
+        jw_raw(w, e ? ",{\"key\":" : "{\"key\":");
+        jw_str(w, d->key);
+        jw_printf(w, ",\"area\":%u,\"field\":", (unsigned)d->area);
+        jw_str(w, d->field);
+        jw_raw(w, ",\"label\":");
+        jw_str(w, d->label);
+        jw_raw(w, ",\"unit\":");
+        jw_str(w, d->unit);
+        jw_printf(w, ",\"type\":\"%s\",\"dec\":%u,\"derived\":%s,\"min\":", types[d->type],
+                  (unsigned)d->dec, jbool(d->derive != DERIVE_NONE));
+        jw_num(w, d->min, d->dec);
+        jw_raw(w, ",\"max\":");
+        jw_num(w, d->max, d->dec);
+        if (d->type == DEMO_NUM && d->derive == DERIVE_NONE) {
+            jw_raw(w, ",\"normal\":[");
+            jw_num(w, d->nmin, d->dec);
+            jw_raw(w, ",");
+            jw_num(w, d->nmax, d->dec);
+            jw_raw(w, "]");
+        }
+        if (d->options) {
+            jw_raw(w, d->type == DEMO_BOOL ? ",\"labels\":[" : ",\"options\":[");
+            for (int i = 0; i < d->n_options; i++) {
+                if (i) {
+                    jw_raw(w, ",");
+                }
+                jw_str(w, d->options[i]);
+            }
+            jw_raw(w, "]");
+        }
+        if (d->type == DEMO_ENUM) {
+            jw_raw(w, ",\"normal_options\":[");
+            bool first = true;
+            for (int i = 0; i < d->n_options; i++) {
+                if (!d->normal_mask || ((d->normal_mask >> i) & 1)) {
+                    jw_raw(w, first ? "" : ",");
+                    jw_str(w, d->options[i]);
+                    first = false;
+                }
+            }
+            jw_raw(w, "]");
+        }
+        jw_raw(w, "}");
+    }
+    jw_raw(w, "],\"groups\":[");
+    for (int g = 0; g < DEMO_GROUP_COUNT; g++) {
+        jw_raw(w, g ? ",{\"key\":" : "{\"key\":");
+        jw_str(w, DEMO_GROUPS[g]);
+        jw_raw(w, ",\"label\":");
+        jw_str(w, DEMO_GROUP_LABELS[g]);
+        jw_raw(w, "}");
+    }
+    jw_raw(w, "],\"presets\":[");
+    for (int p = 0; p < DEMO_PRESET_COUNT; p++) {
+        jw_printf(w, "%s{\"id\":%d,\"group\":\"%s\",\"name\":", p ? "," : "", p + 1,
+                  DEMO_GROUPS[DEMO_PRESETS[p].group]);
+        jw_str(w, DEMO_PRESETS[p].name);
+        jw_raw(w, "}");
+    }
+    jw_raw(w, "]}");
+    return jw_end(w);
+}
+
+static esp_err_t demo_get(httpd_req_t *req)
+{
+    static demo_snapshot_t s;  // ~350 bytes
+    demo_engine_snapshot(&s);
+    jw_t *w = jw_begin(req);
+    jw_printf(w, "{\"seq\":%lu,\"state\":\"%s\",\"publish\":%s,\"loop\":%s,\"preset\":",
+              (unsigned long)s.seq, s.state, jbool(s.publish), jbool(s.loop));
+    if (s.preset >= 0) {
+        jw_printf(w, "%d", s.preset + 1);
+    } else {
+        jw_raw(w, "null");
+    }
+    jw_printf(w, ",\"roll\":%lu,\"changed_age_s\":%lld,\"values\":[", (unsigned long)s.roll,
+              (long long)((esp_timer_get_time() - s.changed_us) / 1000000LL));
+    for (int e = 0; e < DEMO_ENTITY_COUNT; e++) {
+        if (e) {
+            jw_raw(w, ",");
+        }
+        jw_num(w, s.values.v[e], DEMO_ENTITIES[e].type == DEMO_NUM ? DEMO_ENTITIES[e].dec : 0);
+    }
+    jw_raw(w, "]}");
+    return jw_end(w);
+}
+
+// Values are stored x 10^dec (see "dec" in /api/demo/meta).
+static esp_err_t demo_history_get(httpd_req_t *req)
+{
+    static demo_hist_t h;
+    jw_t *w = jw_begin(req);
+    jw_raw(w, "{\"items\":[");
+    for (int i = 0; demo_engine_history(i, &h); i++) {
+        jw_printf(w, "%s{\"seq\":%lu,\"t_s\":%lu,\"preset\":", i ? "," : "", (unsigned long)h.seq,
+                  (unsigned long)h.t_s);
+        if (h.preset >= 0) {
+            jw_printf(w, "%d", h.preset + 1);
+        } else {
+            jw_raw(w, "null");
+        }
+        jw_printf(w, ",\"roll\":%lu,\"v\":[", (unsigned long)h.roll);
+        for (int e = 0; e < DEMO_ENTITY_COUNT; e++) {
+            jw_printf(w, e ? ",%d" : "%d", h.v[e]);
+        }
+        jw_raw(w, "]}");
+    }
+    jw_raw(w, "]}");
+    return jw_end(w);
+}
+
+// ---------------------------------------------------------------------------
 
 void web_server_start(void)
 {
@@ -699,6 +859,9 @@ void web_server_start(void)
         {.uri = "/api/config", .method = HTTP_GET, .handler = config_get},
         {.uri = "/api/config", .method = HTTP_POST, .handler = config_post},
         {.uri = "/api/config/reset", .method = HTTP_POST, .handler = config_reset_post},
+        {.uri = "/api/demo/meta", .method = HTTP_GET, .handler = demo_meta_get},
+        {.uri = "/api/demo", .method = HTTP_GET, .handler = demo_get},
+        {.uri = "/api/demo/history", .method = HTTP_GET, .handler = demo_history_get},
     };
     for (size_t i = 0; i < sizeof(uris) / sizeof(uris[0]); i++) {
         httpd_register_uri_handler(server, &uris[i]);

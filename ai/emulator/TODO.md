@@ -103,6 +103,52 @@ Chromium):
 - [ ] With the broker up: AI boxes and the route diagram with real traffic (display, ai/*)
 - [ ] A real phone and Safari
 
+### Phase 4: demo mode (Oct 19)
+
+- **Data:** `demo/demo_home.json` holds 9 areas, 61 entities (caps, normal ranges, fill and
+  derive rules) and 50 presets: 20 normal, 8 air, 6 heat/cold, 6 security, 5 energy, 5 hazard.
+- **Generator:** `tools/gen_demo.py` validates the file and generates `demo_data.c` at build
+  time; a bad cap or an unknown key stops the build.
+- **Logic:** `demo_home.c` (plain C) does the preset fill, the random roll (lean to normal /
+  uniform) and the consistency rules.
+- **Engine:** `demo_engine.c` is its own task, with the idle / looping / rolling / hold states.
+  Rolls are drawn at roll start and published on landing; the buzzer is locked during the roll
+  and the hold.
+- **Topics:** `intellithings/emulator/demo/{state,home,<node>/sensors}` (retained, control
+  connection, publishing off at boot). Commands: `{"action":"demo","op":…}`.
+- **HTTP:** `/api/demo/meta`, `/api/demo`, `/api/demo/history`, plus a `demo` object in
+  `/api/state`.
+- **Demo tab:**
+  - ROLL THE HOUSE button: rolling and locked countdown;
+  - publish / loop / interval / source controls, roll settings under "more";
+  - demo-home grid with a slot-machine roll animation, amber out-of-normal values and per-value
+    history popups;
+  - preset library by group.
+  The AI card is now shared by both tabs.
+- **Contract:** the experimental topics are added to `docs/interfaces/mqtt.md` under the
+  emulator's namespace (needs @ProgrammingJohn's review). When `demo/plan` merges, `mqtt.md`
+  conflicts trivially: both branches add rows after the `emulator/cmd` row, so keep both. Add the
+  pointer to the draft entity list in `ha-entities.md` then.
+
+| | Phase 3 | Phase 4 |
+|---|---|---|
+| App image | 1 038 KB | 1 069 KB (47 % of the slot free) |
+| Panel (gzipped) | 24.8 KB | 29.1 KB |
+| Free heap, broker down | ~90 KB (lowest ~74.6 KB) | ~75 KB (lowest 62.8 KB after boot, 56 KB under the API test burst) |
+
+Tested (Oct 19, Pi still off):
+- [x] 30 rolls (15 lean to normal, 15 uniform) checked against every cap and the derive rules: 0
+  problems. Lean to normal gives ~3 out-of-normal numbers per roll, uniform ~18 of 24
+- [x] All 50 presets: within caps, rules hold, and the same preset gives identical values
+- [x] `api_check.py --demo`: 83/83 (preset hold, roll, second press ignored, landing, lock,
+  idle, loop)
+- [x] Demo tab in the browser: roll animation and landing, locked countdown, preset library and
+  filter, consistent presets (e.g. #35: asleep, rooms dark, garage door open)
+- [ ] With the broker up: the retained demo topics, republish after a broker change, HA templates
+  reading `…/demo/home`
+- [ ] Heap with the broker up and demo publishing (target: lowest > 50 KB). If tight: fewer demo
+  history entries (30 × 176 B) or a smaller log ring
+
 ---
 
 ## v0.1.0 log

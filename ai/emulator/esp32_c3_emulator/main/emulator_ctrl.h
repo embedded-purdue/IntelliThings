@@ -17,6 +17,9 @@ bool ctrl_mqtt_connected(void);
 // Records a command result: last_cmd in the state, the command log and the serial log.
 void ctrl_record(const char *source, bool ok, const char *msg);
 
+// Publishes on the control connection (QoS 1, retained) and logs it as demo traffic.
+bool ctrl_publish_demo(const char *topic, const char *data, int len);
+
 // Runs a JSON command. Returns ok and writes a human-readable result into msg.
 bool ctrl_execute(const char *json, size_t len, const char *source, char *msg, size_t msg_len);
 

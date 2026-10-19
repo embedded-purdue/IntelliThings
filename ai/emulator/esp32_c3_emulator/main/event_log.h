@@ -35,6 +35,7 @@ typedef enum {
     ROUTE_CMD_MQTT,     // in:  intellithings/emulator/cmd
     ROUTE_CMD_HTTP,     // in:  POST /api/cmd from the panel or a script
     ROUTE_AI_IN,        // in:  intellithings/ai/summary, intellithings/ai/inference_status
+    ROUTE_DEMO,         // out: intellithings/emulator/demo/#
     ROUTE_KIND_COUNT
 } route_kind_t;
 

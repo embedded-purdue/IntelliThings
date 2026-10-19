@@ -6,6 +6,7 @@
 #include "ai_message.h"
 #include "app_config.h"
 #include "cJSON.h"
+#include "demo_engine.h"
 #include "esp_app_desc.h"
 #include "esp_log.h"
 #include "esp_system.h"
@@ -320,7 +321,11 @@ bool ctrl_execute(const char *json, size_t len, const char *source, char *msg, s
     }
     action = cJSON_GetObjectItemCaseSensitive(root, "action");
     if (!cJSON_IsString(action) || !action->valuestring) {
-        snprintf(msg, msg_len, "missing \"action\" (scenario, set, clear, reset, display)");
+        snprintf(msg, msg_len, "missing \"action\" (scenario, set, clear, reset, display, demo)");
+        goto done;
+    }
+    if (strcmp(action->valuestring, "demo") == 0) {
+        ok = demo_engine_command(root, msg, msg_len);  // whole-home demo: no "node"
         goto done;
     }
     count = resolve_nodes(root, nodes, msg, msg_len);
@@ -502,6 +507,7 @@ char *ctrl_state_json(void)
         cJSON_AddNullToObject(root, "last_cmd");
     }
     xSemaphoreGive(s_cmd_lock);
+    demo_engine_add_state(root);
 
     char *out = cJSON_PrintUnformatted(root);
     cJSON_Delete(root);
@@ -592,6 +598,15 @@ void ctrl_publish_state(bool force)
     }
 }
 
+bool ctrl_publish_demo(const char *topic, const char *data, int len)
+{
+    if (!s_connected || esp_mqtt_client_publish(s_client, topic, data, len, 1, 1) < 0) {
+        return false;
+    }
+    event_log_route(ROUTE_DEMO, topic, (size_t)len);
+    return true;
+}
+
 bool ctrl_mqtt_connected(void)
 {
     return s_connected;
@@ -647,6 +662,7 @@ static void on_ctrl_event(void *arg, esp_event_base_t base, int32_t id, void *da
         // Read-only: the agent's summary and thinking state, for the panel and route view.
         esp_mqtt_client_subscribe(ev->client, TOPIC_AI_SUMMARY, 1);
         esp_mqtt_client_subscribe(ev->client, TOPIC_AI_INFERENCE, 1);
+        demo_engine_on_connected();  // republish the demo home if demo publishing is on
         ESP_LOGI(TAG, "emulator: connected; listening on %s and intellithings/ai/*",
                  TOPIC_EMULATOR_CMD);
         break;

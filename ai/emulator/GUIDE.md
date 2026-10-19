@@ -22,9 +22,10 @@ The panel has **no login**. Anyone on the Wi-Fi can drive it, so announce long t
 
 The panel has two tabs at the top:
 - **Dev:** the three emulated rooms. This is the everyday tab.
-- **Demo (experimental):** the demo-mode stand-in. It arrives in a later update.
+- **Demo (experimental):** a stand-in for the ECE SPARK demo master: a whole demo home, 50
+  preset scenarios, a scenario loop and a **Roll the house** button in place of the game buzzer.
 
-Below the tabs are the **System log** and **MQTT route** cards. Every card has **hide** to fold
+Both tabs share the **AI messages**, **System log** and **MQTT route** cards. Every card has **hide** to fold
 it away, and some parts sit behind **more**. The panel remembers what you hid, per browser.
 
 ### Header and badges
@@ -133,6 +134,52 @@ How to read it:
   broker.
 - **Click a line** to list its last messages.
 
+### Demo mode
+
+The Demo tab drives a **demo home**: 61 values in 9 areas (home, outside, kitchen, living room,
+master bedroom, second bedroom, garage, patio, garden). It covers readings and device states:
+lights, windows, doors, the car, presence, weather and time of day. It's the test stand-in for
+the demo master, so the AI team can build Home Assistant entities and agent behaviour for demo
+mode before the real buzzer board exists.
+
+- **Publish to `intellithings/emulator/demo/#`:** turn it on to send the demo home over MQTT.
+  It's off after every boot. Turned off, the panel still shows everything, but nothing is
+  published. The Dev tab's three rooms keep publishing either way.
+- **ROLL THE HOUSE** (the buzzer stand-in):
+  1. Every value spins for the roll length (default 4 s).
+  2. The values land on a new random home within each value's caps. Only then are they
+     published, so Home Assistant never sees in-between values.
+  3. The button stays **locked** for the hold time (default 120 s), and presses are ignored,
+     like the buzzer.
+  4. After the hold, the loop resumes if it's on.
+- **Scenario loop:** steps to a new home every *interval* (default 90 s). It never repeats the
+  same preset twice in a row. **Picks:**
+  - presets only;
+  - random rolls only;
+  - a mix (the share of rolls is under **more**).
+- **Preset library:** 50 presets: 20 normal homes and 30 abnormal ones (air quality, heat and
+  cold, security, energy waste, hazards). **Click one** to apply it and hold it for the hold
+  time. That works even during a buzzer hold, and replaces it.
+- **more: roll settings:** roll length, hold time, and how values are spread:
+  - **lean to normal:** values follow the normal fill rules (lights follow presence and time of
+    day, nobody home means empty rooms, and so on), and each value has an *abnormal chance* of
+    landing anywhere within its caps instead;
+  - **anywhere within the caps:** every value is random within its caps.
+
+  Derived values always follow their source:
+  - PM1.0 and PM10 follow PM2.5;
+  - light level follows the lights and the time of day;
+  - distance follows presence.
+- **Reading the grid:** amber ⚠ marks values outside their normal range, and enum options
+  such as *storm* or *engine running*. The three node rooms carry a node badge
+  (`emu-kitchen` and so on): their values are also published in the node payload format.
+- **Click a value** to see its last changes, with the scenario that set each one.
+
+The entity list, caps and presets are a **draft** for the AI team. They live in
+`ai/emulator/esp32_c3_emulator/demo/demo_home.json`, and the build turns that file into C. Edit
+the file, rebuild and flash; a value outside its caps or an unknown key stops the build with a
+clear message.
+
 ### Settings
 
 Open with **⚙**.
@@ -168,6 +215,45 @@ Shortcuts: `cooking`, `burnt_food`, `sleep`, `gathering`, `hot`, `pm_spike`, `vo
 `stuffy`, `window_open`, `enter`, `leave`, `lights_off`. Metric keys: `temperature_c`,
 `humidity_pct`, `voc_index`, `co2_ppm`, `lux`, `distance_mm`, `pm1_0_ugm3`, `pm2_5_ugm3`,
 `pm10_ugm3`.
+
+## Demo mode over MQTT and HTTP
+
+**Experimental, emulator only.** These topics live under the emulator's reserved namespace. The
+real demo master's topics (`intellithings/demo/#`) are still a proposal; when they're agreed,
+these payloads should match them.
+
+| Topic | QoS / retained | Payload |
+|---|---|---|
+| `intellithings/emulator/demo/state` | 1 / yes | `{"state":"hold","publish":true,"loop":false,"interval_s":90,"source":"preset","scenario_id":35,"scenario":"Garage door open at night","group":"security","roll":0,"seq":12,"step_left_s":96,"lock_left_s":0,"ts":"…"}` |
+| `intellithings/emulator/demo/home` | 1 / yes | `{"seq":12,"source":"preset","scenario_id":35,"scenario":"…","group":"security","roll":0,"ts":"…","areas":{"home":{"time_of_day":"night","anyone_home":true,"front_door_locked":true},"garage":{"temperature_c":10.1,"door_open":true,"car":"parked",…},…}}` |
+| `intellithings/emulator/demo/<emu-node>/sensors` | 1 / yes | The node `…/sensors` schema (°C), for that node's demo room |
+
+- **When it publishes:** whenever the values change (a preset, a loop step, or a roll landing),
+  and again after a reconnect. Never during a roll.
+- **`state`** is also published when the mode changes (rolling, hold, loop on/off). Turning
+  publishing off publishes `"publish":false` once.
+- **After a roll,** `source` is `roll`, `scenario_id` is `null` and `scenario` is
+  `Random roll #n`.
+- **Value types:** numbers, `true`/`false` for on/off states (`light_on`, `window_open`,
+  `door_open`, `presence`, `motion`, `sprinkler_on`, `anyone_home`, `front_door_locked`), and
+  strings for options (`time_of_day`, `condition`, `car`).
+
+**Commands** (`POST /api/cmd` or `intellithings/emulator/cmd`; no `node`):
+
+```jsonc
+{"action":"demo","op":"publish","on":true}
+{"action":"demo","op":"roll"}                    // ignored while rolling or locked
+{"action":"demo","op":"preset","id":35}          // or "name":"Garage door open at night"
+{"action":"demo","op":"loop","on":true,"interval_s":90,"source":"presets","mix_pct":30}  // source: presets | random | mix
+{"action":"demo","op":"settings","roll_s":4,"hold_s":120,"spread":"normal","abnormal_pct":15}  // spread: normal | uniform
+```
+
+**HTTP:**
+- `GET /api/demo/meta`: areas, entities (caps, normal ranges, options), groups, presets.
+- `GET /api/demo`: the current values in entity order, plus `seq` and `state`.
+- `GET /api/demo/history`: the last 30 changes, values × 10^`dec`.
+
+`GET /api/state` has a `demo` object with the mode, settings, the current step and the timers.
 
 ## Settings over HTTP
 
@@ -218,6 +304,7 @@ characters of text in a 512-byte payload.
 | `GET /api/poll?log=&cmd=&ev=&msg=` | Everything the panel needs in one call (below) |
 | `GET /api/history?tier=10m\|1h` | Reading history, binary (below) |
 | `GET /api/config`, `POST /api/config`, `POST /api/config/reset` | Settings |
+| `GET /api/demo/meta`, `GET /api/demo`, `GET /api/demo/history` | Demo home (above) |
 
 ### `/api/poll`
 
@@ -279,9 +366,16 @@ Work through these after flashing a new build.
 9. **⚙ → MQTT:** change the publish interval to 5000 ms and Apply; the room footers count up to
    5 s. Set it back to 3000.
 10. Shrink the window to phone width: the cards stack and nothing scrolls sideways.
+11. **Demo tab:**
+    - Press **ROLL THE HOUSE**. The values spin, land after about 4 s, and the button shows
+      **locked**.
+    - Press it again: a red toast says it's locked.
+    - Click a preset in the library: the home changes and the preset is highlighted.
+    - Tick **Publish**: the MQTT route shows `demo` traffic from the control connection.
 
 **From a script:** `ai/emulator/tests/api_check.py` checks the whole HTTP API
-(`python api_check.py --host 192.168.1.4`; add `--broker-test` to also switch brokers and back).
+(`python api_check.py --host 192.168.1.4`; add `--broker-test` to also switch brokers and back,
+and `--demo` to run a roll, a preset and the loop).
 
 ## Falling back to v0.1.0
 
