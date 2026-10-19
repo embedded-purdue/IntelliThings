@@ -24,6 +24,7 @@
 | Build plan | Not specified | **Emulator ESP32** (3 simulated nodes, for early AI testing) + **2 identical breadboard dev rigs** → **3 final sensor nodes** (custom PCB + 3D-printed enclosure) in the **kitchen, bedroom and living room** |
 | Team structure | Software, Hardware, LLM, Smart Home roles | **3 subteams: Hardware, Software, AI**, each with one lead (§8) |
 | Schedule | 13 weekly steps | **11 Sunday work sessions**, Sept 6 – Dec 6 (§9) |
+| Showcase | — | **Demo mode** for the ECE SPARK booth: random pre-set scenarios, a **demo master** (ESP32-C3 + game buzzer) and a monitor with the 3D dashboard (§2.4) |
 
 ---
 
@@ -97,6 +98,18 @@
 
 **Chat-driven (planned):**
 `Chat message or command (Discord or Telegram) → agent → LLM → MCP call → HA → device → reply in the chat` (Discord adds a 3-second acknowledge step — §6)
+
+### 2.4 Demo mode (ECE SPARK booth)
+
+At the showcase the room's environment barely changes and people walk past all the time, so real readings would show visitors little of what the agent does. **Demo mode** feeds **pre-set and randomized home data** instead. Full plan and open questions: [`demo/README.md`](../demo/README.md).
+
+- **Booth, left to right:** the three nodes · Wi-Fi router · Raspberry Pi 5 · game buzzer with a LuatOS ESP32-C3 Core (the **demo master**, `demo/demo-master/`, C on ESP-IDF, owner @spicybutter) · a monitor showing the 3D dashboard and the demo master's web interface.
+- **The demo home is the whole house, inside and outside** (e.g. kitchen, living room, master and second bedroom, garage, patio, garden, weather), covering everything that can change or be controlled: readings, lights, doors, the car, presence. Every value comes from the demo master; each of the three real nodes shows only its own room's data on its DWIN display. **In demo mode the agent sees only the demo master's entities.**
+- **Scenario loop:** the demo master's randomizer picks one of **up to ~200 pre-set scenario groups**, normal and abnormal (each sets every entity) → publishes it to HA and the nodes → **HA automations/helpers decide when the agent runs** (the demo master never calls the LLM; open discussion) → each node shows its room's AI message and the dashboard the overall message → after an interval (open discussion), the next group.
+- **Game buzzer:** a visitor presses it → the loop stops → the web interface rolls every value for about 4 s (to be tuned) → every entity lands on a **random value within realistic caps** (e.g. indoor temperature 60–100 °F; near 100 °F reads as a fire hazard; MQTT stays in °C) → visitors watch the agent react → after a fixed time, the scenario loop resumes.
+- **Web interface** (served by the demo master): the home's entities in rows and columns, with a rolling animation on every change.
+- **One node shows both the demo data and its real readings** (its AI message still comes from the demo data) — **TODO**.
+- **MQTT:** a new reserved `intellithings/demo/#` namespace, **proposed** in [`interfaces/mqtt.md`](interfaces/mqtt.md); the entity list and caps go into [`interfaces/ha-entities.md`](interfaces/ha-entities.md).
 
 ---
 
@@ -461,7 +474,7 @@ How each subteam divides its work — roles inside each team, KiCad sheet owners
 
 *The groups show how each subteam's work can be divided; they are not fixed assignments. We may not split people into groups at all — it depends on the work, and tasks are assigned by the leads.*
 
-**PMs — @spicybutter and @rakkicow:** coordinate the subteams and are code owners on every path, so either can approve any PR. @spicybutter also builds and maintains the AI subteam's **emulator ESP32** (§3.1a). @rakkicow owns the **display UI** and its VP map (§3.4).
+**PMs — @spicybutter and @rakkicow:** coordinate the subteams and are code owners on every path, so either can approve any PR. @spicybutter also builds and maintains the AI subteam's **emulator ESP32** (§3.1a) and the **demo master** (§2.4). @rakkicow owns the **display UI** and its VP map (§3.4).
 
 ### Hardware subteam (owns **Rig H**) — lead @LiamWatson-Purdue
 - Build both breadboard rigs to one shared wiring diagram so Rig H and Rig S stay identical; own the **pin map** (shared with Software).
@@ -504,6 +517,7 @@ Each contract is written in `docs/interfaces/` in the repo before anyone builds 
 | HA entity names + exposed MCP tools ([`ha-entities.md`](interfaces/ha-entities.md)) | AI, shared with all | Draft (what's built) |
 | `/ha-event` snapshot format (HA → cloud agent) | AI | Only for the future Lambda option |
 | `/chat` request format (after the Discord/Telegram decision) | AI | Due Oct 25 |
+| Demo mode topics + demo-home entities (`mqtt.md`, `ha-entities.md`) | Demo master (@spicybutter) ↔ Software ↔ AI | Proposed |
 | Final PCB pin map | Hardware → Software | Due Oct 25 |
 | Final GUI layout ↔ enclosure bezel | Software ↔ Hardware | Due Nov 1 |
 
@@ -562,6 +576,7 @@ Work sessions run every Sunday, 1:00–4:00 PM, except holidays and breaks — *
 | `software/README.md`, `software/firmware/README.md` | Current firmware toolchain, build steps and layout | Current |
 | `software/Firmware_Architecture.md` | Firmware design: tasks, shared state, display driver, LED bar, MQTT, boot sequence | Being rewritten for the `no_std` stack |
 | `ai/README.md`, `ai/docs/` | The running AI pipeline (`inference.md`), design notes (`architecture.md`), roadmap, cloud option, 3D floor-plan plan, local-model research | Current |
+| `demo/README.md`, `demo/demo-master/` | Demo mode for the ECE SPARK booth; demo master (ESP32-C3 + game buzzer) firmware | Planned |
 | `hardware/Hardware_BOM_Candidates.md` | Hardware design decisions and trade-offs (chip, boards, display, LED bar, sensors, power, PCB structure) | Current (updated Oct 18) |
 | `hardware/Full_Parts_List.md` | Per-part specs reference (interface, voltage, output, quantity, source) | Current (updated Sept 26). The old `IntelliThings_BOM.xlsx` is outdated |
 | `IntelliThings_Slides.md` | Kickoff presentation (Sept 6) | **Archived** — kept as a record, no further updates |

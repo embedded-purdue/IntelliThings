@@ -30,17 +30,19 @@ feature       ●──●     ●─────●                     your wo
 
 ### Naming feature branches
 
-Prefix with your team: `software/`, `hardware/`, `ai/` or `docs/`.
+Prefix with your team: `software/`, `hardware/`, `ai/` or `docs/`. Demo mode work (the `demo/`
+folder) uses `demo/`.
 
 ```
 software/baseline
 software/sht41-driver
 software/dwin-dev-gui
 hardware/power-input
-hardware/mcu-bare-chip
+hardware/sensor-footprints
 ai/ha-mqtt-entities
-ai/lambda-agent
+ai/openrouter-tests
 docs/mqtt-schema
+demo/demo-master
 ```
 
 Lowercase, hyphens, no spaces. Keep it short and descriptive.
@@ -110,11 +112,13 @@ coordinate this — don't open a PR into `main` on your own.
 hardware/         KiCad project(s) + project-local libraries, enclosure CAD, datasheets,
                   Hardware_BOM_Candidates.md, Full_Parts_List.md
 software/         Firmware_Architecture.md
-└── firmware/     Rust (ESP-IDF) node firmware
-ai/               AI_Agent_Notes.md
+└── firmware/     no_std Rust node firmware (esp-hal + Embassy)
+ai/               Python agent (agent/, config/, prompts/), tools/, tests/
+├── deployment/   Home Assistant, Mosquitto and systemd setup (no secrets)
 ├── emulator/     Emulator ESP32 — 3 simulated nodes for early AI testing
-├── ha/           Home Assistant config: MQTT entities, automations, dashboards (no secrets)
-└── cloud/        Lambda agent harness, chat bot, deployment config
+└── docs/         Pipeline details, design notes, roadmap, cloud option
+demo/             Demo mode for the ECE SPARK booth
+└── demo-master/  Demo master firmware (ESP32-C3 + game buzzer)
 docs/             Project_Guideline.md, Collaboration_Guidelines.md
 └── interfaces/   Shared contracts between teams — one file each
 ```
