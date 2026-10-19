@@ -149,6 +149,28 @@ Tested (Oct 19, Pi still off):
 - [ ] Heap with the broker up and demo publishing (target: lowest > 50 KB). If tight: fewer demo
   history entries (30 × 176 B) or a smaller log ring
 
+### Phase 5: docs and contracts (Oct 19)
+
+- [x] `README.md` rewritten for v2.1.0. It keeps the worked examples, scenario reference,
+  scripting, topics and the build/flash/fallback steps, adds what's new, demo mode and testing,
+  and replaces the HA YAML example with how `register_emulator.py` works today. The panel
+  walkthrough lives in `GUIDE.md`
+- [x] Stale v0.1.0 lines fixed: "draft until Oct 4", `homeassistant.local` default, HA YAML,
+  troubleshooting
+- [x] Guideline §3.1a updated (v2.1.0 features, demo stand-in); `docs/interfaces/mqtt.md`
+  experimental demo topics (phase 4)
+- [x] Link check over the emulator docs, `mqtt.md` and the guideline: only
+  `PLAN-v2.1.0.md` → `demo/README.md` is open; it resolves when `demo/plan` merges
+- [x] PR description drafted (`.claude/pr-emulator-v2.md`, local)
+- [ ] For @ProgrammingJohn: stale "emulator needs an extra subscription" lines in
+  `ai/docs/inference.md` and `ai/deployment/home_assistant/README.md` (listed in the PR)
+
+### Phase 6: soak and release (next, needs the Pi)
+
+- [ ] Broker-up checks from phases 1–4 (above)
+- [ ] 2-hour soak: two browsers + `api_check.py` polling, a broker change mid-run, demo loop on
+- [ ] `PROJECT_VER` → `2.1.0`; merged image + SHA-256 to the team Drive; tag `emulator-v2.1.0`
+
 ---
 
 ## v0.1.0 log
