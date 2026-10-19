@@ -1,7 +1,8 @@
 # IntelliThings emulator: user guide
 
-*Firmware v2.1.0 (in development) · this file is built into the board and served at
-`/guide.md`. Full reference: `ai/emulator/README.md` in the repo.*
+*Firmware v2.1.0 (in development). This guide is built into the board: open it with **?** in
+the panel, or download it from `/guide.md?download=1`. Full reference: `ai/emulator/README.md`
+in the repo.*
 
 The emulator is one ESP32-C3 board that pretends to be **three sensor nodes**: `emu-kitchen`,
 `emu-bedroom` and `emu-living-room`. They publish on the real node topics with the real JSON
@@ -11,42 +12,149 @@ schema, so the AI team can test **MQTT → Home Assistant → agent → display*
 
 1. Power the board from USB-C. It joins the Wi-Fi and the broker in about 20 s.
 2. Open **`http://192.168.1.4/`** or `http://intellithings-emu.local/` on the same Wi-Fi.
-3. Check the badges at the top: panel connected, Wi-Fi, MQTT 3/3 nodes, clock synced.
+3. Check the badges at the top: **panel**, **Wi-Fi**, **MQTT 3/3** and **clock** should all be
+   green.
 4. Each room publishes a full snapshot every **3 s** on `intellithings/emu-<room>/sensors`.
 
 The panel has **no login**. Anyone on the Wi-Fi can drive it, so announce long tests in Discord.
 
-## Settings: broker address and publish interval
+## The panel
 
-The broker (the Raspberry Pi) address, port, login, keepalive and the publish interval can be
-changed **without reflashing**. They're saved on the board and survive a reboot. The values in
-`sdkconfig.local` stay as the defaults.
+The panel has two tabs at the top:
+- **Dev:** the three emulated rooms. This is the everyday tab.
+- **Demo (experimental):** the demo-mode stand-in. It arrives in a later update.
 
-- **Read:** `GET /api/config`. Returns the current values, `password_set` (the password itself
-  is never sent back), `saved` (whether anything differs from the defaults) and `defaults`.
-- **Change:** `POST /api/config` with only the fields you want to change:
+Below the tabs are the **System log** and **MQTT route** cards. Every card has **hide** to fold
+it away, and some parts sit behind **more**. The panel remembers what you hid, per browser.
 
-  ```json
-  {"host":"192.168.1.2","port":1883,"username":"emulator","password":"…",
-   "keepalive_s":15,"publish_interval_ms":3000}
-  ```
+### Header and badges
 
-  - **Broker change:** all four MQTT connections leave the old broker (they publish `offline`
-    first) and reconnect to the new one in a few seconds. No reboot is needed.
-  - **Clearing the username or password:** the board saves the setting and **reboots** to apply
-    it.
-  - **Publish interval:** applies at once.
-- **Back to defaults:** `POST /api/config/reset`.
-- **Typing a wrong IP doesn't lock you out.** The panel is plain HTTP and keeps working; only the
-  MQTT badge goes red. Fix the IP or reset.
+| Badge | Green means | Otherwise |
+|---|---|---|
+| panel | Your browser reaches the board | Red: board off, rebooting, or you're on another network |
+| Wi-Fi | Board is on Wi-Fi (signal in dBm) | Red: it retries by itself |
+| MQTT n/3 | All three rooms are connected to the broker | Amber: some rooms; red: none. Readings are still generated, just not sent |
+| clock | Time came from the internet | Amber until synced; payloads have no `ts` until then |
 
-Limits: host up to 63 characters (letters, digits, `.`, `-`, `_`), port 1–65535, username up to
-32 characters, password up to 64, keepalive 5–120 s, publish interval 1000–60000 ms.
+- **Click any badge** to open **System status**: IP, broker, uptime, free memory, firmware
+  version and the last command.
+- **?** opens this guide. **⚙** opens Settings.
 
-## Emulating situations
+### Rooms
 
-Shortcuts and custom values work as in v0.1.0. They're available from the panel, from
-`POST /api/cmd` and from the MQTT topic `intellithings/emulator/cmd`:
+One card per room. Each tile shows a reading as the board last published it:
+- **the current value.** Temperature shows **°C and °F side by side**; MQTT always carries °C.
+- **the previous value** and the change (▲ / ▼).
+- **a sparkline** of the last 10 minutes.
+- **Blue values** are pinned with *Custom values*.
+
+The badges under the room name show:
+- the **mode**: `auto`, `scenario` or `override`;
+- the running shortcut and its time left;
+- automatic events such as `auto: cooking`;
+- the number of people in the room.
+
+The footer says how long ago the room published; it turns red if publishing stops. **↺ Normal**
+returns just that room to automatic behaviour.
+
+### Plots and last values
+
+**Click a tile** to open its plot.
+
+- **Window:** 10 min, 30 min or 1 h. The last 10 min has every snapshot; longer windows use
+  15-second averages.
+- **Chart style:** line, area, step, bars, min–max band, or a table. Pick the default in
+  Settings.
+- **Hover** (or tap) the chart to read a value.
+- **Last values:** a table of the last 20 published values, with the time and the change.
+- **History is kept on the board** (it survives reloading the page), but a reboot clears it.
+
+### Emulate
+
+Pick the target first: **Kitchen**, **Bedroom**, **Living Room** or **All rooms**.
+
+- **Shortcuts:**
+  - **Start one:** click it. Shortcuts typical for the chosen room are highlighted.
+  - **Duration (s):** set it *before* clicking. `0` runs until stopped; empty uses the default.
+  - **↺ Back to normal** stops shortcuts and custom values. Readings then drift back.
+  - **Reset room** does the same and also snaps the readings back to baseline.
+- **Custom values** (under **more**): enter a **Min** and **Max** per reading. Min = Max gives a
+  fixed value; a range wanders like a live reading.
+  - Optional: presence and a duration.
+  - **Jump instantly** makes the next snapshot carry your value.
+  - Temperature is entered in **°C**.
+
+Shortcuts and slow custom values move like a real room:
+- light, distance and presence change within seconds;
+- VOC and PM in ~3 min;
+- CO₂ in ~6 min;
+- temperature and humidity in ~9 min.
+
+For an exact, immediate value, use **jump instantly**.
+
+### AI messages
+
+Three boxes, one per room, styled like the AI section of the node's display.
+
+- **What each box shows:** the latest message on that room's `…/display` topic, with:
+  - its `ts` and how long ago it arrived;
+  - **retained** if the broker re-delivered a stored message;
+  - a **character count**, red when over the 60-character limit for room messages.
+- **Problem badges:** **not {text} JSON** or **truncated**.
+- **Agent status:** while the agent is running (`intellithings/ai/inference_status` says
+  `start thinking`), every box shows **thinking…**. The agent's overall summary
+  (`intellithings/ai/summary`) is shown under the boxes.
+- **Send a test message:** type it under a box and press **Send**. It's published exactly as
+  Home Assistant would. Tick **retained** to keep it on the broker.
+- **History:** **more** shows the last 20 messages from all rooms.
+
+### System log
+
+- **Commands:** every command and settings change, from the panel or from MQTT. Each shows ✔ or
+  ✖ with the reason. When the card is hidden, the last command still shows in its title.
+- **System:** the board's own log lines (Wi-Fi, MQTT, AI messages, errors). Warnings are amber,
+  errors red. The per-snapshot reading lines are left out.
+- **Controls:** filter by text, **pause** scrolling, **clear** the view (the board keeps its
+  copy), and **download** what's shown as a text file.
+
+### MQTT route
+
+A live diagram of who publishes and who receives:
+- **left:** the board (the three rooms, its control connection, this panel);
+- **middle:** the broker;
+- **right:** Home Assistant and the AI agent.
+
+How to read it:
+- **Moving dots** show messages the board sent or received.
+- **Each line** is labelled with its last topic and how long ago it was used.
+- **Dashed lines are expected but not visible to the board.** The broker doesn't say who
+  subscribes, so broker → Home Assistant is always dashed.
+- **The agent box lights up** while it's thinking. Its messages reach the board through the
+  broker.
+- **Click a line** to list its last messages.
+
+### Settings
+
+Open with **⚙**.
+
+- **MQTT broker:**
+  - **Fields:** host (the Raspberry Pi's IP), port, username, password, keepalive and the
+    sensor publish interval. The password is never shown; leave it empty to keep it.
+  - **Apply & reconnect:** saves on the board and reconnects all four MQTT connections in a few
+    seconds, without a reboot. The old broker is told the rooms went `offline`.
+  - **Clearing the username or password** makes the board reboot to apply it.
+  - **Restore defaults:** goes back to the values the firmware was built with.
+- **Display:** temperature as °C, °F or both; the default plot window and chart style; how often
+  the panel refreshes; light or dark theme. These are stored in your browser only.
+- **Layout:** show or hide whole cards, or reset the layout.
+
+**Typing a wrong IP doesn't lock you out.** The panel is plain HTTP and keeps working; only the
+MQTT badge goes red. Fix the IP or restore the defaults.
+
+## Emulating situations from scripts
+
+Everything the panel does is a small JSON command. Send it to `POST /api/cmd` or to the MQTT
+topic `intellithings/emulator/cmd` (never retained):
 
 ```jsonc
 {"node":"kitchen","action":"scenario","name":"burnt_food"}            // a shortcut
@@ -61,38 +169,41 @@ Shortcuts: `cooking`, `burnt_food`, `sleep`, `gathering`, `hot`, `pm_spike`, `vo
 `humidity_pct`, `voc_index`, `co2_ppm`, `lux`, `distance_mm`, `pm1_0_ugm3`, `pm2_5_ugm3`,
 `pm10_ugm3`.
 
-## AI messages
+## Settings over HTTP
 
-The board listens on each room's `intellithings/<node>/display` topic, as a real node does, and
-keeps:
-- the **latest message per room**;
-- the **last 20 messages**.
+- **Read:** `GET /api/config`. Returns the current values, `password_set`, `saved` (whether
+  anything differs from the defaults) and `defaults`.
+- **Change:** `POST /api/config` with only the fields to change:
 
-It also listens, read-only, to the agent's **overall summary** (`intellithings/ai/summary`) and
-**thinking state** (`intellithings/ai/inference_status`). Room messages from the pipeline are at
-most 60 characters. The board accepts up to 400 characters of text in a 512-byte payload.
+  ```json
+  {"host":"192.168.1.2","port":1883,"username":"emulator","password":"…",
+   "keepalive_s":15,"publish_interval_ms":3000}
+  ```
+- **Back to defaults:** `POST /api/config/reset`.
 
-## Logs and MQTT traffic
+Limits: host up to 63 characters (letters, digits, `.`, `-`, `_`), port 1–65535, username up to
+32 characters, password up to 64, keepalive 5–120 s, publish interval 1000–60000 ms.
 
-The board keeps three logs in memory (they're cleared by a reboot):
-- **System log:** the last 80 firmware log lines. The per-snapshot reading lines are left out.
-- **Command log:** the last 32 commands and settings changes, with source (`web` / `mqtt`),
-  result and reason.
-- **MQTT traffic:** the last 64 messages the board sent or received. Kinds: `sensors`, `status`,
-  `state`, `display_out`, `display_in`, `cmd_mqtt`, `cmd_http`, `ai_in`. The board only sees its
-  own traffic, so it can't tell whether HA received a message.
+## Logs, history and AI topics on the board
 
-## Reading history
+All of this is kept in RAM, so a reboot clears it:
+- **System log:** the last 80 lines.
+- **Commands:** the last 32.
+- **MQTT messages** the board sent or received: the last 64. Kinds: `sensors`, `status`,
+  `state`, `display_out`, `display_in`, `cmd_mqtt`, `cmd_http`, `ai_in`.
+- **AI messages:** the last 20, plus the latest per room and the latest summary and thinking
+  state.
+- **Reading history** in two tiers:
 
-The board remembers what it published, for the panel's plots:
+  | Tier | Resolution | Length |
+  |---|---|---|
+  | `10m` | every snapshot (3 s) | 200 snapshots, about 10 min |
+  | `1h` | 15 s averages (presence: "present at any point") | 240 buckets, 1 h |
 
-| Tier | Resolution | Length |
-|---|---|---|
-| `10m` | every snapshot (3 s) | 200 snapshots, about 10 min |
-| `1h` | 15 s averages (presence: "present at any point") | 240 buckets, 1 h |
+  A longer publish interval stretches the `10m` tier over more time.
 
-History lives in RAM and is cleared by a reboot. A longer publish interval stretches the `10m`
-tier over more time.
+Room messages from the pipeline are at most 60 characters. The board accepts up to 400
+characters of text in a 512-byte payload.
 
 ## HTTP API
 
@@ -100,13 +211,13 @@ tier over more time.
 |---|---|
 | `GET /` | The control panel |
 | `GET /guide.md` | This guide (`?download=1` saves it as a file) |
-| `GET /api/state` | Status, each room's mode and last reading (same as v0.1.0, plus `config_saved`) |
+| `GET /api/state` | Status, each room's mode and last reading (v0.1.0 fields, plus `config_saved` and `mqtt.reconfiguring`) |
 | `GET /api/meta` | Metrics, scenarios, nodes, topics, the history layout and the firmware version |
 | `GET /api/messages` | The last 20 AI messages, newest first |
 | `POST /api/cmd` | Run a command: `{"ok":true,"msg":"…"}` or HTTP 400 with the reason |
 | `GET /api/poll?log=&cmd=&ev=&msg=` | Everything the panel needs in one call (below) |
 | `GET /api/history?tier=10m\|1h` | Reading history, binary (below) |
-| `GET /api/config`, `POST /api/config`, `POST /api/config/reset` | Settings (above) |
+| `GET /api/config`, `POST /api/config`, `POST /api/config/reset` | Settings |
 
 ### `/api/poll`
 
@@ -123,11 +234,10 @@ memory:
        "inference":{"state":"stop thinking",…}|null}}
 ```
 
-- **`t_ms`** is milliseconds since boot. Wall time is `state.time.now` minus
-  (`state.uptime_s` × 1000 − `t_ms`).
+- **`t_ms`** is milliseconds since boot.
 - **`gap: true`** means some entries were overwritten before you fetched them.
-- **After a reboot** the sequence numbers start again from 1. The board notices numbers it hasn't
-  reached yet and starts over.
+- **After a reboot** the numbers start again from 1. The board notices numbers it hasn't reached
+  yet and starts over.
 
 ### `/api/history` binary layout (little-endian)
 
@@ -149,26 +259,29 @@ memory:
 
 ## How to test this portal
 
-Work through these after flashing a new build:
+Work through these after flashing a new build.
 
-1. `GET /api/state`: `fw` is the expected version, `wifi.connected` is true and `time.synced`
-   is true.
-2. With the broker up, every `nodes[].mqtt` is `connected` and `publish_count` grows by 1 every
-   3 s.
-3. Send `{"node":"kitchen","action":"scenario","name":"burnt_food","duration_s":60}`. The reply
-   is `ok`. `/api/poll` shows it under `cmds` and a `cmd_http` entry under `routes`.
-4. Send an invalid command (e.g. `co2_ppm` 5001). You get HTTP 400 with the reason, and nothing
-   changes.
-5. Send a test AI message to one room. It appears under `messages` and in that room's
-   `ai.latest` entry, with `display_out` and `display_in` entries under `routes`.
-6. Fetch `/api/history?tier=10m` and check the header: `EMUH`, N = 3, S = 10, C > 0.
-7. Change the publish interval to 5000 ms with `POST /api/config`. Snapshots slow down; set it
-   back to 3000.
-8. Set the broker host to an unused IP. MQTT goes `disconnected` and the panel still answers.
-   Set it back: all four connections come back within ~10 s.
+**In the panel:**
+1. All four badges are green (MQTT needs the broker up). Click one: System status shows the
+   expected firmware version.
+2. Each room's footer says *published 0–3 s ago*, and the values change every few seconds.
+3. Click a temperature tile. The plot opens with a few minutes of history. Switch to 1 h and
+   try each chart style. *Last values* lists recent readings.
+4. Choose **Kitchen**, click **🔥 Burnt food**. A green toast appears, the card shows
+   `scenario`, and the **System log → Commands** tab shows the command with ✔.
+5. **more → Custom values:** CO₂ min 1500 max 1500, tick *jump instantly*, Apply. Within 3 s the
+   CO₂ tile shows 1500 in blue.
+6. Enter CO₂ 6000 and Apply. You get a red toast with the allowed range, and nothing changes.
+7. Under the Bedroom AI box, type a message and **Send**. It appears in that box within a second.
+   The MQTT route shows a dot from the control connection to the broker and back to the rooms.
+8. **⚙ → Display:** switch temperature to °F only; the tiles follow. Hide a card and reload; it
+   stays hidden. **Layout → Reset** brings it back.
+9. **⚙ → MQTT:** change the publish interval to 5000 ms and Apply; the room footers count up to
+   5 s. Set it back to 3000.
+10. Shrink the window to phone width: the cards stack and nothing scrolls sideways.
 
-`ai/emulator/tests/api_check.py` runs these checks automatically:
-`python api_check.py --host 192.168.1.4`.
+**From a script:** `ai/emulator/tests/api_check.py` checks the whole HTTP API
+(`python api_check.py --host 192.168.1.4`; add `--broker-test` to also switch brokers and back).
 
 ## Falling back to v0.1.0
 

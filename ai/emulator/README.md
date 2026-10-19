@@ -2,11 +2,16 @@
 
 Owner: @spicybutter (PM) · AI subteam · status and test log: [`TODO.md`](TODO.md)
 
-> **Versions.** The board runs **v0.1.0**, which this guide describes. **v2.1.0** is being built
-> in `esp32_c3_emulator/` (plan: [`PLAN-v2.1.0.md`](PLAN-v2.1.0.md)), so the source there may be
-> ahead of the board. v0.1.0 is frozen in [`releases/v0.1.0/`](releases/v0.1.0/README.md)
-> (git tag `emulator-v0.1.0`), with steps to [fall back](releases/v0.1.0/README.md#falling-back)
-> if a newer version misbehaves.
+> **Versions.** **v2.1.0** is being built in `esp32_c3_emulator/` (plan:
+> [`PLAN-v2.1.0.md`](PLAN-v2.1.0.md)), and the board runs `2.1.0-dev` builds. The new panel,
+> settings and API are described in [`GUIDE.md`](GUIDE.md) (also built into the board, under
+> **?** in the panel). This README still describes v0.1.0 and is rewritten when v2.1.0 is
+> released. v0.1.0 is frozen in [`releases/v0.1.0/`](releases/v0.1.0/README.md) (git tag
+> `emulator-v0.1.0`), with steps to [fall back](releases/v0.1.0/README.md#falling-back).
+>
+> **Working on the panel:** `python tools/panel_dev_server.py` serves `main/web/index.html` and
+> `GUIDE.md` from your checkout at `http://localhost:8765/` and forwards the API to the board,
+> so you can edit and reload without reflashing.
 
 One **LuatOS ESP32-C3 Core** board with no sensors attached that pretends to be **three
 IntelliThings sensor nodes**: kitchen, bedroom and living room. It publishes on exactly the

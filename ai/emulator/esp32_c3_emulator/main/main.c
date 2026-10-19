@@ -157,7 +157,10 @@ void app_main(void)
     ESP_ERROR_CHECK(esp_event_loop_create_default());
 
     esp_log_level_set("mqtt_client", ESP_LOG_WARN);
-    esp_log_level_set("transport_base", ESP_LOG_WARN);
+    // A failed broker connect logs four errors per client per attempt; mqtt_node.c already
+    // reports it in one line ("transport error ... is mqtt://... reachable?").
+    esp_log_level_set("transport_base", ESP_LOG_NONE);
+    esp_log_level_set("esp-tls", ESP_LOG_NONE);
 
     app_config_init();
     time_sync_init();

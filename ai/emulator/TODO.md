@@ -4,8 +4,8 @@ Owner: @spicybutter · last updated 2026-10-18
 
 ## v2.1.0 progress
 
-Plan: [`PLAN-v2.1.0.md`](PLAN-v2.1.0.md) · branch `ai/emulator-v2` · the board still runs
-**v0.1.0**. The rest of this file below is the v0.1.0 log; its frozen copy is in
+Plan: [`PLAN-v2.1.0.md`](PLAN-v2.1.0.md) · branch `ai/emulator-v2` · the board runs the latest
+`2.1.0-dev` build. The rest of this file below is the v0.1.0 log; its frozen copy is in
 [`releases/v0.1.0/`](releases/v0.1.0/README.md).
 
 ### Phase 0: freeze v0.1.0 (Oct 18)
@@ -71,6 +71,37 @@ Tested on the board (Oct 18, Pi still off), `tests/api_check.py`:
   on the old broker, display messages and AI summary/thinking via `/api/poll`, heap with 4 live
   connections (target: lowest > 50 KB)
 - [ ] Clearing the login (reboot path)
+
+### Phase 3: panel v2 frame and Dev tab (Oct 19)
+
+`main/web/index.html` rewritten (84 KB, 24.8 KB gzipped, inline CSS/JS, no libraries, works
+offline): Dev / Demo tabs, every card hideable (`hide`/`show`, `more`), Settings popup (MQTT
+broker incl. the Pi's IP, publish interval, temperature unit, plot defaults, refresh, theme,
+layout), searchable guide popup rendered from `GUIDE.md` with per-card `?` links and a download
+link, room tiles with °C/°F, previous value and sparkline, plot popup (10 min / 30 min / 1 h;
+line, area, step, bars, min–max band, table; hover readout; last 20 values), three DWIN-style AI
+boxes with per-room test send, 60-character counter and "thinking…", system log (Commands /
+System, filter, pause, clear, download), live MQTT route diagram. `GUIDE.md` rewritten around
+the new panel. New `tools/panel_dev_server.py` serves the panel from the checkout and proxies
+the API to the board.
+
+Tested (Oct 19, Pi still off) through the dev server and then served by the board (in-app
+Chromium):
+- [x] All sections render with live data; no console errors; light and dark themes
+- [x] Plot popup: windows, every chart style, hover readout, last values
+- [x] Guide: search ("broker ip" → 3 sections, highlighted), nested lists and tables render
+- [x] Settings: loads the board's config; Apply changes the publish interval and back
+- [x] AI boxes with injected sample data: counter, "over 60 chars", retained, thinking
+- [x] Test send with MQTT down → red toast, ✖ in Commands, route pulse panel → control
+- [x] Phone width (375 px): no sideways scroll; tiles stack; header scrolls away; route diagram
+  scrolls inside its card. Folded cards stay folded after a reload
+- [x] Board reboot while the panel is open: the panel notices and starts over
+- [x] `api_check.py` 66/66 on the flashed build; heap ~90 KB (lowest ~74.6 KB) with the panel open
+- [x] Fixed: `replaceChildren(null)` printed "null"; a failed broker connect logged 4 lines per
+  client per attempt (esp-tls/transport_base silenced; our own one-line error stays) — log rate
+  with the broker down went from ~3 to ~0.7 lines/s
+- [ ] With the broker up: AI boxes and the route diagram with real traffic (display, ai/*)
+- [ ] A real phone and Safari
 
 ---
 
