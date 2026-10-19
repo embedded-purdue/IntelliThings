@@ -1,6 +1,48 @@
 # Emulator — progress and test plan
 
-Owner: @spicybutter · last updated 2026-09-27
+Owner: @spicybutter · last updated 2026-10-18
+
+## v2.1.0 progress
+
+Plan: [`PLAN-v2.1.0.md`](PLAN-v2.1.0.md) · branch `ai/emulator-v2` · the board still runs
+**v0.1.0**. The rest of this file below is the v0.1.0 log; its frozen copy is in
+[`releases/v0.1.0/`](releases/v0.1.0/README.md).
+
+### Phase 0: freeze v0.1.0 (Oct 18)
+
+- [x] Tag `emulator-v0.1.0` on `967fe5e`; source copy + `dependencies.lock` in
+  `releases/v0.1.0/` (identical to the tag apart from the lock file)
+- [x] Rebuilt from the copy (0 warnings), merged image made, flashed to the board, boots
+- [x] `PROJECT_VER` in `CMakeLists.txt` is the only version (`2.1.0-dev`); `/api/state` reads it
+- [ ] Upload `emulator-v0.1.0-merged.bin` + `.sha256` to the team Drive
+
+### Phase 1: build and memory groundwork (Oct 18)
+
+Changes: `-Os`, MQTT TLS and WebSocket transports off, `partitions.csv` with two 1.9 MB app
+slots, panel gzipped at build time (`tools/gzip_asset.py`) and served with
+`Content-Encoding: gzip`. One `snprintf` bound tightened for `-Os`'s stricter truncation check.
+
+| | v0.1.0 | Phase 1 |
+|---|---|---|
+| App image | 1 122 260 B | **997 554 B** (−11 %) |
+| App slot / free | 1.5 MB / 27 % | **1.94 MB / 51 %** |
+| Flash code / data | 860 630 / 175 200 B | 765 884 / 152 888 B |
+| Static DRAM | 125 242 B | **117 578 B** (−7.7 KB) |
+| Panel download | 20 492 B | **6 512 B** (byte-identical after unzip) |
+| Free heap, Wi-Fi up, broker down, ~50 s | 139 640 B (lowest 120 084) | **146 536 B (lowest 126 680)** |
+
+Tested on the board (Oct 18, team Wi-Fi, **Pi was off**):
+- [x] Boots from `ota_0` with the new table; version `2.1.0-dev`; simulation and 3 s cycle run
+- [x] Wi-Fi joins (−38 dBm), clock syncs, panel loads gzipped, HTTP commands accepted/rejected
+  as before (scenario, out-of-range `set` → 400, reset, `/api/meta`, `/api/messages`)
+- [x] Fallback: the merged v0.1.0 image restores the old table; v0.1.0 boots and serves the panel
+- [ ] **MQTT with the new build** (Pi/broker unreachable on Oct 18): 4 connections, statuses,
+  publishing, display messages, then heap with MQTT up (v0.1.0 had ~137 KB)
+- [ ] Panel in a real browser with the gzipped page (Chrome + a phone)
+
+---
+
+## v0.1.0 log
 
 Implementation is finished and builds cleanly. The offline boot test passed on the board.
 **Everything that needs Wi-Fi and the MQTT broker is still untested** and waits for a team

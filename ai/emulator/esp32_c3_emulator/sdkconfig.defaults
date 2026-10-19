@@ -6,7 +6,18 @@ CONFIG_IDF_TARGET="esp32c3"
 # LuatOS ESP32-C3 Core: 4 MB SPI flash, DIO mode
 CONFIG_ESPTOOLPY_FLASHSIZE_4MB=y
 CONFIG_ESPTOOLPY_FLASHMODE_DIO=y
-CONFIG_PARTITION_TABLE_SINGLE_APP_LARGE=y
+# Two 1.9 MB app slots (partitions.csv): room to grow, and later an in-place fallback to
+# the previous firmware. Changing the table needs a full flash (idf.py flash), not app-flash.
+CONFIG_PARTITION_TABLE_CUSTOM=y
+CONFIG_PARTITION_TABLE_CUSTOM_FILENAME="partitions.csv"
+
+# Optimise for size; v0.1.0 was built with the debug default (-Og).
+CONFIG_COMPILER_OPTIMIZATION_SIZE=y
+
+# The broker is plain MQTT on the LAN (mqtt://); drop the TLS and WebSocket transports.
+CONFIG_MQTT_TRANSPORT_SSL=n
+CONFIG_MQTT_TRANSPORT_WEBSOCKET=n
+CONFIG_MQTT_TRANSPORT_WEBSOCKET_SECURE=n
 
 # Resolve homeassistant.local (mDNS) when connecting to the broker
 CONFIG_LWIP_DNS_SUPPORT_MDNS_QUERIES=y

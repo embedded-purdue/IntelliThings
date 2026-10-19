@@ -610,6 +610,12 @@ idf.py -p COM8 flash monitor         # macOS/Linux: -p /dev/cu.usbmodem… or /d
 
 Exit the monitor with `Ctrl+]`.
 
+> **From v2.1.0 the partition table is different** (two 1.9 MB app slots, `partitions.csv`).
+> The first time you flash v2 over v0.1.0, use a full flash (`idf.py -p COM8 flash -a`); to go
+> back, flash the merged v0.1.0 image ([how](releases/v0.1.0/README.md#falling-back)).
+> `idf.py app-flash` alone leaves the old table and the board won't boot the new app.
+> After changing `sdkconfig.defaults`, delete `sdkconfig` so the new defaults are picked up.
+
 ### Expected serial output
 
 ```
@@ -688,8 +694,10 @@ and the agent don't care which one they're talking to.
 ```
 esp32_c3_emulator/
 ├── CMakeLists.txt            picks up sdkconfig.local if present; PROJECT_VER = firmware version
-├── sdkconfig.defaults        target, flash, partitions, lwIP tuning (no secrets)
+├── sdkconfig.defaults        target, flash, size optimisation, lwIP tuning (no secrets)
+├── partitions.csv            nvs + two 1.9 MB app slots (ota_0, ota_1)
 ├── sdkconfig.local.example   credentials template
+├── tools/gzip_asset.py       gzips web assets at build time
 └── main/
     ├── Kconfig.projbuild     "IntelliThings Emulator" menu
     ├── idf_component.yml     espressif/mqtt, cjson, mdns
@@ -704,5 +712,5 @@ esp32_c3_emulator/
     ├── emulator_ctrl.[ch]    commands, state JSON, control MQTT connection
     ├── ai_message.[ch]       serial banner and message history
     ├── web_server.[ch]       control panel + HTTP API
-    └── web/index.html        the panel (embedded in the firmware)
+    └── web/index.html        the panel (embedded gzipped, served with Content-Encoding: gzip)
 ```

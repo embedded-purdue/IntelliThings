@@ -13,8 +13,9 @@ static const char *TAG = "web";
 
 #define BODY_MAX 2048
 
-extern const char index_html_start[] asm("_binary_index_html_start");
-extern const char index_html_end[] asm("_binary_index_html_end");
+// Gzipped at build time (main/CMakeLists.txt); every browser accepts gzip.
+extern const char index_html_gz_start[] asm("_binary_index_html_gz_start");
+extern const char index_html_gz_end[] asm("_binary_index_html_gz_end");
 
 static esp_err_t send_json(httpd_req_t *req, char *json)
 {
@@ -32,8 +33,8 @@ static esp_err_t send_json(httpd_req_t *req, char *json)
 static esp_err_t index_get(httpd_req_t *req)
 {
     httpd_resp_set_type(req, "text/html; charset=utf-8");
-    // EMBED_TXTFILES appends a NUL; don't send it.
-    return httpd_resp_send(req, index_html_start, index_html_end - index_html_start - 1);
+    httpd_resp_set_hdr(req, "Content-Encoding", "gzip");
+    return httpd_resp_send(req, index_html_gz_start, index_html_gz_end - index_html_gz_start);
 }
 
 static esp_err_t meta_get(httpd_req_t *req)

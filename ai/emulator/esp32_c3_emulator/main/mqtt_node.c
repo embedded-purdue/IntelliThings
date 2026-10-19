@@ -99,7 +99,9 @@ void mqtt_nodes_start(void)
     }
     for (int i = 0; i < NODE_COUNT; i++) {
         vnode_t *n = &g_nodes[i];
-        snprintf(s_client_ids[i], sizeof(s_client_ids[i]), "intellithings-%s", n->id);
+        // Bounded by the ID field so -Os's truncation check can prove it fits.
+        snprintf(s_client_ids[i], sizeof(s_client_ids[i]), "intellithings-%.*s",
+                 (int)sizeof(n->id) - 1, n->id);
 
         esp_mqtt_client_config_t cfg = {
             .broker.address.uri = mqtt_broker_uri(),

@@ -11,7 +11,8 @@ in [`../../esp32_c3_emulator/`](../../esp32_c3_emulator/).
 | User guide | [`USER_GUIDE.md`](USER_GUIDE.md): the v0.1.0 README (control panel, commands, topics, troubleshooting) |
 | Test log | [`TODO.md`](TODO.md): the Sep 27 network tests and known limitations |
 | Prebuilt image | `emulator-v0.1.0-merged.bin` (1 188 176 bytes) in the **team Google Drive folder**. **Not in git**: it has the team Wi-Fi and broker passwords compiled in. SHA-256: `b2ddb41407a15483878afef8aca810cdf2b067f0e0db124220357ddc9827c4c8` |
-| Verified | Oct 18: rebuilt from this folder (0 warnings, app 1.12 MB, 27 % of the partition free), flashed as the merged image over USB, booted and ran the simulation. The boot log's `App version` reads `emulator-v0.1.0-36-g…` (taken from `git describe`); the panel shows `0.1.0` |
+| Verified | Oct 18: rebuilt from this folder (0 warnings, app 1.12 MB, 27 % of the partition free), flashed as the merged image over USB, booted and ran the simulation. Also flashed over a v2 build with the new two-slot partition
+table: the merged image put the old table back and v0.1.0 came up on the team Wi-Fi. The boot log's `App version` reads `emulator-v0.1.0-36-g…` (taken from `git describe`); the panel shows `0.1.0` |
 | Toolchain | ESP-IDF v6.1, target `esp32c3` (LuatOS ESP32-C3 Core, 4 MB flash) |
 
 ## What v0.1.0 does
