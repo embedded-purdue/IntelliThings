@@ -24,7 +24,7 @@ Closes #
 ## Checklist
 
 - [ ] Targeting `dev` (not `main`)
-- [ ] Branch name follows `software/…`, `hardware/…`, `ai/…` or `docs/…`
+- [ ] Branch name follows `software/…`, `hardware/…`, `ai/…`, `docs/…` or `demo/…`
 - [ ] Issue linked above
 - [ ] No secrets in the diff (Wi-Fi credentials, HA tokens, OpenRouter / AWS keys, bot tokens)
 - [ ] No generated artifacts committed (build output, gerbers, STLs)

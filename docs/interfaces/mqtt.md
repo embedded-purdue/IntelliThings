@@ -25,10 +25,15 @@
 | `intellithings/emulator/demo/state` *(experimental)* | emulator → anyone | 1 | **yes** | Demo state JSON | [Emulator](#reserved-intellithingsemulator) |
 | `intellithings/emulator/demo/home` *(experimental)* | emulator → anyone | 1 | **yes** | Demo-home values JSON | [Emulator](#reserved-intellithingsemulator) |
 | `intellithings/emulator/demo/<node_id>/sensors` *(experimental)* | emulator → anyone | 1 | **yes** | Sensor snapshot JSON | [Emulator](#reserved-intellithingsemulator) |
+| `intellithings/demo/status` *(proposed)* | demo master → anyone | 1 | **yes** | `online` / `offline` | [Demo mode](#proposed-intellithingsdemo-demo-mode) |
+| `intellithings/demo/state` *(proposed)* | demo master → nodes, HA | 1 | **yes** | Demo state JSON | [Demo mode](#proposed-intellithingsdemo-demo-mode) |
+| `intellithings/demo/home` *(proposed)* | demo master → HA | 1 | **yes** | Demo-home values JSON | [Demo mode](#proposed-intellithingsdemo-demo-mode) |
+| `intellithings/demo/<node_id>/sensors` *(proposed)* | demo master → node | 1 | **yes** | Sensor snapshot JSON | [Demo mode](#proposed-intellithingsdemo-demo-mode) |
 | `homeassistant/<component>/<unique_id>/config` | setup script → HA | 1 | **yes** | HA MQTT discovery config | [HA discovery](#home-assistant-discovery-homeassistant) |
 
-**Reserved namespaces:** `intellithings/ai/#` and `intellithings/emulator/#`. A `<node_id>` must
-never be `ai` or `emulator`.
+**Reserved namespaces:** `intellithings/ai/#` and `intellithings/emulator/#`, plus
+`intellithings/demo/#` for demo mode ([proposed](#proposed-intellithingsdemo-demo-mode)). A
+`<node_id>` must never be `ai`, `emulator` or `demo`.
 
 ## Node topics
 
@@ -129,6 +134,28 @@ build HA entities and agent behaviour for demo mode before the real demo master 
   payloads: `ai/emulator/GUIDE.md` (*Demo mode over MQTT and HTTP*); entities and caps:
   `ai/emulator/esp32_c3_emulator/demo/demo_home.json`.
 - **Once `intellithings/demo/#` is agreed,** these payloads should follow it.
+
+## Proposed: `intellithings/demo/#` (demo mode)
+
+> **Proposed, not agreed.** For the ECE SPARK demo mode ([`demo/README.md`](../../demo/README.md)).
+> Published by the **demo master** (ESP32-C3, @spicybutter). Needs agreement from the Software
+> and AI leads before anyone builds against it; payload fields marked TBD.
+
+| Topic | Publisher → subscriber | QoS | Retained | Payload |
+|---|---|---|---|---|
+| `intellithings/demo/status` | demo master → anyone (Last Will) | 1 | **yes** | `online` / `offline` |
+| `intellithings/demo/state` | demo master → nodes, HA | 1 | **yes** | Demo mode (off / scenario / random), current scenario ID and name, `ts` — fields TBD |
+| `intellithings/demo/home` | demo master → HA | 1 | **yes** | Values for every demo-home entity, inside and outside — format TBD (follows the entity list in [`ha-entities.md`](ha-entities.md)) |
+| `intellithings/demo/<node_id>/sensors` | demo master → that node | 1 | **yes** | **Same schema as [`…/sensors`](#sensor-snapshot-sensors)** (°C), for the node's own room; the node shows it on its DWIN display |
+
+- The AI messages don't change: the agent keeps publishing to `intellithings/<node_id>/display`
+  and `intellithings/ai/summary`.
+- The demo master never calls the LLM; HA automations decide when the agent runs.
+- **Draft payloads to start from:** the emulator's experimental demo-mode stand-in already
+  publishes a full version of `state`, `home` and `<node_id>/sensors` under
+  [`intellithings/emulator/demo/#`](#reserved-intellithingsemulator) (format:
+  `ai/emulator/GUIDE.md`, *Demo mode over MQTT and HTTP*). Agreeing on these topics can start
+  from those fields; the emulator then follows whatever is agreed.
 
 ## Home Assistant discovery: `homeassistant/…`
 

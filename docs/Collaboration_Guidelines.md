@@ -24,7 +24,7 @@
 
 - **Branches:** `main` is protected and demo-ready; `dev` is the integration branch. **Every change goes through a Pull Request into `dev`** — nobody pushes directly to `main` or `dev`. `dev` is merged into `main` only at milestones, coordinated by the leads.
 - **Before starting:** check Issues so nobody else is on the same task, assign yourself, pull the latest `dev`, then branch from it.
-- **Branch names** start with the team prefix: `software/…`, `hardware/…`, `ai/…`, `docs/…`
+- **Branch names** start with the team prefix: `software/…`, `hardware/…`, `ai/…`, `docs/…`, or `demo/…` for demo mode work
 - **Commits:** small and descriptive, formatted `<area>: <what changed>` — "software: add SHT41 driver", "hardware: fix I²C pull-up values", not "update".
 - **Link the Issue** in the PR ("Closes #12") and say how you tested it.
 - Full details in `CONTRIBUTING.md` at the repo root.
@@ -42,6 +42,8 @@ IntelliThings/
 ├── ai/                Python agent (agent/, config/, prompts/), deployment/, tools/, tests/
 │   ├── emulator/      Emulator ESP32 — 3 simulated nodes for early AI testing
 │   └── docs/          Pipeline details, design notes, roadmap, cloud option
+├── demo/              Demo mode for the ECE SPARK booth
+│   └── demo-master/   Demo master firmware (ESP32-C3 + game buzzer)
 └── docs/              Project_Guideline.md, this doc
     └── interfaces/    The shared contracts below — one file each
 ```
@@ -61,6 +63,7 @@ A contract is **written in `docs/interfaces/` before anyone builds against it**,
 | HA entity names + MCP tools exposed to the agent (`ha-entities.md`) | AI (shared with all) | Draft |
 | `/ha-event` snapshot format | AI | Only for the future Lambda option |
 | `/chat` request format (after the Discord/Telegram team decision) | AI | Due Oct 25 |
+| Demo mode topics + demo-home entities (`mqtt.md`, `ha-entities.md`) | Demo master (@spicybutter) ↔ Software ↔ AI | Proposed |
 | Final PCB pin map | Hardware → Software | Due Oct 25 |
 | Final GUI layout ↔ enclosure bezel | Software ↔ Hardware | Due Nov 1 |
 
