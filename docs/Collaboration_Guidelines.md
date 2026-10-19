@@ -42,6 +42,8 @@ IntelliThings/
 ├── ai/                Python agent (agent/, config/, prompts/), deployment/, tools/, tests/
 │   ├── emulator/      Emulator ESP32 — 3 simulated nodes for early AI testing
 │   └── docs/          Pipeline details, design notes, roadmap, cloud option
+├── demo/              Demo mode for the ECE SPARK booth
+│   └── demo-master/   Demo master firmware (ESP32-C3 + game buzzer)
 └── docs/              Project_Guideline.md, this doc
     └── interfaces/    The shared contracts below — one file each
 ```

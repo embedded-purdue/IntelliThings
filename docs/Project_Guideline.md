@@ -24,6 +24,7 @@
 | Build plan | Not specified | **Emulator ESP32** (3 simulated nodes, for early AI testing) + **2 identical breadboard dev rigs** → **3 final sensor nodes** (custom PCB + 3D-printed enclosure) in the **kitchen, bedroom and living room** |
 | Team structure | Software, Hardware, LLM, Smart Home roles | **3 subteams: Hardware, Software, AI**, each with one lead (§8) |
 | Schedule | 13 weekly steps | **11 Sunday work sessions**, Sept 6 – Dec 6 (§9) |
+| Showcase | — | **Demo mode** for the ECE SPARK booth: random pre-set scenarios, a **demo master** (ESP32-C3 + game buzzer) and a monitor with the 3D dashboard (§2.4) |
 
 ---
 
@@ -97,6 +98,15 @@
 
 **Chat-driven (planned):**
 `Chat message or command (Discord or Telegram) → agent → LLM → MCP call → HA → device → reply in the chat` (Discord adds a 3-second acknowledge step — §6)
+
+### 2.4 Demo mode (ECE SPARK booth)
+
+At the showcase the room's environment barely changes and people walk past all the time, so real readings would show visitors little of what the agent does. **Demo mode** feeds **pre-set scenario data** instead. Full plan and open questions: [`demo/README.md`](../demo/README.md).
+
+- **Booth, left to right:** the three nodes · Wi-Fi router · Raspberry Pi 5 · game buzzer with an ESP32-C3 Core (the **demo master**, `demo/demo-master/`) · a monitor showing the 3D dashboard and the buzzer's web interface.
+- **Loop:** a randomizer picks one of **50–200 pre-set scenario groups** → the data goes to HA and to the related nodes, which show it on their DWIN displays instead of real readings → the LLM reasons and acts → each related node shows its room's AI message, and the HA dashboard shows the overall message → after a time interval, the next random scenario.
+- **One node shows both the demo data and its real readings;** its AI message still comes from the demo data.
+- **Still TBD:** what the buzzer does, where the randomizer and scenarios live, the scenario format, how demo data is told apart from real data, the interval. New MQTT topics go into [`interfaces/mqtt.md`](interfaces/mqtt.md) before anyone builds against them.
 
 ---
 
@@ -562,6 +572,7 @@ Work sessions run every Sunday, 1:00–4:00 PM, except holidays and breaks — *
 | `software/README.md`, `software/firmware/README.md` | Current firmware toolchain, build steps and layout | Current |
 | `software/Firmware_Architecture.md` | Firmware design: tasks, shared state, display driver, LED bar, MQTT, boot sequence | Being rewritten for the `no_std` stack |
 | `ai/README.md`, `ai/docs/` | The running AI pipeline (`inference.md`), design notes (`architecture.md`), roadmap, cloud option, 3D floor-plan plan, local-model research | Current |
+| `demo/README.md`, `demo/demo-master/` | Demo mode for the ECE SPARK booth; demo master (ESP32-C3 + game buzzer) firmware | Planned |
 | `hardware/Hardware_BOM_Candidates.md` | Hardware design decisions and trade-offs (chip, boards, display, LED bar, sensors, power, PCB structure) | Current (updated Oct 18) |
 | `hardware/Full_Parts_List.md` | Per-part specs reference (interface, voltage, output, quantity, source) | Current (updated Sept 26). The old `IntelliThings_BOM.xlsx` is outdated |
 | `IntelliThings_Slides.md` | Kickoff presentation (Sept 6) | **Archived** — kept as a record, no further updates |
