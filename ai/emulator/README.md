@@ -33,12 +33,11 @@ in or out, pin CO₂ to an exact value, and read the AI messages each room recei
    cycles.
 2. **Open the control panel** from a laptop or phone on the same Wi-Fi, using either address:
    - **`http://intellithings-emu.local/`**
-   - **`http://192.168.1.8/`** (the board's IP address on the team network)
+   - **`http://192.168.1.4/`** (the board's fixed IP address on the team network)
 
    Both open the same panel. Use the IP if the name doesn't load: some Android phones and
-   networks block `.local` names. If the IP ever stops working (the router hands out
-   addresses, so it can change), the current one is printed on the serial monitor at boot and
-   listed in the router's client list.
+   networks block `.local` names. The address is reserved for the board in the router (since
+   Oct 18); on another network, the current IP is printed on the serial monitor at boot.
 3. **Check the badges at the top right:** `panel connected`, `Wi-Fi … dBm`, `MQTT 3/3 nodes`
    and `clock synced` should all be green.
 4. The three rooms are now publishing a full sensor snapshot every **3 seconds** on
@@ -412,8 +411,8 @@ rejected with a reason (HTTP 400, and `last_cmd` in the state) and never change 
 | `GET /api/messages` | The last 20 AI messages received |
 | `GET /api/meta` | Metric list with ranges, scenario list, node IDs and topics |
 
-The examples use `intellithings-emu.local`; `192.168.1.8` works the same everywhere
-(e.g. `http://192.168.1.8/api/cmd`).
+The examples use `intellithings-emu.local`; `192.168.1.4` works the same everywhere
+(e.g. `http://192.168.1.4/api/cmd`).
 
 ```bash
 # macOS / Linux / Git Bash
@@ -433,7 +432,7 @@ another:
 ```python
 import json, time, urllib.request
 
-EMU = "http://intellithings-emu.local"   # or "http://192.168.1.8"
+EMU = "http://intellithings-emu.local"   # or "http://192.168.1.4"
 
 def cmd(body):
     req = urllib.request.Request(EMU + "/api/cmd", data=json.dumps(body).encode(),
@@ -500,7 +499,7 @@ mosquitto_pub $B -t intellithings/emu-bedroom/display -r -n   # clear the retain
 ## MQTT topics
 
 Full contract: [`docs/interfaces/mqtt.md`](../../docs/interfaces/mqtt.md) (draft until Oct 4).
-Broker: the Mosquitto add-on on the HA Pi, port 1883.
+Broker: the Mosquitto container on the HA Pi, `192.168.1.2:1883`.
 
 | Topic | Direction | QoS / retained | Payload |
 |---|---|---|---|
@@ -522,7 +521,7 @@ emulator; real nodes and HA must not depend on it.
 ## Home Assistant example
 
 MQTT YAML for one room and two readings; repeat per room and per field. This is a reference
-for the Local AI team, not the project's HA config (that lives in `ai/deployment/home_assistant/`).
+for the AI team, not the project's HA config (that lives in `ai/deployment/home_assistant/`).
 
 ```yaml
 mqtt:
@@ -575,7 +574,7 @@ rm -f sdkconfig                                # so the new values are picked up
 
 Use the **Pi's IP address** as the broker host: `homeassistant.local` doesn't resolve on
 every network (it didn't on the team network, where the Pi was `192.168.1.2`). Give the
-emulator its own MQTT login (an HA user); don't reuse the add-on's internal `homeassistant`
+emulator its own MQTT login (an HA user); don't reuse the broker's `homeassistant`
 account. Or configure everything with `idf.py menuconfig` → **IntelliThings Emulator**.
 
 | Setting | Default |
@@ -613,10 +612,10 @@ I (430) nodes: Kitchen      -> emu-kitchen
 I (430) nodes: Bedroom      -> emu-bedroom
 I (430) nodes: Living Room  -> emu-living-room
 I (570) wifi: Connecting to "team-wifi"...
-I (18841) wifi: Connected. IP 192.168.1.8  gateway 192.168.1.1  RSSI -30 dBm
+I (18841) wifi: Connected. IP 192.168.1.4  gateway 192.168.1.1  RSSI -30 dBm
 I (18841) time: SNTP started (pool.ntp.org)
 I (18851) web: Control panel running on port 80
-I (18851) emulator: Control panel: http://192.168.1.8/  (or http://intellithings-emu.local/)
+I (18851) emulator: Control panel: http://192.168.1.4/  (or http://intellithings-emu.local/)
 I (18891) time: Clock synced: 2026-09-27T15:29:53-04:00
 I (18901) mqtt: emu-bedroom: connected; published online, subscribing to intellithings/emu-bedroom/display
 I (18931) ctrl: emulator: connected; listening on intellithings/emulator/cmd
@@ -647,7 +646,7 @@ ts: 2026-09-27T18:10:00-04:00
 
 | Symptom | Check |
 |---|---|
-| Panel doesn't load at `intellithings-emu.local` | Use `http://192.168.1.8/` instead; some phones/networks block `.local` names. If the IP changed, the current one is on the serial log and in the router's client list |
+| Panel doesn't load at `intellithings-emu.local` | Use `http://192.168.1.4/` instead; some phones/networks block `.local` names. On another network, the current IP is on the serial log and in the router's client list |
 | Panel shows **emulator unreachable** | Board unplugged, rebooting (~20 s) or your device is on another network |
 | A button does nothing | Look at **Last command** in System status, or the toast; the reason for a rejection is shown there |
 | Readings don't change after a shortcut | They move gradually (CO₂ ~6 min, temperature ~9 min). Use Custom values + *jump instantly* for immediate values |
