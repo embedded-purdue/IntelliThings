@@ -2,9 +2,12 @@
 
 Lead: **@LukeTuthill** · 9 people · owns **Rig S**
 
-ESP32-C6 firmware for the sensor nodes, written in **Rust (`std`, nightly) on ESP-IDF
-v6.1.0**. Full design:
-[`Firmware_Architecture.md`](Firmware_Architecture.md).
+ESP32-C6 firmware for the sensor nodes, written in **Rust (`no_std`, stable) with
+`esp-hal`, `esp-rtos`, and Embassy**. Current build and run instructions:
+[`firmware/README.md`](firmware/README.md).
+
+[`Firmware_Architecture.md`](Firmware_Architecture.md) describes the earlier ESP-IDF
+design; its toolchain and threading instructions do not match the current firmware.
 
 ## Scope
 
@@ -21,33 +24,39 @@ v6.1.0**. Full design:
 
 ```
 software/
-└── firmware/            Rust (ESP-IDF) node firmware — one image for every node
+└── firmware/            no_std Rust node firmware — one image for every node
     └── src/
-        ├── main.rs      boot, start threads, supervisor loop
-        ├── hardware/    bus.rs, sensors/ (one file per sensor)
-        ├── network/     wifi.rs, mqtt.rs
-        ├── ui/          display.rs (DWIN DGUS), led.rs (WS2812B)
-        └── system/      state.rs, config.rs (NVS), logging.rs, errors.rs
+        ├── bin/
+        │   └── main.rs  hardware/heap/RTOS initialization and async entry point
+        ├── lib.rs       library module exports
+        └── wifi.rs      Wi-Fi setup, Embassy network runner, and ping smoke test
 ```
 
-Modules talk through the **shared system state** (`Arc<SharedState>`), not directly to each
-other.
+Sensor, MQTT, display, LED, and shared-state modules are planned work, not yet part of
+the source layout above. Wi-Fi setup returns a controller (keep it alive) and a reusable
+Embassy network stack.
 
 ## Toolchain
 
 | Item | Version |
 |---|---|
-| ESP-IDF | v6.1.0 → `ESP_IDF_VERSION = "v6.1"` |
-| `esp-idf-sys` / `esp-idf-hal` / `esp-idf-svc` | 0.38.1 / 0.47.0 / 0.53.0 |
-| Rust | nightly + `rust-src` (dated nightly pinned in `rust-toolchain.toml` after the first clean build) |
-| Target | `riscv32imac-esp-espidf` |
+| Rust | stable + `rust-src`; minimum Rust 1.95, edition 2024 |
+| Target | `riscv32imac-unknown-none-elf` (ESP32-C6) |
+| HAL | `esp-hal` ~1.2.2 |
+| Runtime | `esp-rtos` 0.4.0 with Embassy support |
+| Async executor / networking | `embassy-executor` 0.10.0 / `embassy-net` 0.9.1 |
+| Wi-Fi driver | `esp-radio` 1.0.0-beta.1 |
+| Flashing / serial monitor | `espflash` |
 
-- **MQTT isn't built into ESP-IDF v6** — it's added as the `espressif/mqtt` managed
-  component in `Cargo.toml`.
-- Check every third-party crate against `esp-idf-hal` 0.47 / `embedded-hal` 1.0 before
-  adding it.
-- Starter `.cargo/config.toml` and `rust-toolchain.toml` are in the Firmware Architecture
-  doc §1.
+- This is bare-metal `no_std` firmware, not an ESP-IDF/FreeRTOS application. No nightly
+  toolchain or ESP-IDF installation is required; crate features named `unstable` are
+  unrelated to the Rust toolchain channel.
+- MQTT is planned; no MQTT client is currently configured in `Cargo.toml`.
+- Check new dependencies for `no_std`, ESP32-C6, and compatibility with the current HAL
+  and Embassy versions.
+- The current configuration lives in `firmware/rust-toolchain.toml`,
+  `firmware/.cargo/config.toml`, and `firmware/Cargo.toml`. See the
+  [firmware README](firmware/README.md) for first-time setup and local Wi-Fi credentials.
 
 ```bash
 cd software/firmware
@@ -57,7 +66,7 @@ cargo fmt && cargo clippy    # before every PR
 
 **New to Rust on ESP?** Start with [The Rust on ESP Book](https://docs.espressif.com/projects/rust/book/),
 then the [Rust on ESP docs](https://docs.espressif.com/projects/rust/) and the
-[esp-rs/esp-idf](https://github.com/esp-rs/esp-idf) repo.
+[esp-rs/esp-hal](https://github.com/esp-rs/esp-hal) repo.
 
 ## MQTT topics
 
