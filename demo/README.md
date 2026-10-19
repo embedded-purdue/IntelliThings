@@ -26,41 +26,51 @@ outside. Visitors watch the LLM reason over it and act on the smart home.
 
 The demo covers **the whole home, inside and outside**, not just the three node rooms: for
 example the kitchen, living room, master bedroom, second bedroom, garage, patio, garden and the
-weather outside. Every value for every entity comes from the demo master. **Only the three real
-nodes show data on a DWIN display**, each for its own room. The rest appears in HA (dashboard,
-3D floor plan) and to the agent.
+weather outside. It includes **everything that can change or be controlled**: sensor readings,
+**lights, doors, the car in the garage, human presence** and so on. Every value for every entity
+comes from the demo master. **Only the three real nodes show data on a DWIN display**, each for
+its own room. The rest appears in HA (dashboard, 3D floor plan) and to the agent.
 
-The entity list (areas, sensors and their ranges) is **TBD**, to be agreed with the AI team and
+**In demo mode the agent sees only the demo master's entities.** The nodes may keep sending
+their real readings to HA, but that isn't needed during the demo.
+
+The entity list (areas, entities and their caps) is **TBD**, to be agreed with the AI team and
 added to [`docs/interfaces/ha-entities.md`](../docs/interfaces/ha-entities.md).
 
 ### Scenario loop
 
-1. **The scenario library** on the demo master holds **50–200 pre-set scenario groups**. Each
-   group sets a value for **every** entity in the demo home.
+1. **The scenario library** on the demo master holds **up to ~200 pre-set scenario groups**, as
+   many as possible. They mix **normal homes** with **abnormal ones** (a smoky kitchen, a door
+   left open at night, a hot empty room…), so visitors see the agent both stay calm and react.
+   Each group sets a value for **every** entity in the demo home, including device states.
 2. **The randomizer** picks one group and the demo master publishes it, to HA and to each node
    for its room.
 3. **Home Assistant automations/helpers decide when to call the LLM.** The demo master never calls
    it directly.
 4. **The agent reasons and acts** through HA as it does on live data.
 5. **Each node** shows its room's AI message; the **HA dashboard** shows the overall message.
-6. **After a time interval** (TBD), the randomizer picks the next group.
+6. **After a time interval,** the randomizer picks the next group. The interval still needs
+   experiments: **open discussion**.
 
 ### Game buzzer: "roll the house"
 
 Visitors are invited to **press the buzzer**:
 
 1. **The scenario loop stops.**
-2. The web interface plays a **rolling animation** on every value for about **4 seconds** (the
-   exact time still needs testing and discussion).
+2. The web interface plays a **rolling animation** on every value for about **4 seconds**.
 3. **Every value lands on a new random value** and is published to HA and the nodes. Visitors
    then watch how the LLM reacts.
+4. **After a fixed time, the scenario loop resumes.**
+
+The roll length and the fixed time still need experiments: **open discussion**.
 
 **Random, but realistic.** Each entity has a **low and high cap**, and values never go outside
 it, because anything outside isn't a normal home. Example: indoor temperature between **60 °F and
 100 °F**; a roll near 100 °F reads as a possible fire hazard, which is exactly the kind of thing
-the agent should catch. MQTT still carries **°C** (60–100 °F ≈ 15.6–37.8 °C); °F is only for what
-people see. The caps for each entity are **TBD**, along with whether values are spread evenly
-across the range or lean toward normal.
+the agent should catch. Device states (lights on/off, doors open/closed, car in/out, someone
+home or not) are rolled too. MQTT still carries **°C** (60–100 °F ≈ 15.6–37.8 °C); °F is only
+for what people see. The caps for each entity are **TBD**, along with whether values are spread
+evenly across the range or lean toward normal.
 
 ### The web interface (on the monitor)
 
@@ -85,7 +95,7 @@ All demo traffic lives under a new **reserved `intellithings/demo/#`** namespace
 |---|---|---|---|
 | `intellithings/demo/status` | demo master → anyone | yes (Last Will) | `online` / `offline` |
 | `intellithings/demo/state` | demo master → nodes, HA | yes | Demo mode (off / scenario / random), the current scenario's ID and name, `ts` — fields TBD |
-| `intellithings/demo/home` | demo master → HA | yes | Values for **every** demo-home entity — format TBD (depends on the entity list) |
+| `intellithings/demo/home` | demo master → HA | yes | Values for **every** demo-home entity, readings and device states — format TBD (depends on the entity list) |
 | `intellithings/demo/<node_id>/sensors` | demo master → that node | yes | **The same JSON schema as `intellithings/<node_id>/sensors`**, so the node can reuse its parsing and display code |
 
 The AI messages need nothing new: the agent keeps publishing to `intellithings/<node_id>/display`
@@ -103,17 +113,14 @@ and `intellithings/ai/summary`.
 
 ## Open questions
 
-- **After a buzzer roll,** when does the scenario loop resume: after a fixed time, or on the next
-  press?
-- **The interval between scenarios** and **the length of the roll animation** (about 4 s, needs
-  testing).
+- **Timing** (open discussion, needs experiments): the interval between scenarios, the roll
+  length (about 4 s) and the fixed time before the loop resumes after a roll.
 - **The entity list for the whole home,** each entity's caps, and how values are spread within
   them.
-- **Device states:** do scenario groups and rolls also set device states (lights, doors, the car
-  in the garage)? Or only readings, leaving devices for the agent to control?
-- **Demo vs. real data in HA:** which entities are exposed to the agent in demo mode, and whether
-  the nodes keep publishing their real readings during the demo.
-- **When the agent runs:** which HA automations/helpers trigger it in demo mode. **Open
+- **How HA switches the agent to the demo entities** in demo mode (exposure to Assist, a demo
+  on/off helper).
+- **When the agent runs in demo mode:** which HA automations/helpers trigger it. **Open
   discussion,** pending how the automations perform.
 - **The hybrid node** (TODO above).
-- **Buzzer wiring:** GPIO, and the button LED if it has one.
+- **Buzzer signal pin:** to be found by testing the buzzer's PCB (see
+  [`demo-master/README.md`](demo-master/README.md#game-buzzer-wiring)).

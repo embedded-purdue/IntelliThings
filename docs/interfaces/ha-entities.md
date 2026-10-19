@@ -67,6 +67,6 @@ isn't possible yet** (no `HassTurnOff`).
 - Whether to add a turn-off tool.
 - **Demo mode** ([`demo/README.md`](../../demo/README.md)): entities for the **whole demo home**,
   inside and outside (e.g. kitchen, living room, master and second bedroom, garage, patio, garden,
-  weather), each with a **low/high cap** for the demo master's random rolls. Also: which
-  entities the agent sees in demo mode, and how they're kept apart from the real nodes'
-  entities.
+  weather), covering **everything that can change or be controlled** (readings, lights, doors,
+  the car, presence), each with a **low/high cap** for the demo master's random rolls. **In demo
+  mode the agent sees only these demo entities**; how HA switches the agent over is still open.
