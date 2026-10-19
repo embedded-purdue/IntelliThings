@@ -9,132 +9,326 @@
   --bg: #f4f5f7; --card: #ffffff; --text: #1d2330; --muted: #677085; --line: #e2e5eb;
   --accent: #2f6fed; --accent-soft: #e6eeff; --ok: #1f9d55; --warn: #c77700; --bad: #d64545;
   --ok-soft: #e3f5ea; --warn-soft: #fdf1dc; --bad-soft: #fbe5e5; --chip: #eef0f4;
+  --screen: #0f1a2b; --screen-text: #d8f3ff; --shadow: 0 10px 40px rgba(0,0,0,.18);
+  color-scheme: light;
 }
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme="light"]) {
     --bg: #12151b; --card: #1b2029; --text: #e6e9ef; --muted: #99a2b3; --line: #2a313d;
     --accent: #6b9bff; --accent-soft: #1f2b45; --ok: #4cc47f; --warn: #f0a93b; --bad: #ff7070;
     --ok-soft: #173325; --warn-soft: #3a2c14; --bad-soft: #3d1c1c; --chip: #262c37;
+    --screen: #070d16; --shadow: 0 10px 40px rgba(0,0,0,.5); color-scheme: dark;
   }
 }
+:root[data-theme="dark"] {
+  --bg: #12151b; --card: #1b2029; --text: #e6e9ef; --muted: #99a2b3; --line: #2a313d;
+  --accent: #6b9bff; --accent-soft: #1f2b45; --ok: #4cc47f; --warn: #f0a93b; --bad: #ff7070;
+  --ok-soft: #173325; --warn-soft: #3a2c14; --bad-soft: #3d1c1c; --chip: #262c37;
+  --screen: #070d16; --shadow: 0 10px 40px rgba(0,0,0,.5); color-scheme: dark;
+}
 * { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
 body { margin: 0; background: var(--bg); color: var(--text);
   font: 14px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
-header { position: sticky; top: 0; z-index: 5; background: var(--card); border-bottom: 1px solid var(--line);
-  padding: 10px 16px; display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; }
-header h1 { font-size: 16px; margin: 0; font-weight: 650; }
-header .sub { color: var(--muted); font-size: 12px; }
-.badges { display: flex; gap: 6px; flex-wrap: wrap; margin-left: auto; }
-.badge { padding: 2px 8px; border-radius: 999px; font-size: 12px; background: var(--chip); color: var(--muted); white-space: nowrap; }
-.badge.ok { background: var(--ok-soft); color: var(--ok); }
-.badge.bad { background: var(--bad-soft); color: var(--bad); }
-.badge.warn { background: var(--warn-soft); color: var(--warn); }
-main { max-width: 1200px; margin: 0 auto; padding: 16px; display: grid; gap: 16px; }
-.card { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; min-width: 0; }
-.card h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin: 0 0 10px; font-weight: 600; }
-.status-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px 16px; }
-.kv .k { color: var(--muted); font-size: 12px; }
-.kv .v { font-weight: 550; overflow-wrap: anywhere; }
-.rooms { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; }
-.room-head { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
-.room-head h3 { margin: 0; font-size: 16px; }
-.room-head .id { color: var(--muted); font-size: 12px; font-family: ui-monospace, Consolas, monospace; }
-.dot { width: 9px; height: 9px; border-radius: 50%; background: var(--bad); flex: none; }
-.dot.ok { background: var(--ok); }
-.mode { margin: 6px 0 10px; display: flex; gap: 6px; flex-wrap: wrap; align-items: center; font-size: 12px; }
-.readings { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 2px 14px; }
-.readings div { display: flex; justify-content: space-between; gap: 8px; padding: 3px 0; border-bottom: 1px dashed var(--line); }
-.readings span:first-child { color: var(--muted); }
-.readings b { font-variant-numeric: tabular-nums; font-weight: 600; }
-.readings b.forced { color: var(--accent); }
-.room-foot { display: flex; justify-content: space-between; align-items: center; margin-top: 10px; gap: 8px; flex-wrap: wrap; }
-.age { font-size: 12px; color: var(--muted); }
-.age.stale { color: var(--bad); font-weight: 600; }
+[hidden] { display: none !important; }
+code, .mono { font-family: ui-monospace, Consolas, monospace; font-size: 12px; }
 button { font: inherit; border: 1px solid var(--line); background: var(--card); color: var(--text);
   border-radius: 8px; padding: 6px 12px; cursor: pointer; }
 button:hover { border-color: var(--accent); }
+button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+button.danger { color: var(--bad); }
 button.small { padding: 3px 9px; font-size: 12px; }
+button.link { border: 0; background: none; color: var(--accent); padding: 2px 4px; font-size: 12px; }
 button:disabled { opacity: .5; cursor: default; }
-.tabs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; }
-.tabs button.active { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); font-weight: 600; }
-.shortcuts { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 8px; }
-.shortcut { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 10px 6px; }
-.shortcut .ic { font-size: 22px; line-height: 1; }
-.shortcut .lb { font-weight: 600; font-size: 13px; }
-.shortcut .dr { font-size: 11px; color: var(--muted); }
-.shortcut.suggested { border-color: var(--accent); background: var(--accent-soft); }
-.row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-top: 12px; }
-label.inline { display: inline-flex; gap: 6px; align-items: center; color: var(--muted); font-size: 13px; }
 input, select, textarea { font: inherit; color: var(--text); background: var(--bg); border: 1px solid var(--line);
   border-radius: 7px; padding: 5px 8px; min-width: 0; }
 input[type=number] { width: 100px; }
-input[type=checkbox] { width: 16px; height: 16px; accent-color: var(--accent); }
+input[type=checkbox] { width: 16px; height: 16px; accent-color: var(--accent); padding: 0; }
+textarea { width: 100%; min-height: 60px; resize: vertical; }
+
+/* header */
+header.top { position: sticky; top: 0; z-index: 20; background: var(--card); border-bottom: 1px solid var(--line);
+  padding: 8px 16px; display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; }
+.brand h1 { font-size: 16px; margin: 0; font-weight: 650; display: inline; }
+.brand .ver { color: var(--muted); font-size: 12px; margin-left: 6px; }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 9px; overflow: hidden; }
+.seg button { border: 0; border-radius: 0; padding: 5px 12px; background: var(--card); }
+.seg button + button { border-left: 1px solid var(--line); }
+.seg button.active { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+.exp { font-size: 10px; text-transform: uppercase; letter-spacing: .04em; color: var(--warn); margin-left: 4px; }
+.badges { display: flex; gap: 6px; flex-wrap: wrap; margin-left: auto; }
+.badge { padding: 2px 8px; border-radius: 999px; font-size: 12px; background: var(--chip); color: var(--muted);
+  white-space: nowrap; border: 0; line-height: 1.5; }
+button.badge { cursor: pointer; }
+.badge.ok { background: var(--ok-soft); color: var(--ok); }
+.badge.bad { background: var(--bad-soft); color: var(--bad); }
+.badge.warn { background: var(--warn-soft); color: var(--warn); }
+.badge.acc { background: var(--accent-soft); color: var(--accent); }
+.hbtns { display: flex; gap: 6px; }
+.hbtns button { width: 34px; height: 32px; padding: 0; font-weight: 700; }
+
+/* layout */
+main { max-width: 1240px; margin: 0 auto; padding: 16px; display: grid; gap: 16px; }
+.view { display: grid; gap: 16px; }
+.card { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 12px 16px; min-width: 0; }
+.card-head { display: flex; align-items: center; gap: 8px; min-height: 26px; }
+.card-head h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin: 0; font-weight: 650; }
+.card-head .extra { flex: 1; min-width: 0; font-size: 12px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.card-head .help { width: 24px; height: 24px; padding: 0; border-radius: 50%; font-size: 12px; color: var(--muted); }
+.card-body { margin-top: 10px; }
+.card.folded .card-body { display: none; }
+.row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-top: 10px; }
+label.inline { display: inline-flex; gap: 6px; align-items: center; color: var(--muted); font-size: 13px; }
+.muted { color: var(--muted); font-size: 12px; }
+.empty { color: var(--muted); font-style: italic; }
+.more-btn { margin-top: 10px; }
+.two { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; }
+@media (max-width: 860px) { .two { grid-template-columns: 1fr; } }
+
+/* status */
+.status-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 8px 16px; }
+.kv .k { color: var(--muted); font-size: 12px; }
+.kv .v { font-weight: 550; overflow-wrap: anywhere; }
+
+/* rooms */
+.rooms { display: grid; grid-template-columns: repeat(auto-fit, minmax(310px, 1fr)); gap: 14px; }
+.room { border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; min-width: 0; }
+.room-head { display: flex; align-items: center; gap: 8px; }
+.room-head h3 { margin: 0; font-size: 16px; }
+.room-head .id { color: var(--muted); }
+.room-head .sp { flex: 1; }
+.dot { width: 9px; height: 9px; border-radius: 50%; background: var(--bad); flex: none; display: inline-block; }
+.dot.ok { background: var(--ok); }
+.mode { margin: 6px 0 8px; display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+.tiles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+.tile { display: grid; grid-template-columns: 1fr auto; grid-template-areas: "l v" "p s"; gap: 0 8px; text-align: left;
+  padding: 6px 8px; border-radius: 8px; background: var(--bg); border: 1px solid transparent; min-width: 0; }
+.tile:hover { border-color: var(--accent); }
+.tile .tl { grid-area: l; color: var(--muted); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tile .tv { grid-area: v; text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.tile .tv b { font-weight: 650; }
+.tile .tv small { color: var(--muted); margin-left: 6px; font-size: 11px; }
+.tile.forced .tv b { color: var(--accent); }
+.tile .tp { grid-area: p; font-size: 11px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-variant-numeric: tabular-nums; }
+.tile canvas { grid-area: s; width: 72px; height: 18px; align-self: end; }
+.up { color: var(--warn); } .down { color: var(--accent); }
+@media (max-width: 520px) {
+  .tile { grid-template-columns: 1fr; grid-template-areas: "l" "v" "p" "s"; }
+  .tile .tv { text-align: left; }
+  .tile canvas { width: 100%; margin-top: 2px; }
+  header.top { position: static; }
+}
+.room-foot { display: flex; justify-content: space-between; align-items: center; margin-top: 8px; gap: 8px; flex-wrap: wrap; }
+.age { font-size: 12px; color: var(--muted); }
+.age.stale { color: var(--bad); font-weight: 600; }
+
+/* emulate */
+.tabs { display: flex; gap: 6px; flex-wrap: wrap; }
+.tabs button.active { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); font-weight: 600; }
+.shortcuts { display: grid; grid-template-columns: repeat(auto-fill, minmax(112px, 1fr)); gap: 8px; margin-top: 10px; }
+.shortcut { display: flex; flex-direction: column; align-items: center; gap: 1px; padding: 8px 6px; }
+.shortcut .ic { font-size: 20px; line-height: 1.1; }
+.shortcut .lb { font-weight: 600; font-size: 13px; }
+.shortcut .dr { font-size: 11px; color: var(--muted); }
+.shortcut.suggested { border-color: var(--accent); background: var(--accent-soft); }
 .ranges { width: 100%; border-collapse: collapse; }
-.ranges td, .ranges th { padding: 5px 6px; border-bottom: 1px solid var(--line); text-align: left; }
+.ranges td, .ranges th { padding: 4px 6px; border-bottom: 1px solid var(--line); text-align: left; }
 .ranges th { color: var(--muted); font-weight: 500; font-size: 12px; }
 .ranges td.hint { color: var(--muted); font-size: 12px; }
+.ranges input[type=number] { width: 88px; }
 .table-wrap { overflow-x: auto; }
-.msgs { display: flex; flex-direction: column; gap: 8px; max-height: 420px; overflow-y: auto; }
-.msg { border: 1px solid var(--line); border-left: 4px solid var(--accent); border-radius: 8px; padding: 8px 10px; }
+
+/* AI boxes */
+.aiboxes { display: grid; grid-template-columns: repeat(auto-fit, minmax(270px, 1fr)); gap: 14px; }
+.aibox { border: 1px solid var(--line); border-radius: 10px; padding: 10px; display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.ai-head { display: flex; gap: 8px; align-items: center; }
+.ai-head b { text-transform: uppercase; letter-spacing: .04em; font-size: 13px; }
+.ai-head .sp { flex: 1; }
+.screen { background: var(--screen); color: var(--screen-text); border-radius: 8px; padding: 12px; min-height: 76px;
+  font-size: 17px; line-height: 1.35; overflow-wrap: anywhere; white-space: pre-wrap; box-shadow: inset 0 0 0 2px rgba(255,255,255,.05); }
+.screen.none { color: #7f93ab; font-style: italic; font-size: 14px; }
+.screen.flash { animation: flash 1.2s ease-out; }
+@keyframes flash { from { box-shadow: inset 0 0 0 3px #6b9bff; } to { box-shadow: inset 0 0 0 2px rgba(255,255,255,.05); } }
+.think { color: var(--accent); font-size: 12px; font-weight: 600; }
+.think::after { content: "…"; animation: blink 1s steps(2) infinite; }
+@keyframes blink { 50% { opacity: .2; } }
+.ai-meta { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; font-size: 12px; color: var(--muted); }
+.ai-meta .count.over { color: var(--bad); font-weight: 650; }
+.ai-send { display: flex; gap: 6px; align-items: center; }
+.ai-send input[type=text] { flex: 1; }
+.summary { margin-top: 12px; padding: 8px 10px; border-radius: 8px; background: var(--bg); font-size: 13px; }
+.msgs { display: flex; flex-direction: column; gap: 6px; max-height: 360px; overflow-y: auto; margin-top: 10px; }
+.msg { border: 1px solid var(--line); border-left: 4px solid var(--accent); border-radius: 8px; padding: 6px 10px; }
 .msg .meta { display: flex; gap: 8px; flex-wrap: wrap; font-size: 12px; color: var(--muted); }
-.msg .room { font-weight: 700; color: var(--text); text-transform: uppercase; letter-spacing: .03em; }
-.msg .text { margin-top: 4px; white-space: pre-wrap; overflow-wrap: anywhere; }
-.empty { color: var(--muted); font-style: italic; }
-textarea { width: 100%; min-height: 60px; resize: vertical; }
-.two { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; }
-@media (max-width: 800px) { .two { grid-template-columns: 1fr; } }
+.msg .room { font-weight: 700; color: var(--text); text-transform: uppercase; }
+.msg .text { margin-top: 2px; white-space: pre-wrap; overflow-wrap: anywhere; }
+
+/* log */
+.logbar { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.logbar input[type=search] { flex: 1; min-width: 140px; }
+.log { margin-top: 8px; height: 260px; overflow: auto; background: var(--bg); border-radius: 8px; padding: 6px 8px;
+  font-family: ui-monospace, Consolas, monospace; font-size: 12px; line-height: 1.5; }
+.log div { white-space: pre-wrap; overflow-wrap: anywhere; }
+.log .t { color: var(--muted); margin-right: 8px; }
+.log .lv-W { color: var(--warn); } .log .lv-E { color: var(--bad); }
+.log .ok { color: var(--ok); } .log .no { color: var(--bad); }
+
+/* route */
+#route { overflow-x: auto; }
+.route svg { width: 100%; min-width: 600px; height: auto; display: block; max-height: 380px; }
+.route .box rect { fill: var(--bg); stroke: var(--line); stroke-width: 1.5; }
+.route .box.on rect { stroke: var(--ok); }
+.route .box.off rect { stroke: var(--bad); }
+.route .box.think rect { stroke: var(--accent); stroke-width: 2.5; }
+.route text { fill: var(--text); font: 13px system-ui, sans-serif; }
+.route text.sm { fill: var(--muted); font-size: 11px; }
+.route text.ttl { font-weight: 650; }
+.route .edge { fill: none; stroke: var(--muted); stroke-width: 2; opacity: .55; cursor: pointer; }
+.route .edge.exp { stroke-dasharray: 6 5; opacity: .45; }
+.route .edge.live { stroke: var(--accent); opacity: 1; stroke-dasharray: none; }
+.route .edge.recent { stroke: var(--accent); opacity: .95; }
+.route .edge.sel { stroke-width: 4; }
+.route .hit { fill: none; stroke: transparent; stroke-width: 16; cursor: pointer; }
+.route .pdot { fill: var(--accent); }
+.route .elabel { fill: var(--muted); font-size: 11px; }
+.edge-list { margin-top: 8px; font-size: 12px; }
+.edge-list table { width: 100%; border-collapse: collapse; }
+.edge-list td { padding: 3px 6px; border-bottom: 1px solid var(--line); }
+
+/* demo */
+.demo-top { display: flex; gap: 22px; align-items: center; flex-wrap: wrap; }
+.rollbtn { width: 150px; height: 150px; border-radius: 50%; border: 0; flex: none; color: #fff; cursor: pointer;
+  background: radial-gradient(circle at 35% 30%, #ff7676, #c81e1e 70%); font-weight: 800; letter-spacing: .06em;
+  box-shadow: 0 8px 0 #8d1414, 0 14px 24px rgba(0,0,0,.25); display: flex; flex-direction: column;
+  align-items: center; justify-content: center; line-height: 1.1; transition: transform .08s, box-shadow .08s; padding: 0; }
+.rollbtn .rb1 { font-size: 28px; } .rollbtn .rb2 { font-size: 13px; } .rollbtn .rb3 { font-size: 11px; font-weight: 600; margin-top: 4px; opacity: .9; }
+.rollbtn:hover { border: 0; filter: brightness(1.05); }
+.rollbtn:active:not(:disabled) { transform: translateY(6px); box-shadow: 0 2px 0 #8d1414, 0 6px 12px rgba(0,0,0,.25); }
+.rollbtn:disabled { background: radial-gradient(circle at 35% 30%, #c3c8d1, #7d8494 70%); box-shadow: 0 8px 0 #5c6270; opacity: 1; cursor: default; }
+.rollbtn.spin { animation: glow .5s ease-in-out infinite alternate; background: radial-gradient(circle at 35% 30%, #ffb36b, #e0661b 70%); box-shadow: 0 8px 0 #9a4310; }
+@keyframes glow { to { filter: brightness(1.3); } }
+.demo-status { flex: 1; min-width: 260px; }
+.demo-now { font-size: 16px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.dhome { display: grid; grid-template-columns: repeat(auto-fill, minmax(215px, 1fr)); gap: 12px; }
+.darea { border: 1px solid var(--line); border-radius: 10px; padding: 8px 8px 6px; min-width: 0; }
+.darea h3 { margin: 0 0 4px; font-size: 14px; display: flex; gap: 6px; align-items: center; justify-content: space-between; padding: 0 4px; }
+.drow { display: flex; justify-content: space-between; gap: 8px; padding: 3px 4px; border-radius: 6px; border: 0;
+  background: none; width: 100%; text-align: left; font-size: 13px; }
+.drow:hover { background: var(--bg); border: 0; }
+.drow .dl { color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.drow .dv { font-variant-numeric: tabular-nums; font-weight: 650; white-space: nowrap; }
+.drow .dv small { color: var(--muted); font-weight: 500; margin-left: 4px; }
+.drow.abn .dv { color: var(--warn); }
+.drow.abn .dl::after { content: " \26A0"; color: var(--warn); }
+.drow.spinning .dv { color: var(--accent); }
+.drow.landed { animation: land 1s ease-out; }
+@keyframes land { from { background: var(--accent-soft); } to { background: transparent; } }
+.presets { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 6px; margin-top: 10px; }
+.preset { text-align: left; display: flex; gap: 8px; align-items: center; padding: 6px 10px; }
+.preset .pid { color: var(--muted); font-variant-numeric: tabular-nums; min-width: 26px; }
+.preset .pn { flex: 1; }
+.preset.current { border-color: var(--accent); background: var(--accent-soft); }
+
+/* modal */
+.modal { position: fixed; inset: 0; z-index: 40; background: rgba(10,14,22,.45); display: flex; align-items: flex-start;
+  justify-content: center; padding: 40px 12px; overflow-y: auto; }
+.dlg { background: var(--card); color: var(--text); border-radius: 12px; box-shadow: var(--shadow); width: 100%; max-width: 900px;
+  border: 1px solid var(--line); }
+.dlg-head { display: flex; align-items: center; gap: 10px; padding: 12px 16px; border-bottom: 1px solid var(--line);
+  position: sticky; top: 0; background: var(--card); border-radius: 12px 12px 0 0; z-index: 1; flex-wrap: wrap; }
+.dlg-head h2 { margin: 0; font-size: 16px; flex: 1; min-width: 0; }
+.dlg-head .x { width: 32px; height: 32px; padding: 0; font-size: 18px; }
+.dlg-body { padding: 14px 16px 18px; }
+@media (max-width: 600px) { .modal { padding: 0; } .dlg { border-radius: 0; min-height: 100%; } }
+canvas.chart { width: 100%; height: 280px; display: block; touch-action: pan-y; }
+.stats { display: flex; gap: 14px; flex-wrap: wrap; font-size: 12px; color: var(--muted); margin-top: 6px; }
+.stats b { color: var(--text); font-variant-numeric: tabular-nums; }
+.vtable { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; font-size: 13px; }
+.vtable td, .vtable th { padding: 3px 8px; border-bottom: 1px solid var(--line); text-align: right; }
+.vtable th { color: var(--muted); font-weight: 500; font-size: 12px; }
+.vtable td:first-child, .vtable th:first-child { text-align: left; }
+.vwrap { max-height: 300px; overflow: auto; margin-top: 6px; }
+fieldset { border: 1px solid var(--line); border-radius: 10px; padding: 10px 14px 14px; margin: 0 0 14px; }
+legend { font-weight: 650; padding: 0 6px; }
+.form { display: grid; grid-template-columns: 170px minmax(0, 1fr); gap: 8px 12px; align-items: center; }
+.form input[type=text], .form input[type=password], .form select { width: 100%; max-width: 320px; }
+@media (max-width: 600px) { .form { grid-template-columns: 1fr; gap: 2px; } .form > label { margin-top: 6px; } }
+.note { font-size: 12px; color: var(--muted); }
+.result { margin-top: 10px; font-size: 13px; }
+.result.ok { color: var(--ok); } .result.bad { color: var(--bad); }
+
+/* guide */
+.gtools { display: flex; gap: 8px; flex: 1 1 100%; align-items: center; }
+.gtools input { flex: 1; }
+.guide { display: grid; grid-template-columns: 210px minmax(0, 1fr); gap: 20px; }
+@media (max-width: 760px) { .guide { grid-template-columns: 1fr; } .toc { display: none; } }
+.toc { position: sticky; top: 110px; align-self: start; font-size: 13px; max-height: 70vh; overflow: auto; }
+.toc a { display: block; color: var(--muted); text-decoration: none; padding: 2px 0; }
+.toc a.h3 { padding-left: 12px; font-size: 12px; }
+.toc a:hover { color: var(--accent); }
+.gdoc { min-width: 0; }
+.gdoc h1 { font-size: 20px; margin: 0 0 8px; }
+.gdoc h2 { font-size: 17px; margin: 22px 0 8px; padding-top: 6px; border-top: 1px solid var(--line); }
+.gdoc h3 { font-size: 15px; margin: 16px 0 6px; }
+.gdoc p, .gdoc li { line-height: 1.55; }
+.gdoc pre { background: var(--bg); border-radius: 8px; padding: 10px; overflow-x: auto; font-size: 12px; }
+.gdoc table { border-collapse: collapse; margin: 8px 0; display: block; overflow-x: auto; }
+.gdoc td, .gdoc th { border: 1px solid var(--line); padding: 4px 8px; text-align: left; vertical-align: top; }
+.gdoc th { background: var(--bg); }
+.gdoc a { color: var(--accent); }
+.gdoc mark { background: #ffe066; color: #1d2330; border-radius: 2px; }
+.gcount { font-size: 12px; color: var(--muted); white-space: nowrap; }
+
 #toast { position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%); max-width: calc(100% - 32px);
-  padding: 10px 14px; border-radius: 8px; color: #fff; font-weight: 550; box-shadow: 0 6px 20px rgba(0,0,0,.2);
-  opacity: 0; pointer-events: none; transition: opacity .2s; z-index: 10; }
+  padding: 10px 14px; border-radius: 8px; color: #fff; font-weight: 550; box-shadow: var(--shadow);
+  opacity: 0; pointer-events: none; transition: opacity .2s; z-index: 60; }
 #toast.show { opacity: 1; }
 #toast.ok { background: var(--ok); }
 #toast.bad { background: var(--bad); }
-code { font-family: ui-monospace, Consolas, monospace; font-size: 12px; }
+@media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
 </style>
 </head>
 <body>
-<header>
-  <div>
-    <h1>IntelliThings Emulator</h1>
-    <div class="sub">3 virtual sensor nodes on one ESP32-C3 · AI-team test panel</div>
+<header class="top">
+  <div class="brand"><h1>IntelliThings Emulator</h1><span class="ver" id="ver"></span></div>
+  <div class="seg" role="tablist" aria-label="Mode">
+    <button id="tab-dev" role="tab">Dev</button>
+    <button id="tab-demo" role="tab">Demo<span class="exp">experimental</span></button>
   </div>
   <div class="badges">
-    <span id="b-link" class="badge">connecting…</span>
-    <span id="b-wifi" class="badge">Wi-Fi</span>
-    <span id="b-mqtt" class="badge">MQTT</span>
-    <span id="b-time" class="badge">clock</span>
+    <button id="b-link" class="badge" title="System status">connecting…</button>
+    <button id="b-wifi" class="badge" title="System status">Wi-Fi</button>
+    <button id="b-mqtt" class="badge" title="System status">MQTT</button>
+    <button id="b-time" class="badge" title="System status">clock</button>
+  </div>
+  <div class="hbtns">
+    <button id="btn-guide" title="User guide" aria-label="User guide">?</button>
+    <button id="btn-settings" title="Settings" aria-label="Settings">⚙</button>
   </div>
 </header>
 
 <main>
-  <section class="card">
-    <h2>System status</h2>
-    <div class="status-grid" id="status"></div>
-  </section>
-
-  <section class="rooms" id="rooms"></section>
-
-  <section class="card">
-    <h2>Emulate</h2>
-    <div class="tabs" id="tabs"></div>
-
-    <div class="two">
-      <div>
-        <h2 style="margin-top:4px">Shortcuts</h2>
-        <div class="shortcuts" id="shortcuts"></div>
-        <div class="row">
-          <label class="inline">Duration (s) <input type="number" id="sc-duration" min="0" max="86400" placeholder="default"></label>
-          <button id="btn-normal" title="Drop scenarios and overrides; back to automatic behaviour">↺ Back to normal</button>
-          <button id="btn-reset" title="Also reset readings to the room's baseline">Reset room</button>
-        </div>
+  <div class="view" id="view-dev">
+    <section class="card" data-card="status" data-title="System status" data-guide="header-and-badges">
+      <div class="status-grid" id="status"></div>
+    </section>
+    <section class="card" data-card="rooms" data-title="Rooms" data-guide="rooms">
+      <div class="rooms" id="rooms"></div>
+    </section>
+    <section class="card" data-card="emulate" data-title="Emulate" data-guide="emulate">
+      <div class="tabs" id="targets"></div>
+      <div class="shortcuts" id="shortcuts"></div>
+      <div class="row">
+        <label class="inline">Duration (s) <input type="number" id="sc-duration" min="0" max="86400" placeholder="default"></label>
+        <button id="btn-normal" title="Drop shortcuts and custom values; back to automatic behaviour">↺ Back to normal</button>
+        <button id="btn-reset" title="Also reset readings to the room's baseline">Reset room</button>
       </div>
-
-      <div>
-        <h2 style="margin-top:4px">Custom values</h2>
+      <button class="link more-btn" data-more="ranges">more: custom values ▾</button>
+      <div data-more-body="ranges" hidden>
         <div class="table-wrap">
           <table class="ranges">
-            <thead><tr><th></th><th>Metric</th><th>Min</th><th>Max</th><th>Sensor range</th></tr></thead>
+            <thead><tr><th></th><th>Reading</th><th>Min</th><th>Max</th><th>Sensor range</th></tr></thead>
             <tbody id="ranges"></tbody>
           </table>
         </div>
@@ -144,49 +338,125 @@ code { font-family: ui-monospace, Consolas, monospace; font-size: 12px; }
           </label>
           <label class="inline">Duration (s) <input type="number" id="ovr-duration" min="0" max="86400" value="0" title="0 = until cleared"></label>
           <label class="inline"><input type="checkbox" id="instant"> jump instantly</label>
-        </div>
-        <div class="row">
           <button class="primary" id="btn-apply">Apply</button>
-          <span class="age">Min = max gives a fixed value. Values move smoothly unless “jump instantly” is ticked.</span>
+        </div>
+        <p class="muted">Min = max gives a fixed value. Values move like a real room unless “jump instantly” is ticked. Temperature is in °C.</p>
+      </div>
+    </section>
+  </div>
+
+  <div class="view" id="view-demo" hidden>
+    <section class="card" data-card="democtl" data-title="Demo mode (experimental)" data-guide="demo-mode">
+      <div class="demo-top">
+        <button id="roll-btn" class="rollbtn" title="Stands in for the game buzzer"><span class="rb1">ROLL</span><span class="rb2">THE HOUSE</span><span class="rb3" id="roll-sub"></span></button>
+        <div class="demo-status">
+          <div class="demo-now"><span class="badge" id="demo-state">…</span><b id="demo-step">…</b><span class="badge" id="demo-group"></span></div>
+          <div class="muted" id="demo-next"></div>
+          <div class="row">
+            <label class="inline"><input type="checkbox" id="demo-publish"> Publish to <code>intellithings/emulator/demo/#</code></label>
+          </div>
+          <div class="row">
+            <label class="inline"><input type="checkbox" id="demo-loop"> Scenario loop</label>
+            <label class="inline">every <input type="number" id="demo-interval" min="10" max="3600" step="5"> s</label>
+            <label class="inline">picks <select id="demo-source"><option value="presets">presets</option><option value="random">random rolls</option><option value="mix">presets + rolls</option></select></label>
+          </div>
         </div>
       </div>
+      <button class="link more-btn" data-more="demoset">more: roll settings ▾</button>
+      <div data-more-body="demoset" hidden>
+        <div class="row">
+          <label class="inline">Roll length (s) <input type="number" id="ds-roll" min="1" max="15"></label>
+          <label class="inline">Hold after a roll (s) <input type="number" id="ds-hold" min="0" max="3600"></label>
+          <label class="inline">Values <select id="ds-spread"><option value="normal">lean to normal</option><option value="uniform">anywhere within the caps</option></select></label>
+          <label class="inline">Abnormal chance (%) <input type="number" id="ds-abn" min="0" max="100"></label>
+          <label class="inline">Rolls in the mix (%) <input type="number" id="ds-mix" min="0" max="100"></label>
+          <button class="primary" id="ds-apply">Apply</button>
+        </div>
+        <p class="muted">“Lean to normal”: each value stays in its normal range except with the abnormal chance, when it can land anywhere within its caps. Presses during the roll and the hold are ignored, like the buzzer.</p>
+      </div>
+    </section>
+    <section class="card" data-card="demohome" data-title="Demo home" data-guide="demo-mode">
+      <div class="dhome" id="dhome"><div class="empty">Loading the demo home…</div></div>
+      <p class="muted">Amber ⚠ = outside the normal range. Click a value for its last changes.</p>
+    </section>
+    <section class="card" data-card="presets" data-title="Preset library" data-guide="demo-mode">
+      <div class="tabs" id="preset-groups"></div>
+      <div class="presets" id="presets"></div>
+    </section>
+  </div>
+
+    <section class="card" data-card="ai" data-title="AI messages" data-guide="ai-messages">
+      <div class="aiboxes" id="aiboxes"></div>
+      <div class="summary" id="summary"></div>
+      <button class="link more-btn" data-more="msgs">more: message history ▾</button>
+      <div data-more-body="msgs" hidden>
+        <div class="msgs" id="msgs"><div class="empty">No AI messages yet.</div></div>
+      </div>
+    </section>
+
+  <section class="card" data-card="log" data-title="System log" data-guide="system-log">
+    <div class="logbar">
+      <div class="seg"><button id="log-cmds" class="active">Commands</button><button id="log-sys">System</button></div>
+      <input type="search" id="log-filter" placeholder="Filter…" aria-label="Filter log">
+      <button class="small" id="log-pause">Pause</button>
+      <button class="small" id="log-clear">Clear</button>
+      <button class="small" id="log-dl">Download</button>
     </div>
+    <div class="log" id="log"></div>
   </section>
 
-  <section class="two">
-    <div class="card">
-      <h2>AI messages received</h2>
-      <div class="msgs" id="msgs"><div class="empty">No AI messages yet. They appear here and on the serial monitor.</div></div>
-    </div>
-    <div class="card">
-      <h2>Send a test AI message</h2>
-      <p class="age" style="margin-top:0">Publishes <code>{"text","ts"}</code> to the room's <code>…/display</code> topic, like Home Assistant would.</p>
-      <div class="row" style="margin-top:0">
-        <label class="inline">Room <select id="test-room"></select></label>
-        <label class="inline"><input type="checkbox" id="test-retain"> retained</label>
-      </div>
-      <div class="row"><textarea id="test-text" maxlength="400" placeholder="CO₂ is elevated. Consider opening the window."></textarea></div>
-      <div class="row"><button class="primary" id="btn-test">Send</button></div>
-    </div>
+  <section class="card route" data-card="route" data-title="MQTT route" data-guide="mqtt-route">
+    <div id="route"></div>
+    <div class="edge-list" id="edge-list"><span class="muted">Click a line to see its last messages.</span></div>
   </section>
 </main>
-<div id="toast"></div>
+
+<div id="modal" class="modal" hidden>
+  <div class="dlg" role="dialog" aria-modal="true" aria-labelledby="dlg-title">
+    <div class="dlg-head"><h2 id="dlg-title"></h2><button class="x" id="dlg-x" aria-label="Close">×</button><div id="dlg-tools" class="gtools" hidden></div></div>
+    <div class="dlg-body" id="dlg-body"></div>
+  </div>
+</div>
+<div id="toast" role="status"></div>
 
 <script>
 "use strict";
+// ============================================================ helpers
 const $ = (id) => document.getElementById(id);
-let META = null, STATE = null, selected = "all";
-
+const SVGNS = "http://www.w3.org/2000/svg";
 function el(tag, attrs = {}, ...kids) {
   const e = document.createElement(tag);
-  for (const [k, v] of Object.entries(attrs)) {
+  for (const [k, v] of Object.entries(attrs || {})) {
     if (k === "class") e.className = v;
+    else if (k === "text") e.textContent = v;
     else if (k.startsWith("on")) e.addEventListener(k.slice(2), v);
     else if (v !== undefined && v !== null && v !== false) e.setAttribute(k, v === true ? "" : v);
   }
-  for (const kid of kids.flat()) if (kid !== null && kid !== undefined) e.append(kid);
+  for (const kid of kids.flat()) if (kid !== null && kid !== undefined && kid !== false) e.append(kid);
   return e;
 }
+function sv(tag, attrs = {}, ...kids) {
+  const e = document.createElementNS(SVGNS, tag);
+  for (const [k, v] of Object.entries(attrs)) {
+    if (k === "text") e.textContent = v;
+    else if (k.startsWith("on")) e.addEventListener(k.slice(2), v);
+    else e.setAttribute(k, v);
+  }
+  for (const kid of kids.flat()) if (kid) e.append(kid);
+  return e;
+}
+// replaceChildren() would turn null into the text "null"; drop empty parts.
+const fill = (node, ...kids) => node.replaceChildren(...kids.flat().filter((k) => k !== null && k !== undefined && k !== false));
+const store = {
+  get(k, d) { try { const v = localStorage.getItem("emu." + k); return v === null ? d : JSON.parse(v); } catch (e) { return d; } },
+  set(k, v) { try { localStorage.setItem("emu." + k, JSON.stringify(v)); } catch (e) { /* private mode */ } },
+};
+const PREF_DEFAULTS = { temp: "both", win: 600, style: "line", refresh: 1500, theme: "auto", tab: "dev" };
+const prefs = Object.assign({}, PREF_DEFAULTS, store.get("prefs", {}));
+const savePrefs = () => store.set("prefs", prefs);
+const LAYOUT_DEFAULTS = { collapsed: { status: true, presets: true }, hidden: {}, more: {} };
+let layout = Object.assign({}, JSON.parse(JSON.stringify(LAYOUT_DEFAULTS)), store.get("layout", {}));
+const saveLayout = () => store.set("layout", layout);
 
 function toast(ok, msg) {
   const t = $("toast");
@@ -195,26 +465,25 @@ function toast(ok, msg) {
   clearTimeout(toast.timer);
   toast.timer = setTimeout(() => (t.className = ""), 3500);
 }
-
 async function api(path, body) {
-  const opts = body ? { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) } : {};
+  const opts = body !== undefined
+    ? { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }
+    : { cache: "no-store" };
   const r = await fetch(path, opts);
-  const j = await r.json().catch(() => ({ ok: false, msg: "HTTP " + r.status }));
-  return j;
+  return r.json().catch(() => ({ ok: false, msg: "HTTP " + r.status }));
 }
-
 async function cmd(body) {
   try {
     const r = await api("/api/cmd", body);
     toast(r.ok, r.msg || (r.ok ? "OK" : "Failed"));
-    pollState();
+    poll(true);
     return r.ok;
   } catch (e) {
     toast(false, "Emulator unreachable");
     return false;
   }
 }
-
+const cToF = (c) => c * 9 / 5 + 32;
 function fmtDur(s) {
   if (s === null || s === undefined) return "until cleared";
   s = Math.max(0, Math.round(s));
@@ -222,62 +491,476 @@ function fmtDur(s) {
   if (s < 5400) return Math.round(s / 60) + " min";
   return (s / 3600).toFixed(1) + " h";
 }
+function fmtAgo(s) {
+  if (s === null || s === undefined || isNaN(s)) return "–";
+  s = Math.max(0, Math.round(s));
+  return s < 60 ? s + " s ago" : s < 3600 ? Math.round(s / 60) + " min ago" : (s / 3600).toFixed(1) + " h ago";
+}
 function fmtUptime(s) {
   const d = Math.floor(s / 86400), h = Math.floor(s % 86400 / 3600), m = Math.floor(s % 3600 / 60);
   return (d ? d + "d " : "") + (h ? h + "h " : "") + m + "m " + Math.floor(s % 60) + "s";
 }
-function fmtVal(metric, v) {
-  if (v === undefined || v === null) return "–";
-  return (metric.decimals ? Number(v).toFixed(metric.decimals) : Math.round(v)) + (metric.unit ? " " + metric.unit : "");
-}
-function nodeName(id) {
-  const n = META.nodes.find((n) => n.id === id);
-  return n ? n.label : id;
-}
+const pad2 = (n) => String(n).padStart(2, "0");
+const clock = (d, sec = true) => pad2(d.getHours()) + ":" + pad2(d.getMinutes()) + (sec ? ":" + pad2(d.getSeconds()) : "");
+const slug = (s) => s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
 
-// ---------------------------------------------------------------- static UI
-function buildControls() {
-  const tabs = $("tabs");
-  tabs.replaceChildren();
-  const add = (value, label) => tabs.append(el("button", {
-    class: value === selected ? "active" : "", onclick: () => { selected = value; buildControls(); }
-  }, label));
-  META.nodes.forEach((n) => add(n.id, n.label));
-  add("all", "All rooms");
+// ============================================================ state
+let META = null, STATE = null, stateAt = 0, polling = false, pollTimer = null, unreachable = false;
+const SEQ = { log: 0, cmd: 0, ev: 0, msg: 0 };
+let SERIES = [];               // metric infos + presence, in history order
+let H = null;                  // history: { fine, coarse } each { t: [], v: [node][series][] }
+let selected = "all";          // emulate target
+const nowUp = () => (STATE ? STATE.uptime_s + (performance.now() - stateAt) / 1000 : 0);
+const upToDate = (tUp) => new Date(Date.now() - (nowUp() - tUp) * 1000);
 
-  const room = selected === "all" ? null : META.nodes.find((n) => n.id === selected).room;
-  const sc = $("shortcuts");
-  sc.replaceChildren();
-  META.scenarios.forEach((s) => {
-    sc.append(el("button", {
-      class: "shortcut" + (room && s.default_room === room ? " suggested" : ""),
-      title: `${s.label}: default ${fmtDur(s.duration_s)}`,
-      onclick: () => {
-        const d = $("sc-duration").value;
-        const body = { node: selected, action: "scenario", name: s.name };
-        if (d !== "") body.duration_s = Number(d);
-        cmd(body);
-      },
-    }, el("span", { class: "ic" }, s.icon), el("span", { class: "lb" }, s.label),
-       el("span", { class: "dr" }, fmtDur(s.duration_s))));
+// ============================================================ theme, tabs, cards
+function applyTheme() {
+  if (prefs.theme === "auto") document.documentElement.removeAttribute("data-theme");
+  else document.documentElement.setAttribute("data-theme", prefs.theme);
+}
+function showTab(tab) {
+  prefs.tab = tab; savePrefs();
+  $("view-dev").hidden = tab !== "dev";
+  $("view-demo").hidden = tab !== "demo";
+  $("tab-dev").classList.toggle("active", tab === "dev");
+  $("tab-demo").classList.toggle("active", tab === "demo");
+  $("tab-dev").setAttribute("aria-selected", tab === "dev");
+  $("tab-demo").setAttribute("aria-selected", tab === "demo");
+  if (location.hash !== "#" + tab) history.replaceState(null, "", "#" + tab);
+}
+const CARDS = [];
+function setupCards() {
+  document.querySelectorAll(".card[data-card]").forEach((card) => {
+    const id = card.dataset.card;
+    const body = el("div", { class: "card-body" }, ...card.childNodes);
+    const extra = el("span", { class: "extra" });
+    const fold = el("button", { class: "small", onclick: () => setFolded(id, !card.classList.contains("folded")) });
+    const head = el("div", { class: "card-head" },
+      el("h2", { text: card.dataset.title }), extra,
+      el("button", { class: "help", title: "Help for this section", "aria-label": "Help", onclick: () => openGuide(card.dataset.guide) }, "?"),
+      fold);
+    card.replaceChildren(head, body);
+    CARDS.push({ id, card, fold, extra, title: card.dataset.title });
   });
+  applyLayout();
+  document.querySelectorAll("[data-more]").forEach((b) => {
+    const id = b.dataset.more, body = document.querySelector(`[data-more-body="${id}"]`);
+    const label = b.textContent.replace(/^more: | ▾$/g, "");
+    const set = (open) => {
+      body.hidden = !open;
+      b.textContent = (open ? "less: " : "more: ") + label + (open ? " ▴" : " ▾");
+      layout.more[id] = open; saveLayout();
+    };
+    b.onclick = () => set(body.hidden);
+    set(!!layout.more[id]);
+  });
+}
+function setFolded(id, folded) {
+  layout.collapsed[id] = folded; saveLayout(); applyLayout();
+  if (!folded) { redrawSparks(); drawRoute(); }
+}
+function applyLayout() {
+  for (const c of CARDS) {
+    const folded = !!layout.collapsed[c.id];
+    c.card.classList.toggle("folded", folded);
+    c.fold.textContent = folded ? "show" : "hide";
+    c.fold.setAttribute("aria-expanded", !folded);
+    c.card.hidden = !!layout.hidden[c.id];
+  }
+}
+const cardExtra = (id) => (CARDS.find((c) => c.id === id) || {}).extra;
 
+// ============================================================ modal
+let MODAL = null;  // { onUpdate }
+function openModal(title, body, opts = {}) {
+  $("dlg-title").textContent = title;
+  const tools = $("dlg-tools");
+  tools.replaceChildren(...(opts.tools || []));
+  tools.hidden = !opts.tools;
+  $("dlg-body").replaceChildren(...[].concat(body));
+  $("modal").hidden = false;
+  document.body.style.overflow = "hidden";
+  MODAL = { onUpdate: opts.onUpdate || null, onClose: opts.onClose || null };
+  setTimeout(() => (opts.focus || $("dlg-x")).focus(), 0);
+}
+function closeModal() {
+  if (!MODAL) return;
+  if (MODAL.onClose) MODAL.onClose();
+  $("modal").hidden = true;
+  document.body.style.overflow = "";
+  MODAL = null;
+}
+$("dlg-x").onclick = closeModal;
+$("modal").addEventListener("mousedown", (e) => { if (e.target === $("modal")) closeModal(); });
+document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeModal(); });
+
+// ============================================================ metrics and formatting
+function fmtValue(m, v, mode = prefs.temp) {
+  if (v === undefined || v === null || Number.isNaN(v)) return { main: "–", alt: "" };
+  if (m.key === "presence") return { main: v >= 0.5 ? "present" : "empty", alt: "" };
+  if (m.key === "temperature_c") {
+    const c = Number(v).toFixed(1) + " °C", f = cToF(v).toFixed(1) + " °F";
+    return mode === "f" ? { main: f, alt: "" } : mode === "c" ? { main: c, alt: "" } : { main: c, alt: f };
+  }
+  return { main: Number(v).toFixed(m.decimals) + (m.unit ? " " + m.unit : ""), alt: "" };
+}
+// Plot/table unit: °F only when the display is °F only.
+const plotConv = (m) => (m.key === "temperature_c" && prefs.temp === "f"
+  ? { f: cToF, unit: "°F", dec: 1 } : { f: (x) => x, unit: m.unit, dec: m.decimals });
+
+// ============================================================ history
+function emptyTier() { return { t: [], v: [0, 1, 2].map(() => SERIES.map(() => [])) }; }
+async function loadHistory(tier) {
+  const r = await fetch("/api/history?tier=" + tier, { cache: "no-store" });
+  const buf = await r.arrayBuffer();
+  const d = new DataView(buf);
+  if (buf.byteLength < 24 || d.getUint32(0, true) !== 0x48554d45) throw new Error("bad history");
+  const N = d.getUint8(6), S = d.getUint8(7), C = d.getUint16(8, true);
+  const scales = [];
+  for (let s = 0; s < S; s++) scales.push(d.getUint16(24 + 2 * s, true) || 1);
+  let off = 24 + 2 * S;
+  const t = new Array(C);
+  for (let i = 0; i < C; i++, off += 4) t[i] = d.getUint32(off, true);
+  const v = [];
+  for (let n = 0; n < N; n++) {
+    const row = [];
+    for (let s = 0; s < S; s++) {
+      const a = new Array(C);
+      for (let i = 0; i < C; i++, off += 2) a[i] = d.getUint16(off, true) / scales[s];
+      row.push(a);
+    }
+    v.push(row);
+  }
+  return { t, v };
+}
+async function refreshHistory(which = "both") {
+  if (!H) H = { fine: emptyTier(), coarse: emptyTier() };
+  try {
+    if (which !== "coarse") H.fine = await loadHistory("10m");
+    if (which !== "fine") H.coarse = await loadHistory("1h");
+  } catch (e) { /* keep what we have */ }
+}
+// Add the snapshot from the state when the board has published a new one.
+function appendLive(s) {
+  if (!H || !s.nodes.length || s.nodes[0].last_publish_age_s === null) return;
+  const pubUp = s.uptime_s - s.nodes[0].last_publish_age_s;
+  const f = H.fine, last = f.t.length ? f.t[f.t.length - 1] : -1e9;
+  if (pubUp - last < Math.max(1, s.publish_interval_s * 0.5)) return;
+  f.t.push(pubUp);
+  s.nodes.forEach((n, i) => SERIES.forEach((m, k) => {
+    const r = n.reading;
+    f.v[i][k].push(r ? (m.key === "presence" ? (r.presence ? 1 : 0) : r[m.key]) : NaN);
+  }));
+  if (f.t.length > 400) { f.t.shift(); f.v.forEach((row) => row.forEach((a) => a.shift())); }
+}
+function seriesData(n, k, windowS) {
+  const end = nowUp(), start = end - windowS, out = { t: [], v: [], start, end };
+  if (!H) return out;
+  const f = H.fine, c = H.coarse, f0 = f.t.length ? f.t[0] : Infinity;
+  for (let i = 0; i < c.t.length; i++) if (c.t[i] >= start && c.t[i] < f0) { out.t.push(c.t[i]); out.v.push(c.v[n][k][i]); }
+  for (let i = 0; i < f.t.length; i++) if (f.t[i] >= start) { out.t.push(f.t[i]); out.v.push(f.v[n][k][i]); }
+  return out;
+}
+function lastTwo(n, k) {
+  const a = H ? H.fine.v[n][k] : [];
+  return [a.length > 1 ? a[a.length - 2] : null, a.length ? a[a.length - 1] : null];
+}
+
+// ============================================================ charts
+function cssVar(name) { return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
+function niceStep(range, target) {
+  const raw = range / target, p = Math.pow(10, Math.floor(Math.log10(raw))), m = raw / p;
+  return (m < 1.5 ? 1 : m < 3 ? 2 : m < 7 ? 5 : 10) * p;
+}
+function setupCanvas(cv) {
+  const dpr = window.devicePixelRatio || 1, w = cv.clientWidth, h = cv.clientHeight;
+  if (cv.width !== Math.round(w * dpr) || cv.height !== Math.round(h * dpr)) { cv.width = Math.round(w * dpr); cv.height = Math.round(h * dpr); }
+  const ctx = cv.getContext("2d");
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, w, h);
+  return { ctx, w, h };
+}
+function drawSpark(cv, vals) {
+  if (!cv.clientWidth) return;
+  const { ctx, w, h } = setupCanvas(cv);
+  const pts = vals.filter((v) => Number.isFinite(v));
+  if (pts.length < 2) return;
+  let lo = Math.min(...pts), hi = Math.max(...pts);
+  if (hi - lo < 1e-9) { lo -= 1; hi += 1; }
+  ctx.strokeStyle = cssVar("--accent"); ctx.lineWidth = 1.5; ctx.beginPath();
+  pts.forEach((v, i) => {
+    const x = i / (pts.length - 1) * (w - 3) + 1.5, y = h - 2 - (v - lo) / (hi - lo) * (h - 4);
+    i ? ctx.lineTo(x, y) : ctx.moveTo(x, y);
+  });
+  ctx.stroke();
+}
+// data: {t, v, start, end}; o: {style, dec, unit, presence, hoverX}
+function drawChart(cv, data, o) {
+  const { ctx, w, h } = setupCanvas(cv);
+  const muted = cssVar("--muted"), line = cssVar("--line"), acc = cssVar("--accent"), text = cssVar("--text");
+  const L = 54, R = 12, T = 10, B = 26, pw = w - L - R, ph = h - T - B;
+  ctx.font = "11px system-ui, sans-serif";
+  const pts = [];
+  for (let i = 0; i < data.t.length; i++) if (Number.isFinite(data.v[i])) pts.push([data.t[i], data.v[i]]);
+  const cat = o.cat || (o.presence ? ["empty", "present"] : null);
+  let lo, hi;
+  if (cat) { lo = -0.15; hi = cat.length - 0.85; }
+  else if (pts.length) {
+    lo = Math.min(...pts.map((p) => p[1])); hi = Math.max(...pts.map((p) => p[1]));
+    const pad = (hi - lo) * 0.12 || Math.max(1, Math.abs(hi) * 0.05);
+    lo -= pad; hi += pad;
+  } else { lo = 0; hi = 1; }
+  const X = (t) => L + (t - data.start) / (data.end - data.start) * pw;
+  const Y = (v) => T + ph - (v - lo) / (hi - lo) * ph;
+  // grid + y labels
+  ctx.strokeStyle = line; ctx.fillStyle = muted; ctx.lineWidth = 1; ctx.textAlign = "right"; ctx.textBaseline = "middle";
+  const yt = cat ? cat.map((_, i) => i) : (() => { const st = niceStep(hi - lo, 4), a = []; for (let v = Math.ceil(lo / st) * st; v <= hi; v += st) a.push(v); return a; })();
+  for (const v of yt) {
+    const y = Math.round(Y(v)) + 0.5;
+    ctx.beginPath(); ctx.moveTo(L, y); ctx.lineTo(w - R, y); ctx.stroke();
+    ctx.fillText(cat ? cat[v] : Number(v.toFixed(6)).toString(), L - 6, y);
+  }
+  // x labels
+  const span = data.end - data.start;
+  const xs = [10, 30, 60, 120, 300, 600, 900, 1800].find((s) => span / s <= 6) || 1800;
+  ctx.textAlign = "center"; ctx.textBaseline = "top";
+  for (let t = Math.ceil(data.start / xs) * xs; t <= data.end; t += xs) {
+    const x = X(t);
+    ctx.beginPath(); ctx.moveTo(x, T + ph); ctx.lineTo(x, T + ph + 4); ctx.stroke();
+    ctx.fillText(clock(upToDate(t), xs < 60), x, T + ph + 7);
+  }
+  if (!pts.length) {
+    ctx.fillStyle = muted; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    ctx.fillText("No data in this window yet", L + pw / 2, T + ph / 2);
+    return;
+  }
+  ctx.save();
+  ctx.beginPath(); ctx.rect(L, T, pw, ph); ctx.clip();
+  const style = cat && (o.style === "line" || o.style === "area" || o.style === "band") ? "step" : o.style;
+  ctx.strokeStyle = acc; ctx.fillStyle = acc; ctx.lineWidth = 2; ctx.lineJoin = "round";
+  const bins = () => {
+    const nb = Math.max(1, Math.min(60, pts.length)), bw = span / nb, out = [];
+    for (let b = 0; b < nb; b++) out.push({ t0: data.start + b * bw, t1: data.start + (b + 1) * bw, n: 0, sum: 0, min: Infinity, max: -Infinity });
+    for (const [t, v] of pts) {
+      const b = out[Math.min(nb - 1, Math.max(0, Math.floor((t - data.start) / bw)))];
+      b.n++; b.sum += v; b.min = Math.min(b.min, v); b.max = Math.max(b.max, v);
+    }
+    return out.filter((b) => b.n);
+  };
+  if (style === "bars") {
+    ctx.globalAlpha = 0.75;
+    const base = cat ? Y(0) : T + ph;
+    for (const b of bins()) {
+      const x0 = X(b.t0) + 1, x1 = X(b.t1) - 1, y = Y(b.sum / b.n);
+      ctx.fillRect(x0, Math.min(y, base), Math.max(1, x1 - x0), Math.abs(base - y));
+    }
+    ctx.globalAlpha = 1;
+  } else if (style === "band") {
+    const bs = bins();
+    ctx.globalAlpha = 0.2; ctx.beginPath();
+    bs.forEach((b, i) => { const x = X((b.t0 + b.t1) / 2); i ? ctx.lineTo(x, Y(b.max)) : ctx.moveTo(x, Y(b.max)); });
+    [...bs].reverse().forEach((b) => ctx.lineTo(X((b.t0 + b.t1) / 2), Y(b.min)));
+    ctx.closePath(); ctx.fill(); ctx.globalAlpha = 1;
+    ctx.beginPath();
+    bs.forEach((b, i) => { const x = X((b.t0 + b.t1) / 2), y = Y(b.sum / b.n); i ? ctx.lineTo(x, y) : ctx.moveTo(x, y); });
+    ctx.stroke();
+  } else {
+    ctx.beginPath();
+    pts.forEach(([t, v], i) => {
+      const x = X(t), y = Y(v);
+      if (!i) ctx.moveTo(x, y);
+      else if (style === "step") { ctx.lineTo(x, Y(pts[i - 1][1])); ctx.lineTo(x, y); }
+      else ctx.lineTo(x, y);
+    });
+    ctx.stroke();
+    if (style === "area") {
+      ctx.lineTo(X(pts[pts.length - 1][0]), T + ph); ctx.lineTo(X(pts[0][0]), T + ph); ctx.closePath();
+      ctx.globalAlpha = 0.15; ctx.fill(); ctx.globalAlpha = 1;
+    }
+  }
+  ctx.restore();
+  // hover
+  if (o.hoverX !== null && o.hoverX !== undefined) {
+    let best = null;
+    for (const p of pts) if (!best || Math.abs(X(p[0]) - o.hoverX) < Math.abs(X(best[0]) - o.hoverX)) best = p;
+    if (best) {
+      const x = X(best[0]), y = Y(best[1]);
+      ctx.strokeStyle = muted; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(x, T); ctx.lineTo(x, T + ph); ctx.stroke();
+      ctx.fillStyle = acc; ctx.beginPath(); ctx.arc(x, y, 4, 0, Math.PI * 2); ctx.fill();
+      const label = clock(upToDate(best[0])) + "  " + (cat ? cat[Math.round(best[1])] : best[1].toFixed(o.dec) + (o.unit ? " " + o.unit : ""));
+      ctx.font = "12px system-ui, sans-serif";
+      const tw = ctx.measureText(label).width + 12, bx = Math.min(Math.max(x - tw / 2, L), w - R - tw);
+      ctx.fillStyle = cssVar("--card"); ctx.strokeStyle = line;
+      ctx.fillRect(bx, T + 2, tw, 20); ctx.strokeRect(bx + 0.5, T + 2.5, tw - 1, 19);
+      ctx.fillStyle = text; ctx.textAlign = "left"; ctx.textBaseline = "middle";
+      ctx.fillText(label, bx + 6, T + 12);
+    }
+  }
+}
+
+// ============================================================ rooms
+let ROOMS = [];
+function buildRooms() {
+  ROOMS = META.nodes.map((node, n) => {
+    const dot = el("span", { class: "dot" });
+    const mode = el("div", { class: "mode" });
+    const tiles = SERIES.map((m, k) => {
+      const v = el("b"), alt = el("small"), prev = el("span", { class: "tp" }), cv = el("canvas", { "aria-hidden": "true" });
+      const tile = el("button", { class: "tile", title: `${m.label}: click for the plot and last values`, onclick: () => openPlot(n, k) },
+        el("span", { class: "tl", text: m.label }), el("span", { class: "tv" }, v, alt), prev, cv);
+      return { tile, v, alt, prev, cv, m };
+    });
+    const age = el("span", { class: "age" });
+    const card = el("div", { class: "room" },
+      el("div", { class: "room-head" }, dot, el("h3", { text: node.label }), el("code", { class: "id", text: node.id }), el("span", { class: "sp" }),
+        el("button", { class: "small", title: "Back to automatic behaviour", onclick: () => cmd({ node: node.id, action: "clear" }) }, "↺ Normal")),
+      mode, el("div", { class: "tiles" }, tiles.map((t) => t.tile)),
+      el("div", { class: "room-foot" }, age));
+    return { card, dot, mode, tiles, age };
+  });
+  $("rooms").replaceChildren(...ROOMS.map((r) => r.card));
+}
+function renderRooms(s) {
+  s.nodes.forEach((n, i) => {
+    const R = ROOMS[i];
+    if (!R) return;
+    R.dot.className = "dot" + (n.mqtt === "connected" ? " ok" : "");
+    R.dot.title = "MQTT " + n.mqtt;
+    const b = [el("span", { class: "badge " + (n.mode === "auto" ? "" : "warn"), text: n.mode })];
+    if (n.scenario) b.push(el("span", { class: "badge warn", text: `${n.scenario_label} · ${fmtDur(n.scenario_remaining_s)} left` }));
+    if (n.auto_event) b.push(el("span", { class: "badge", text: `auto: ${n.auto_event} · ${fmtDur(n.auto_event_remaining_s)}` }));
+    if (Object.keys(n.overrides || {}).length || n.presence_override !== null)
+      b.push(el("span", { class: "badge acc", text: `custom values · ${fmtDur(n.override_remaining_s)}` }));
+    b.push(el("span", { class: "badge", text: `${n.occupants} occupant${n.occupants === 1 ? "" : "s"}` }));
+    R.mode.replaceChildren(...b);
+    const r = n.reading || {};
+    R.tiles.forEach((T, k) => {
+      const m = T.m, cur = m.key === "presence" ? (r.presence === undefined ? null : r.presence ? 1 : 0) : r[m.key];
+      const f = fmtValue(m, cur);
+      T.v.textContent = f.main; T.alt.textContent = f.alt;
+      const forced = m.key === "presence" ? n.presence_override !== null : !!(n.overrides && n.overrides[m.key]);
+      T.tile.classList.toggle("forced", forced);
+      const [p] = lastTwo(i, k);
+      if (p === null || p === undefined || Number.isNaN(p) || cur === null || cur === undefined) T.prev.textContent = "";
+      else if (m.key === "presence") T.prev.textContent = "prev " + (p >= 0.5 ? "present" : "empty");
+      else {
+        const conv = plotConv(m), d = conv.f(cur) - conv.f(p), dec = conv.dec;
+        const arrow = Math.abs(d) < Math.pow(10, -dec) / 2 ? "＝" : d > 0 ? "▲" : "▼";
+        T.prev.replaceChildren("prev " + conv.f(p).toFixed(dec) + " ",
+          el("span", { class: arrow === "▲" ? "up" : arrow === "▼" ? "down" : "", text: arrow === "＝" ? "=" : arrow + Math.abs(d).toFixed(dec) }));
+      }
+    });
+    const stale = n.last_publish_age_s === null || n.last_publish_age_s > s.publish_interval_s * 3;
+    R.age.className = "age" + (stale ? " stale" : "");
+    R.age.textContent = n.last_publish_age_s === null ? "no reading yet"
+      : `published ${n.last_publish_age_s} s ago · ${n.publish_count} sent` + (n.mqtt === "connected" ? "" : " · MQTT offline");
+  });
+}
+function redrawSparks() {
+  if (!H || layout.collapsed.rooms) return;
+  ROOMS.forEach((R, n) => R.tiles.forEach((T, k) => drawSpark(T.cv, seriesData(n, k, 600).v)));
+}
+
+// ============================================================ plot popup
+const STYLES = [["line", "Line"], ["area", "Area"], ["step", "Step"], ["bars", "Bars"], ["band", "Min–max band"], ["table", "Table"]];
+const WINDOWS = [[600, "10 min"], [1800, "30 min"], [3600, "1 h"]];
+function openPlot(n, k) {
+  const m = SERIES[k], node = META.nodes[n];
+  let win = prefs.win, style = prefs.style, hoverX = null;
+  const winSeg = el("div", { class: "seg" });
+  const styleSel = el("select", { "aria-label": "Chart style", onchange: (e) => { style = e.target.value; upd(); } },
+    STYLES.map(([v, l]) => el("option", { value: v, selected: v === style }, l)));
+  const cv = el("canvas", { class: "chart" });
+  const stats = el("div", { class: "stats" });
+  const full = el("div", { class: "vwrap" });
+  const last = el("div", { class: "vwrap" });
+  const setHover = (e) => { const r = cv.getBoundingClientRect(); hoverX = e.clientX - r.left; draw(); };
+  cv.addEventListener("pointermove", setHover);
+  cv.addEventListener("pointerdown", setHover);
+  cv.addEventListener("pointerleave", () => { hoverX = null; draw(); });
+  const renderSeg = () => winSeg.replaceChildren(...WINDOWS.map(([w, l]) =>
+    el("button", { class: w === win ? "active" : "", onclick: () => { win = w; renderSeg(); upd(); } }, l)));
+  renderSeg();
+  let data = null;
+  const conv = () => plotConv(m);
+  function draw() {
+    if (!data || style === "table") return;
+    const c = conv();
+    drawChart(cv, { t: data.t, v: data.v.map((x) => (m.key === "presence" ? x : c.f(x))), start: data.start, end: data.end },
+      { style, dec: c.dec, unit: c.unit, presence: m.key === "presence", hoverX });
+  }
+  const fmt = (v) => (m.key === "presence" ? (v >= 0.5 ? "present" : "empty") : conv().f(v).toFixed(conv().dec) + (conv().unit ? " " + conv().unit : ""));
+  function table(t, v, limit) {
+    const rows = [];
+    for (let i = t.length - 1; i >= 0 && rows.length < limit; i--) {
+      if (!Number.isFinite(v[i])) continue;
+      let ch = "";
+      if (i > 0 && Number.isFinite(v[i - 1]) && m.key !== "presence") {
+        const d = conv().f(v[i]) - conv().f(v[i - 1]);
+        ch = Math.abs(d) < Math.pow(10, -conv().dec) / 2 ? "=" : (d > 0 ? "▲" : "▼") + Math.abs(d).toFixed(conv().dec);
+      } else if (i > 0 && m.key === "presence" && v[i] !== v[i - 1]) ch = "changed";
+      rows.push(el("tr", {}, el("td", { text: clock(upToDate(t[i])) }), el("td", { text: fmt(v[i]) }), el("td", { text: ch })));
+    }
+    return el("table", { class: "vtable" }, el("thead", {}, el("tr", {}, el("th", { text: "Time" }), el("th", { text: "Value" }), el("th", { text: "Change" }))),
+      el("tbody", {}, rows.length ? rows : el("tr", {}, el("td", { colspan: 3, class: "empty", text: "No values yet" }))));
+  }
+  function upd() {
+    data = seriesData(n, k, win);
+    cv.hidden = style === "table";
+    full.hidden = style !== "table";
+    draw();
+    const vals = data.v.filter(Number.isFinite);
+    if (vals.length && m.key !== "presence") {
+      const c = conv(), f = (x) => c.f(x).toFixed(c.dec) + (c.unit ? " " + c.unit : "");
+      stats.replaceChildren(
+        el("span", {}, "now ", el("b", { text: f(vals[vals.length - 1]) })),
+        el("span", {}, "min ", el("b", { text: f(Math.min(...vals)) })),
+        el("span", {}, "max ", el("b", { text: f(Math.max(...vals)) })),
+        el("span", {}, "avg ", el("b", { text: f(vals.reduce((a, b) => a + b, 0) / vals.length) })),
+        el("span", { text: `${vals.length} points · ${win <= 600 ? "every snapshot" : "15 s averages, then every snapshot"}` }));
+    } else if (vals.length) {
+      const pct = Math.round(vals.filter((x) => x >= 0.5).length / vals.length * 100);
+      stats.replaceChildren(el("span", {}, "present ", el("b", { text: pct + " %" }), " of this window"));
+    } else stats.replaceChildren(el("span", { text: "No data yet" }));
+    if (style === "table") full.replaceChildren(table(data.t, data.v, 500));
+    const f = H ? H.fine : { t: [], v: [[], [], []] };
+    last.replaceChildren(table(f.t, f.v[n] ? f.v[n][k] : [], 20));
+  }
+  const tools = el("div", { class: "row", style: "margin-top:0" }, winSeg, el("label", { class: "inline" }, "Style", styleSel));
+  openModal(`${node.label} · ${m.label}`, [tools, el("div", { style: "margin-top:12px" }, cv, full), stats,
+    el("h3", { style: "font-size:14px;margin:16px 0 0", text: "Last values" }), last], { onUpdate: upd });
+  upd();
+}
+
+// ============================================================ emulate
+function buildEmulate() {
+  const tabs = $("targets");
+  const add = (value, label) => el("button", { class: value === selected ? "active" : "", onclick: () => { selected = value; buildEmulate(); } }, label);
+  tabs.replaceChildren(...META.nodes.map((n) => add(n.id, n.label)), add("all", "All rooms"));
+  const room = selected === "all" ? null : META.nodes.find((n) => n.id === selected).room;
+  $("shortcuts").replaceChildren(...META.scenarios.map((s) => el("button", {
+    class: "shortcut" + (room && s.default_room === room ? " suggested" : ""),
+    title: `${s.label}: default ${fmtDur(s.duration_s)}`,
+    onclick: () => {
+      const d = $("sc-duration").value, body = { node: selected, action: "scenario", name: s.name };
+      if (d !== "") body.duration_s = Number(d);
+      cmd(body);
+    },
+  }, el("span", { class: "ic", text: s.icon }), el("span", { class: "lb", text: s.label }), el("span", { class: "dr", text: fmtDur(s.duration_s) }))));
   const tb = $("ranges");
   if (!tb.children.length) {
     META.metrics.forEach((m) => {
       const step = m.decimals ? "0.1" : "1";
+      const range = `${m.min} – ${m.max}` + (m.key === "temperature_c" ? ` °C (${cToF(m.min)} – ${cToF(m.max)} °F)` : m.unit ? " " + m.unit : "");
       tb.append(el("tr", {},
-        el("td", {}, el("input", { type: "checkbox", id: "use-" + m.key })),
+        el("td", {}, el("input", { type: "checkbox", id: "use-" + m.key, "aria-label": "Use " + m.label })),
         el("td", {}, el("label", { for: "use-" + m.key }, m.label + (m.unit ? ` (${m.unit})` : ""))),
-        el("td", {}, el("input", { type: "number", id: "min-" + m.key, step, min: m.min, max: m.max,
-          oninput: () => ($("use-" + m.key).checked = true) })),
-        el("td", {}, el("input", { type: "number", id: "max-" + m.key, step, min: m.min, max: m.max,
-          oninput: () => ($("use-" + m.key).checked = true) })),
-        el("td", { class: "hint" }, `${m.min} – ${m.max}`)));
+        el("td", {}, el("input", { type: "number", id: "min-" + m.key, step, min: m.min, max: m.max, "aria-label": m.label + " min", oninput: () => ($("use-" + m.key).checked = true) })),
+        el("td", {}, el("input", { type: "number", id: "max-" + m.key, step, min: m.min, max: m.max, "aria-label": m.label + " max", oninput: () => ($("use-" + m.key).checked = true) })),
+        el("td", { class: "hint", text: range })));
     });
   }
 }
-
 function applyRanges() {
   const ranges = {};
   for (const m of META.metrics) {
@@ -288,128 +971,778 @@ function applyRanges() {
     if (hi === "") hi = lo;
     ranges[m.key] = { min: Number(lo), max: Number(hi) };
   }
-  const body = { node: selected, action: "set", ranges,
-    duration_s: Number($("ovr-duration").value || 0), instant: $("instant").checked };
+  const body = { node: selected, action: "set", ranges, duration_s: Number($("ovr-duration").value || 0), instant: $("instant").checked };
   const p = $("presence").value;
   if (p !== "") body.presence = p === "true";
-  if (!Object.keys(ranges).length && p === "") { toast(false, "Tick at least one metric or choose presence"); return; }
+  if (!Object.keys(ranges).length && p === "") { toast(false, "Tick at least one reading or choose presence"); return; }
   cmd(body);
 }
 
-// ---------------------------------------------------------------- live state
+// ============================================================ AI messages
+let AIBOX = [], ALLMSGS = [], AI = null;
+const ROOM_MSG_LIMIT = 60;
+function buildAI() {
+  AIBOX = META.nodes.map((node) => {
+    const screen = el("div", { class: "screen none", text: "No message yet" });
+    const think = el("span", { class: "think", hidden: true, text: "thinking" });
+    const meta = el("div", { class: "ai-meta" });
+    const input = el("input", { type: "text", maxlength: 400, placeholder: "Test message to " + node.label, "aria-label": "Test message to " + node.label });
+    const retain = el("input", { type: "checkbox", "aria-label": "Retained" });
+    const send = async () => {
+      const text = input.value.trim();
+      if (!text) { toast(false, "Type a message first"); input.focus(); return; }
+      if (await cmd({ node: node.id, action: "display", text, retain: retain.checked })) input.value = "";
+    };
+    input.addEventListener("keydown", (e) => { if (e.key === "Enter") send(); });
+    const box = el("div", { class: "aibox" },
+      el("div", { class: "ai-head" }, el("b", { text: node.label }), el("code", { class: "muted", text: node.id }), el("span", { class: "sp" }), think),
+      screen, meta,
+      el("div", { class: "ai-send" }, input, el("label", { class: "inline", title: "Keep it on the broker" }, retain, "retained"), el("button", { class: "small primary", onclick: send }, "Send")));
+    return { box, screen, think, meta, seq: 0 };
+  });
+  $("aiboxes").replaceChildren(...AIBOX.map((b) => b.box));
+}
+function renderAI(ai) {
+  AI = ai;
+  const inf = ai.inference, thinking = !!(inf && !inf.raw && inf.state === "start thinking" && inf.age_s < 300);
+  ai.latest.forEach((m, i) => {
+    const B = AIBOX[i];
+    if (!B) return;
+    B.think.hidden = !thinking;
+    if (!m) { B.screen.className = "screen none"; B.screen.textContent = "No message yet"; B.meta.replaceChildren(); return; }
+    if (m.seq !== B.seq) {
+      B.screen.textContent = m.text;
+      B.screen.className = "screen" + (B.seq ? " flash" : "");
+      B.seq = m.seq;
+    }
+    const len = [...m.text].length;
+    fill(B.meta,
+      el("span", { class: "count" + (len > ROOM_MSG_LIMIT ? " over" : ""), title: "Room messages are at most 60 characters", text: `${len}/${ROOM_MSG_LIMIT}` }),
+      m.ts ? el("span", { text: "ts " + m.ts }) : null,
+      el("span", { text: fmtAgo(m.age_s) }),
+      m.retained ? el("span", { class: "badge", text: "retained" }) : null,
+      m.raw ? el("span", { class: "badge bad", text: "not {text} JSON" }) : null,
+      m.truncated ? el("span", { class: "badge bad", text: "truncated" }) : null,
+      len > ROOM_MSG_LIMIT ? el("span", { class: "badge bad", text: "over 60 chars" }) : null);
+  });
+  const sm = ai.summary;
+  fill($("summary"),
+    el("b", { text: "Overall summary: " }),
+    sm ? el("span", { text: sm.text }) : el("span", { class: "muted", text: "none yet (intellithings/ai/summary)" }),
+    sm ? el("span", { class: "muted", text: ` · ${fmtAgo(sm.age_s)}${sm.retained ? " · retained" : ""}` }) : null,
+    el("span", { class: "muted", text: " · agent: " }),
+    el("b", { class: thinking ? "think" : "", text: thinking ? "thinking" : inf ? "idle" : "unknown" }));
+}
+function ingestMessages(items) {
+  if (!items.length) return;
+  ALLMSGS = items.slice().reverse().concat(ALLMSGS).slice(0, 20);
+  $("msgs").replaceChildren(...ALLMSGS.map((m) => el("div", { class: "msg" },
+    el("div", { class: "meta" }, el("span", { class: "room", text: m.room }), el("span", { text: m.node_id }),
+      m.ts ? el("span", { text: "ts " + m.ts }) : null, el("span", { text: m.received ? m.received.replace("T", " ") : "" }),
+      m.retained ? el("span", { class: "badge", text: "retained" }) : null,
+      m.raw ? el("span", { class: "badge bad", text: "not {text} JSON" }) : null),
+    el("div", { class: "text", text: m.text }))));
+}
+
+// ============================================================ demo mode
+const DEMO = { meta: null, values: null, seq: -1, rows: [], rolling: false, spin: null, spinning: new Set(), landTimers: [], group: "all", state: null, formFilled: false };
+const GROUP_BADGE = { normal: "ok", air: "warn", heat_cold: "warn", security: "bad", energy: "warn", hazard: "bad", random: "acc" };
+async function initDemo() {
+  try { DEMO.meta = await api("/api/demo/meta"); } catch (e) { setTimeout(initDemo, 3000); return; }
+  if (!DEMO.meta.entities) return;
+  const M = DEMO.meta;
+  DEMO.rows = M.entities.map((e, i) => {
+    const v = el("b"), alt = el("small");
+    const row = el("button", { class: "drow", title: e.key, onclick: () => openDemoEntity(i) },
+      el("span", { class: "dl", text: e.label }), el("span", { class: "dv" }, v, alt));
+    return { row, v, alt, e };
+  });
+  $("dhome").replaceChildren(...M.areas.map((a, ai) => el("div", { class: "darea" },
+    el("h3", {}, el("span", { text: a.label }), a.node_id ? el("span", { class: "badge acc", title: "Also published as this node's demo sensors", text: a.node_id }) : null),
+    DEMO.rows.filter((r) => r.e.area === ai).map((r) => r.row))));
+  renderPresetGroups();
+  $("roll-btn").onclick = async () => {
+    if (await cmd({ action: "demo", op: "roll" })) startRoll(((STATE && STATE.demo.roll_s) || 4) * 1000);
+  };
+  $("demo-publish").onchange = (e) => cmd({ action: "demo", op: "publish", on: e.target.checked });
+  $("demo-loop").onchange = (e) => cmd({ action: "demo", op: "loop", on: e.target.checked });
+  $("demo-interval").onchange = (e) => cmd({ action: "demo", op: "loop", interval_s: Number(e.target.value) });
+  $("demo-source").onchange = (e) => cmd({ action: "demo", op: "loop", source: e.target.value });
+  $("ds-apply").onclick = async () => {
+    if (await cmd({ action: "demo", op: "settings", roll_s: Number($("ds-roll").value), hold_s: Number($("ds-hold").value),
+      spread: $("ds-spread").value, abnormal_pct: Number($("ds-abn").value) })) {
+      cmd({ action: "demo", op: "loop", mix_pct: Number($("ds-mix").value) });
+    }
+  };
+  if (STATE) renderDemo(STATE.demo);
+  fetchDemo(true);
+}
+function demoText(e, v) {
+  if (v === null || v === undefined) return { main: "–", alt: "" };
+  if (e.type === "bool") return { main: e.labels[v >= 0.5 ? 1 : 0], alt: "" };
+  if (e.type === "enum") return { main: e.options[Math.round(v)] || "?", alt: "" };
+  if (e.unit === "°C") {
+    const c = v.toFixed(1) + " °C", f = cToF(v).toFixed(1) + " °F";
+    return prefs.temp === "f" ? { main: f, alt: "" } : prefs.temp === "c" ? { main: c, alt: "" } : { main: c, alt: f };
+  }
+  return { main: v.toFixed(e.dec) + (e.unit ? " " + e.unit : ""), alt: "" };
+}
+function demoAbnormal(e, v) {
+  if (e.type === "number" && e.normal) return v < e.normal[0] || v > e.normal[1];
+  if (e.type === "enum" && e.normal_options) return !e.normal_options.includes(e.options[Math.round(v)]);
+  return false;
+}
+function setRow(i, v, cls) {
+  const R = DEMO.rows[i], t = demoText(R.e, v);
+  R.v.textContent = t.main; R.alt.textContent = t.alt;
+  R.row.classList.toggle("abn", demoAbnormal(R.e, v));
+  R.row.classList.remove("spinning");
+  if (cls) { R.row.classList.remove(cls); void R.row.offsetWidth; R.row.classList.add(cls); }
+}
+function randomFor(e) {
+  if (e.type === "bool") return Math.random() < 0.5 ? 1 : 0;
+  if (e.type === "enum") return Math.floor(Math.random() * e.options.length);
+  return e.min + Math.random() * (e.max - e.min);
+}
+// Slot machine: every value spins until the board publishes the landed values.
+function startRoll(ms) {
+  if (DEMO.rolling || !DEMO.rows.length) return;
+  DEMO.rolling = true;
+  DEMO.landTimers.forEach(clearTimeout);
+  DEMO.landTimers = [];
+  DEMO.spinning = new Set(DEMO.rows.map((_, i) => i));
+  DEMO.rows.forEach((R) => { R.row.classList.add("spinning"); R.row.classList.remove("abn"); });
+  clearInterval(DEMO.spin);
+  DEMO.spin = setInterval(() => DEMO.spinning.forEach((i) => {
+    const R = DEMO.rows[i], t = demoText(R.e, randomFor(R.e));
+    R.v.textContent = t.main; R.alt.textContent = t.alt;
+  }), 70);
+  clearTimeout(DEMO.safety);
+  DEMO.safety = setTimeout(() => { if (DEMO.rolling) fetchDemo(true); }, (ms || 4000) + 6000);
+  schedulePoll();
+}
+// Settle one value at a time, top to bottom.
+function landRoll() {
+  clearTimeout(DEMO.safety);
+  DEMO.rows.forEach((_, i) => DEMO.landTimers.push(setTimeout(() => {
+    DEMO.spinning.delete(i);
+    setRow(i, DEMO.values[i], "landed");
+    if (!DEMO.spinning.size) { clearInterval(DEMO.spin); DEMO.rolling = false; }
+  }, i * 22)));
+}
+function tweenChange(old) {
+  DEMO.rows.forEach((R, i) => {
+    const a = old ? old[i] : null, b = DEMO.values[i];
+    if (a === b) { setRow(i, b); return; }
+    if (R.e.type !== "number" || a === null || a === undefined || reduceMotion) { setRow(i, b, old ? "landed" : null); return; }
+    const t0 = performance.now();
+    const step = (now) => {
+      const k = Math.min(1, (now - t0) / 600), v = a + (b - a) * (1 - Math.pow(1 - k, 3));
+      const t = demoText(R.e, Number(v.toFixed(R.e.dec)));
+      R.v.textContent = t.main; R.alt.textContent = t.alt;
+      if (k < 1) requestAnimationFrame(step); else setRow(i, b, "landed");
+    };
+    requestAnimationFrame(step);
+  });
+}
+async function fetchDemo(force) {
+  if (!DEMO.meta || DEMO.fetching) return;
+  DEMO.fetching = true;
+  try {
+    const d = await api("/api/demo");
+    if (d.values) {
+      const old = DEMO.values, changed = d.seq !== DEMO.seq;
+      DEMO.values = d.values;
+      DEMO.seq = d.seq;
+      if (DEMO.rolling) {
+        if (changed || force) landRoll();
+      } else if (changed || force) tweenChange(old);
+    }
+  } catch (e) { /* the next poll retries */ }
+  DEMO.fetching = false;
+}
+function renderPresetGroups() {
+  const M = DEMO.meta;
+  const add = (key, label) => el("button", { class: DEMO.group === key ? "active" : "", onclick: () => { DEMO.group = key; renderPresetGroups(); } }, label);
+  $("preset-groups").replaceChildren(add("all", `All ${M.presets.length}`),
+    ...M.groups.map((g) => add(g.key, `${g.label} (${M.presets.filter((p) => p.group === g.key).length})`)));
+  renderPresets();
+}
+function renderPresets() {
+  if (!DEMO.meta) return;
+  const cur = STATE && STATE.demo && STATE.demo.step.scenario_id;
+  $("presets").replaceChildren(...DEMO.meta.presets.filter((p) => DEMO.group === "all" || p.group === DEMO.group).map((p) =>
+    el("button", { class: "preset" + (p.id === cur ? " current" : ""), title: "Apply and hold this preset", onclick: () => cmd({ action: "demo", op: "preset", id: p.id }) },
+      el("span", { class: "pid", text: "#" + p.id }), el("span", { class: "pn", text: p.name }),
+      el("span", { class: "badge " + (GROUP_BADGE[p.group] || ""), text: p.group.replace("_", " & ") }))));
+}
+const mmss = (s) => Math.floor(s / 60) + ":" + pad2(Math.floor(s % 60));
+function renderDemo(d) {
+  if (!d || !DEMO.meta) return;
+  const prev = DEMO.state;
+  DEMO.state = d;
+  const st = $("demo-state");
+  st.className = "badge " + ({ looping: "ok", rolling: "acc", hold: "warn" }[d.state] || "");
+  st.textContent = d.state;
+  $("demo-step").textContent = (d.step.scenario_id ? `#${d.step.scenario_id} ` : "") + d.step.scenario;
+  const g = $("demo-group");
+  g.className = "badge " + (GROUP_BADGE[d.step.group] || "");
+  g.textContent = d.step.group.replace("_", " & ");
+  $("demo-next").textContent = d.state === "rolling" ? "Rolling… the values land when the board publishes them"
+    : d.state === "hold" ? `Holding for ${mmss(d.step_left_s)}` + (d.loop ? ", then the loop resumes" : "")
+    : d.state === "looping" ? `Next ${d.loop_source === "random" ? "roll" : d.loop_source === "mix" ? "step" : "preset"} in ${mmss(d.step_left_s)}`
+    : "Idle: turn on the loop, pick a preset or roll the house";
+  const btn = $("roll-btn"), sub = $("roll-sub");
+  btn.disabled = d.state === "rolling" || d.lock_left_s > 0;
+  btn.classList.toggle("spin", d.state === "rolling");
+  sub.textContent = d.state === "rolling" ? "rolling…" : d.lock_left_s > 0 ? "locked " + mmss(d.lock_left_s) : d.publish ? "" : "not publishing";
+  const setIf = (id, prop, v) => { const x = $(id); if (document.activeElement !== x) x[prop] = v; };
+  setIf("demo-publish", "checked", d.publish);
+  setIf("demo-loop", "checked", d.loop);
+  setIf("demo-interval", "value", d.interval_s);
+  setIf("demo-source", "value", d.loop_source);
+  if (!DEMO.formFilled) {
+    $("ds-roll").value = d.roll_s; $("ds-hold").value = d.hold_s; $("ds-spread").value = d.spread;
+    $("ds-abn").value = d.abnormal_pct; $("ds-mix").value = d.mix_pct;
+    DEMO.formFilled = true;
+  }
+  if (d.state === "rolling" && !DEMO.rolling) startRoll(d.roll_left_ms);
+  if (d.seq !== DEMO.seq) fetchDemo();
+  if (!prev || prev.step.scenario_id !== d.step.scenario_id) renderPresets();
+}
+async function openDemoEntity(i) {
+  const e = DEMO.meta.entities[i], area = DEMO.meta.areas[e.area];
+  const cv = el("canvas", { class: "chart" }), tbl = el("div", { class: "vwrap" });
+  const range = e.type === "number"
+    ? ` · caps ${e.min} – ${e.max} ${e.unit}` + (e.normal ? ` · normal ${e.normal[0]} – ${e.normal[1]}` : " · derived from other values")
+    : e.type === "enum" ? ` · options: ${e.options.join(", ")}` : ` · ${e.labels.join(" / ")}`;
+  openModal(`${area.label} · ${e.label}`, [
+    el("p", { class: "muted", style: "margin-top:0" }, el("code", { text: e.key }), range),
+    cv, el("h3", { style: "font-size:14px;margin:16px 0 0", text: "Last changes" }), tbl]);
+  let h;
+  try { h = await api("/api/demo/history"); } catch (err) { tbl.replaceChildren(el("p", { class: "empty", text: "Couldn't load the history." })); return; }
+  const scale = Math.pow(10, e.type === "number" ? e.dec : 0);
+  const items = h.items.map((it) => ({ t: it.t_s, v: it.v[i] / scale,
+    name: it.preset ? `#${it.preset} ${(DEMO.meta.presets[it.preset - 1] || {}).name || ""}` : `Random roll #${it.roll}` }));
+  const f = e.unit === "°C" && prefs.temp === "f";
+  const conv = f ? cToF : (x) => x;
+  const end = nowUp(), start = items.length ? Math.min(items[0].t, end - 60) - 10 : end - 600;
+  const ts = items.map((x) => x.t), vs = items.map((x) => conv(x.v));
+  if (items.length) { ts.push(end); vs.push(vs[vs.length - 1]); }
+  drawChart(cv, { t: ts, v: vs, start, end },
+    { style: "step", dec: e.dec, unit: f ? "°F" : e.unit, cat: e.type === "bool" ? e.labels : e.type === "enum" ? e.options : null, hoverX: null });
+  tbl.replaceChildren(el("table", { class: "vtable" },
+    el("thead", {}, el("tr", {}, el("th", { text: "Time" }), el("th", { text: "Value" }), el("th", { text: "Scenario" }))),
+    el("tbody", {}, items.slice().reverse().map((x) => {
+      const t = demoText(e, x.v);
+      return el("tr", {}, el("td", { text: clock(upToDate(x.t)) }),
+        el("td", { text: t.main + (t.alt ? " · " + t.alt : "") + (demoAbnormal(e, x.v) ? " ⚠" : "") }), el("td", { text: x.name }));
+    }))));
+}
+
+// ============================================================ status + badges
 function renderStatus(s) {
-  const kv = (k, v) => el("div", { class: "kv" }, el("div", { class: "k" }, k), el("div", { class: "v" }, v));
+  const kv = (k, v) => el("div", { class: "kv" }, el("div", { class: "k", text: k }), el("div", { class: "v", text: v }));
   $("status").replaceChildren(
-    kv("IP address", s.wifi.ip || "—"),
-    kv("Hostname", s.hostname + ".local"),
+    kv("IP address", s.wifi.ip || "—"), kv("Hostname", s.hostname + ".local"),
     kv("Wi-Fi", s.wifi.connected ? `${s.wifi.ssid} (${s.wifi.rssi} dBm)` : "disconnected"),
     kv("Wi-Fi reconnects", String(s.wifi.reconnects)),
-    kv("MQTT broker", s.mqtt.broker),
-    kv("Emulator MQTT", s.mqtt.emulator_connected ? "connected" : "disconnected"),
+    kv("MQTT broker", s.mqtt.broker + (s.mqtt.reconfiguring ? " (switching…)" : "")),
+    kv("Control connection", s.mqtt.emulator_connected ? "connected" : "disconnected"),
+    kv("Settings", s.config_saved ? "saved on the board" : "firmware defaults"),
     kv("Uptime", fmtUptime(s.uptime_s)),
-    kv("Free heap", `${Math.round(s.free_heap / 1024)} KB (min ${Math.round(s.min_free_heap / 1024)} KB)`),
-    kv("Local time", s.time.synced ? s.time.now.replace("T", " ") : "not synced (using boot clock)"),
+    kv("Free memory", `${Math.round(s.free_heap / 1024)} KB (lowest ${Math.round(s.min_free_heap / 1024)} KB)`),
+    kv("Local time", s.time.synced ? s.time.now.replace("T", " ") : "not synced"),
     kv("Publish interval", `${s.publish_interval_s} s · sim ×${s.sim_speed}`),
     kv("Firmware", s.fw),
-    kv("Last command", s.last_cmd ? `${s.last_cmd.ok ? "✔" : "✖"} ${s.last_cmd.msg}` : "—"),
-  );
+    kv("Last command", s.last_cmd ? `${s.last_cmd.ok ? "✔" : "✖"} ${s.last_cmd.msg}` : "—"));
   const set = (id, cls, text) => { const b = $(id); b.className = "badge " + cls; b.textContent = text; };
-  set("b-link", "ok", "panel connected");
+  set("b-link", "ok", "panel ✓");
   set("b-wifi", s.wifi.connected ? "ok" : "bad", s.wifi.connected ? `Wi-Fi ${s.wifi.rssi} dBm` : "Wi-Fi down");
   const up = s.nodes.filter((n) => n.mqtt === "connected").length;
-  set("b-mqtt", up === s.nodes.length ? "ok" : up ? "warn" : "bad", `MQTT ${up}/${s.nodes.length} nodes`);
-  set("b-time", s.time.synced ? "ok" : "warn", s.time.synced ? "clock synced" : "clock not synced");
+  set("b-mqtt", s.mqtt.reconfiguring ? "warn" : up === s.nodes.length ? "ok" : up ? "warn" : "bad",
+    s.mqtt.reconfiguring ? "MQTT switching…" : `MQTT ${up}/${s.nodes.length}`);
+  set("b-time", s.time.synced ? "ok" : "warn", s.time.synced ? "clock ✓" : "clock not synced");
+  $("ver").textContent = "v" + s.fw;
+}
+function showStatus() {
+  layout.hidden.status = false;
+  showTab("dev");
+  setFolded("status", false);
+  CARDS.find((c) => c.id === "status").card.scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
-function renderRooms(s) {
-  const rooms = $("rooms");
-  rooms.replaceChildren(...s.nodes.map((n) => {
-    const r = n.reading || {};
-    const badges = [el("span", { class: "badge " + (n.mode === "auto" ? "" : "warn") }, n.mode)];
-    if (n.scenario) badges.push(el("span", { class: "badge warn" }, `${n.scenario_label} · ${fmtDur(n.scenario_remaining_s)} left`));
-    if (n.auto_event) badges.push(el("span", { class: "badge" }, `auto: ${n.auto_event} · ${fmtDur(n.auto_event_remaining_s)}`));
-    const ovKeys = Object.keys(n.overrides || {});
-    if (ovKeys.length || n.presence_override !== null)
-      badges.push(el("span", { class: "badge warn" }, `override · ${fmtDur(n.override_remaining_s)}`));
-    badges.push(el("span", { class: "badge" }, `${n.occupants} occupant${n.occupants === 1 ? "" : "s"}`));
-
-    const cells = META.metrics.map((m) => el("div", {},
-      el("span", {}, m.label),
-      el("b", { class: n.overrides && n.overrides[m.key] ? "forced" : "" }, fmtVal(m, r[m.key]))));
-    cells.push(el("div", {}, el("span", {}, "Presence"),
-      el("b", { class: n.presence_override !== null ? "forced" : "" }, r.presence === undefined ? "–" : r.presence ? "present" : "empty")));
-
-    const stale = n.last_publish_age_s === null || n.last_publish_age_s > s.publish_interval_s * 3;
-    return el("div", { class: "card" },
-      el("div", { class: "room-head" }, el("span", { class: "dot" + (n.mqtt === "connected" ? " ok" : "") }),
-        el("h3", {}, n.label), el("span", { class: "id" }, n.id)),
-      el("div", { class: "mode" }, badges),
-      el("div", { class: "readings" }, cells),
-      el("div", { class: "room-foot" },
-        el("span", { class: "age" + (stale ? " stale" : "") },
-          n.last_publish_age_s === null ? "no reading yet" :
-          `published ${n.last_publish_age_s}s ago · ${n.publish_count} sent` + (n.mqtt === "connected" ? "" : " · MQTT offline")),
-        el("span", {},
-          el("button", { class: "small", onclick: () => cmd({ node: n.id, action: "clear" }) }, "↺ Normal"))));
-  }));
+// ============================================================ system log
+const LOG = { tab: "cmds", paused: false, lines: [], cmds: [], filter: "" };
+function cmdText(c) { return `${clock(upToDate(c.t_ms / 1000))}  ${c.ok ? "✔" : "✖"} [${c.source}] ${c.msg}`; }
+function lineEl(item) {
+  if (LOG.tab === "cmds") {
+    return el("div", {}, el("span", { class: "t", text: clock(upToDate(item.t_ms / 1000)) }),
+      el("span", { class: item.ok ? "ok" : "no", text: item.ok ? "✔ " : "✖ " }), `[${item.source}] ${item.msg}`);
+  }
+  const lv = item.text.charAt(0);
+  return el("div", { class: "lv-" + lv }, el("span", { class: "t", text: clock(upToDate(item.t_ms / 1000)) }), item.text);
+}
+const logText = (item) => (LOG.tab === "cmds" ? `[${item.source}] ${item.msg}` : item.text).toLowerCase();
+function renderLog(full, added) {
+  const box = $("log");
+  const atBottom = box.scrollHeight - box.scrollTop - box.clientHeight < 30;
+  const f = LOG.filter;
+  const items = (full ? (LOG.tab === "cmds" ? LOG.cmds : LOG.lines) : added).filter((it) => !f || logText(it).includes(f));
+  if (full) box.replaceChildren(...items.map(lineEl));
+  else box.append(...items.map(lineEl));
+  while (box.childElementCount > 500) box.firstChild.remove();
+  if (full && !items.length) box.replaceChildren(el("div", { class: "empty", text: LOG.tab === "cmds" ? "No commands yet." : "No log lines." }));
+  if (!LOG.paused && (atBottom || full)) box.scrollTop = box.scrollHeight;
+}
+function ingestLog(p) {
+  const nl = p.log.items, nc = p.cmds.items;
+  LOG.lines.push(...nl); LOG.cmds.push(...nc);
+  if (LOG.lines.length > 500) LOG.lines.splice(0, LOG.lines.length - 500);
+  if (LOG.cmds.length > 300) LOG.cmds.splice(0, LOG.cmds.length - 300);
+  const added = LOG.tab === "cmds" ? nc : nl;
+  if (added.length && !LOG.paused) {
+    if ($("log").querySelector(".empty")) renderLog(true); else renderLog(false, added);
+  }
+  const last = LOG.cmds[LOG.cmds.length - 1];
+  const ex = cardExtra("log");
+  if (ex) ex.textContent = last ? "last: " + (last.ok ? "✔ " : "✖ ") + last.msg : "";
+}
+function setupLog() {
+  const tab = (t) => { LOG.tab = t; $("log-cmds").classList.toggle("active", t === "cmds"); $("log-sys").classList.toggle("active", t === "sys"); renderLog(true); };
+  $("log-cmds").onclick = () => tab("cmds");
+  $("log-sys").onclick = () => tab("sys");
+  $("log-filter").oninput = (e) => { LOG.filter = e.target.value.trim().toLowerCase(); renderLog(true); };
+  $("log-pause").onclick = () => { LOG.paused = !LOG.paused; $("log-pause").textContent = LOG.paused ? "Resume" : "Pause"; if (!LOG.paused) renderLog(true); };
+  $("log-clear").onclick = () => { if (LOG.tab === "cmds") LOG.cmds = []; else LOG.lines = []; renderLog(true); };
+  $("log-dl").onclick = () => {
+    const items = (LOG.tab === "cmds" ? LOG.cmds : LOG.lines).filter((it) => !LOG.filter || logText(it).includes(LOG.filter));
+    const txt = items.map((it) => (LOG.tab === "cmds" ? cmdText(it) : clock(upToDate(it.t_ms / 1000)) + "  " + it.text)).join("\n") + "\n";
+    const a = el("a", { href: URL.createObjectURL(new Blob([txt], { type: "text/plain" })), download: `emulator-${LOG.tab === "cmds" ? "commands" : "log"}.txt` });
+    document.body.append(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  };
+  renderLog(true);
 }
 
-async function pollState() {
+// ============================================================ MQTT route diagram
+const EDGE_DEFS = {
+  nodesOut: { d: "M200,62 C270,62 270,112 330,112", label: "sensors · status", lx: 265, ly: 70, name: "Rooms → broker" },
+  nodesIn: { d: "M330,132 C270,132 270,92 200,92", label: "display", lx: 228, ly: 118, name: "Broker → rooms (AI messages)" },
+  ctrlOut: { d: "M200,166 C265,166 265,156 330,156", label: "state · demo · test msgs", lx: 265, ly: 152, name: "Control → broker" },
+  ctrlIn: { d: "M330,176 C265,176 265,190 200,190", label: "cmd · ai/*", lx: 265, ly: 200, name: "Broker → control" },
+  panel: { d: "M110,262 L110,206", label: "HTTP /api/cmd", lx: 118, ly: 238, name: "Panel / scripts → control" },
+  toHA: { d: "M480,112 C540,112 540,72 600,72", label: "expected · not visible", lx: 546, ly: 62, name: "Broker → Home Assistant", exp: true },
+  haAgent: { d: "M690,98 L690,198", label: "MCP", lx: 698, ly: 152, name: "Home Assistant ↔ agent", exp: true },
+  agentOut: { d: "M600,232 C540,232 540,170 480,170", label: "display · ai/* (via HA)", lx: 520, ly: 262, name: "Agent → broker (via HA)" },
+};
+const ROUTE = { svg: null, edges: {}, boxes: {}, events: [], sel: null, lastDisplayOut: {} };
+function buildRoute() {
+  const box = (id, x, y, w, h, title, sub) => {
+    const sub_ = sv("text", { x: x + 10, y: y + 38, class: "sm", text: sub || "" });
+    const g = sv("g", { class: "box" }, sv("rect", { x, y, width: w, height: h, rx: 10 }),
+      sv("text", { x: x + 10, y: y + 20, class: "ttl", text: title }), sub_);
+    ROUTE.boxes[id] = { g, sub: sub_ };
+    return g;
+  };
+  const svg = sv("svg", { viewBox: "0 0 800 300", role: "img", "aria-label": "MQTT route diagram" });
+  const gEdges = sv("g"), gBoxes = sv("g"), gLabels = sv("g");
+  for (const [id, e] of Object.entries(EDGE_DEFS)) {
+    const path = sv("path", { d: e.d, class: "edge" + (e.exp ? " exp" : "") });
+    const hit = sv("path", { d: e.d, class: "hit", onclick: () => selectEdge(id) });
+    hit.append(sv("title", { text: e.name }));
+    const lab = sv("text", { x: e.lx, y: e.ly, class: "elabel", "text-anchor": "middle", text: e.label });
+    gEdges.append(path, hit); gLabels.append(lab);
+    ROUTE.edges[id] = { path, lab, def: e, last: null, times: [] };
+  }
+  gBoxes.append(
+    box("nodes", 20, 40, 180, 70, "Emulated rooms", "kitchen · bedroom · living"),
+    box("ctrl", 20, 145, 180, 60, "Emulator control", "intellithings/emulator/*"),
+    box("panel", 20, 262, 180, 34, "This panel / scripts"),
+    box("broker", 330, 92, 150, 104, "MQTT broker", ""),
+    box("ha", 600, 40, 180, 58, "Home Assistant", "expected"),
+    box("agent", 600, 198, 180, 58, "AI agent (Pi)", "idle"));
+  svg.append(gEdges, gBoxes, gLabels);
+  ROUTE.svg = svg;
+  $("route").replaceChildren(svg);
+}
+function edgesFor(ev) {
+  switch (ev.kind) {
+    case "sensors": return ["nodesOut"];
+    case "status": return ev.topic.includes("/emulator/") ? ["ctrlOut"] : ["nodesOut"];
+    case "state": case "display_out": case "demo": return ["ctrlOut"];
+    case "display_in": {
+      const out = ROUTE.lastDisplayOut[ev.topic];
+      return out !== undefined && ev.t_ms - out < 3000 ? ["nodesIn"] : ["agentOut", "nodesIn"];
+    }
+    case "cmd_mqtt": return ["ctrlIn"];
+    case "ai_in": return ["agentOut", "ctrlIn"];
+    case "cmd_http": return ["panel"];
+    default: return [];
+  }
+}
+const reduceMotion = window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches;
+function pulse(id) {
+  const E = ROUTE.edges[id];
+  if (!E || reduceMotion || layout.collapsed.route || document.hidden) return;
+  const c = sv("circle", { r: 4.5, class: "pdot" });
+  const am = sv("animateMotion", { dur: "0.9s", fill: "freeze", begin: "indefinite", path: E.def.d });
+  c.append(am);
+  ROUTE.svg.append(c);
+  try { am.beginElement(); } catch (e) { /* no SMIL */ }
+  setTimeout(() => c.remove(), 1000);
+}
+function ingestRoutes(items) {
+  const hit = new Set();
+  for (const ev of items) {
+    if (ev.kind === "display_out") ROUTE.lastDisplayOut[ev.topic] = ev.t_ms;
+    for (const id of edgesFor(ev)) {
+      const E = ROUTE.edges[id];
+      E.last = ev; E.times.push(ev.t_ms);
+      hit.add(id);
+    }
+    ROUTE.events.push(ev);
+  }
+  if (ROUTE.events.length > 300) ROUTE.events.splice(0, ROUTE.events.length - 300);
+  hit.forEach(pulse);
+  if (ROUTE.sel && hit.has(ROUTE.sel)) renderEdgeList();
+}
+function drawRoute() {
+  if (!ROUTE.svg || !STATE) return;
+  const s = STATE, nowMs = nowUp() * 1000;
+  for (const [id, E] of Object.entries(ROUTE.edges)) {
+    E.times = E.times.filter((t) => nowMs - t < 60000);
+    const recent = E.last && nowMs - E.last.t_ms < 5000;
+    E.path.classList.toggle("recent", !!recent && !E.def.exp);
+    E.path.classList.toggle("sel", ROUTE.sel === id);
+    if (E.last) {
+      const topic = E.last.topic.replace(/^intellithings\//, "");
+      E.lab.textContent = `${topic} · ${fmtAgo((nowMs - E.last.t_ms) / 1000)}` + (E.times.length > 1 ? ` · ${E.times.length}/min` : "");
+    }
+  }
+  const up = s.nodes.filter((n) => n.mqtt === "connected").length;
+  const B = ROUTE.boxes;
+  B.nodes.g.setAttribute("class", "box " + (up === s.nodes.length ? "on" : "off"));
+  B.nodes.sub.textContent = `${up}/${s.nodes.length} connected · every ${s.publish_interval_s} s`;
+  B.ctrl.g.setAttribute("class", "box " + (s.mqtt.emulator_connected ? "on" : "off"));
+  B.broker.sub.textContent = s.mqtt.broker.replace("mqtt://", "") + (s.mqtt.reconfiguring ? " · switching" : "");
+  const inf = AI && AI.inference, thinking = !!(inf && inf.state === "start thinking" && inf.age_s < 300);
+  B.agent.g.setAttribute("class", "box" + (thinking ? " think" : ""));
+  B.agent.sub.textContent = thinking ? "thinking…" : inf ? `idle · last change ${fmtAgo(inf.age_s)}` : "no status seen yet";
+  const ha = ROUTE.edges.haAgent;
+  ha.path.classList.toggle("live", thinking);
+  ha.lab.textContent = thinking ? "MCP · agent running" : "MCP (when the agent runs)";
+}
+function selectEdge(id) {
+  ROUTE.sel = ROUTE.sel === id ? null : id;
+  drawRoute(); renderEdgeList();
+}
+function renderEdgeList() {
+  const box = $("edge-list");
+  if (!ROUTE.sel) { box.replaceChildren(el("span", { class: "muted", text: "Click a line to see its last messages." })); return; }
+  const E = ROUTE.edges[ROUTE.sel];
+  if (E.def.exp && ROUTE.sel === "toHA") {
+    box.replaceChildren(el("b", { text: E.def.name }), el("p", { class: "muted", text: "The broker doesn't tell the board who subscribes, so this line is never observed. Check Home Assistant's entities to confirm readings arrive." }));
+    return;
+  }
+  const evs = ROUTE.events.filter((ev) => edgesFor(ev).includes(ROUTE.sel)).slice(-8).reverse();
+  box.replaceChildren(el("b", { text: E.def.name }),
+    evs.length ? el("table", {}, el("tbody", {}, evs.map((ev) => el("tr", {},
+      el("td", { text: clock(upToDate(ev.t_ms / 1000)) }), el("td", { text: ev.kind }),
+      el("td", { class: "mono", text: ev.topic }), el("td", { text: ev.bytes + " B" })))))
+      : el("p", { class: "muted", text: ROUTE.sel === "haAgent" ? "Seen only through intellithings/ai/inference_status." : "Nothing seen on this line yet." }));
+}
+
+// ============================================================ guide
+let GUIDE = null;  // { doc, toc, secs }
+function esc(s) { return s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c])); }
+function inline(s) {
+  return s.split(/(`[^`]*`)/).map((part) => {
+    if (part.length > 1 && part[0] === "`" && part[part.length - 1] === "`") return "<code>" + esc(part.slice(1, -1)) + "</code>";
+    return esc(part)
+      .replace(/\*\*([^*]+)\*\*/g, "<b>$1</b>")
+      .replace(/(^|[\s(])\*([^*\s][^*]*?)\*(?=[\s).,:;]|$)/g, "$1<i>$2</i>")
+      .replace(/\[([^\]]+)\]\(([^)\s]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>');
+  }).join("");
+}
+function renderMarkdown(src) {
+  const lines = src.replace(/\r/g, "").split("\n");
+  const doc = el("div", { class: "gdoc" }), toc = el("nav", { class: "toc", "aria-label": "Guide contents" });
+  const secs = [];
+  let sec = el("section");
+  doc.append(sec); secs.push(sec);
+  let list = null, para = null;
+  const flush = () => { list = null; para = null; };
+  for (let i = 0; i < lines.length; i++) {
+    const ln = lines[i];
+    let m;
+    if (/^\s*```/.test(ln)) {
+      flush();
+      const code = [];
+      for (i++; i < lines.length && !/^\s*```/.test(lines[i]); i++) code.push(lines[i].replace(/^ {2}/, ""));
+      sec.append(el("pre", {}, el("code", { text: code.join("\n") })));
+    } else if ((m = ln.match(/^(#{1,4})\s+(.*)$/))) {
+      flush();
+      const lvl = m[1].length, id = slug(m[2].replace(/[`*]/g, ""));
+      const h = el("h" + lvl, { id: "g-" + id });
+      h.innerHTML = inline(m[2]);
+      if (lvl === 2 || lvl === 3) {
+        sec = el("section"); doc.append(sec); secs.push(sec);
+        toc.append(el("a", { href: "#g-" + id, class: "h" + lvl, onclick: (e) => { e.preventDefault(); h.scrollIntoView({ behavior: "smooth" }); } }, h.textContent));
+      }
+      sec.append(h);
+    } else if (/^\|/.test(ln) && i + 1 < lines.length && /^\|[\s:|-]+\|\s*$/.test(lines[i + 1])) {
+      flush();
+      const cells = (row) => row.trim().replace(/^\||\|$/g, "").split(/(?<!\\)\|/).map((c) => c.trim().replace(/\\\|/g, "|"));
+      const th = el("tr", {}, cells(ln).map((c) => { const e = el("th"); e.innerHTML = inline(c); return e; }));
+      const body = el("tbody");
+      for (i += 2; i < lines.length && /^\|/.test(lines[i]); i++) body.append(el("tr", {}, cells(lines[i]).map((c) => { const e = el("td"); e.innerHTML = inline(c); return e; })));
+      i--;
+      sec.append(el("table", {}, el("thead", {}, th), body));
+    } else if ((m = ln.match(/^(\s*)([-*]|\d+\.)\s+(.*)$/))) {
+      para = null;
+      const indent = m[1].length, ordered = /\d/.test(m[2]);
+      if (!list || indent > list.indent + 1) {
+        const parentLi = list && list.el.lastElementChild;
+        const nl = { el: el(ordered ? "ol" : "ul"), indent, parent: list };
+        (parentLi || sec).append(nl.el);
+        list = nl;
+      } else {
+        while (list.parent && indent < list.indent) list = list.parent;
+      }
+      const li = el("li");
+      li._raw = m[3];
+      li.innerHTML = inline(li._raw);
+      list.el.append(li);
+    } else if (!ln.trim()) {
+      para = null;
+      if (!(i + 1 < lines.length && /^\s+([-*]|\d+\.)\s/.test(lines[i + 1]))) list = null;
+    } else if (list && /^\s+/.test(ln)) {
+      const li = list.el.lastElementChild;
+      li._raw += " " + ln.trim();
+      // Keep nested lists: re-render only the item's own text.
+      const nested = [...li.children].filter((c) => c.tagName === "UL" || c.tagName === "OL");
+      li.innerHTML = inline(li._raw);
+      nested.forEach((c) => li.append(c));
+    } else {
+      list = null;
+      const text = ln.replace(/^>\s?/, "");
+      if (para) para._raw += " " + text;
+      else { para = el("p"); para._raw = text; sec.append(para); }
+      para.innerHTML = inline(para._raw);
+    }
+  }
+  secs.forEach((s) => (s.dataset.html = s.innerHTML));
+  return { doc, toc, secs };
+}
+function markText(root, words) {
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+  const nodes = [];
+  while (walker.nextNode()) nodes.push(walker.currentNode);
+  const re = new RegExp("(" + words.map((w) => w.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|") + ")", "gi");
+  for (const n of nodes) {
+    if (!re.test(n.nodeValue)) continue;
+    re.lastIndex = 0;
+    const frag = document.createDocumentFragment();
+    n.nodeValue.split(re).forEach((part, i) => frag.append(i % 2 ? el("mark", { text: part }) : part));
+    n.replaceWith(frag);
+  }
+}
+async function openGuide(anchor) {
+  const search = el("input", { type: "search", placeholder: "Search the guide…", "aria-label": "Search the guide" });
+  const count = el("span", { class: "gcount" });
+  const dl = el("a", { href: "/guide.md?download=1", download: "IntelliThings-emulator-guide.md", class: "small", text: "Download" });
+  const holder = el("div", { class: "guide" }, el("div", { class: "muted", text: "Loading the guide…" }));
+  openModal("User guide", holder, { tools: [search, count, dl], focus: search });
+  if (!GUIDE) {
+    try {
+      const r = await fetch("/guide.md", { cache: "no-store" });
+      GUIDE = renderMarkdown(await r.text());
+    } catch (e) { holder.replaceChildren(el("p", { class: "empty", text: "Couldn't load the guide from the board." })); return; }
+  }
+  const tocLinks = [...GUIDE.toc.querySelectorAll("a")];
+  holder.replaceChildren(GUIDE.toc, GUIDE.doc);
+  const run = () => {
+    const words = search.value.toLowerCase().split(/\s+/).filter(Boolean);
+    let shown = 0;
+    GUIDE.secs.forEach((s) => {
+      s.innerHTML = s.dataset.html;
+      const ok = !words.length || words.every((w) => s.textContent.toLowerCase().includes(w));
+      s.hidden = !ok;
+      if (ok) { shown++; if (words.length) markText(s, words); }
+    });
+    tocLinks.forEach((a) => { const h = document.getElementById(a.getAttribute("href").slice(1)); a.hidden = !h || h.closest("section").hidden; });
+    count.textContent = words.length ? `${shown} section${shown === 1 ? "" : "s"}` : "";
+    rewireToc();
+  };
+  const rewireToc = () => tocLinks.forEach((a) => (a.onclick = (e) => { e.preventDefault(); const h = document.getElementById(a.getAttribute("href").slice(1)); if (h) h.scrollIntoView({ behavior: "smooth" }); }));
+  search.oninput = run;
+  run();
+  if (anchor) {
+    const h = document.getElementById("g-" + anchor);
+    if (h) setTimeout(() => h.scrollIntoView({ block: "start" }), 50);
+  }
+}
+
+// ============================================================ settings
+async function openSettings() {
+  const f = {};
+  const input = (id, type, attrs = {}) => (f[id] = el("input", Object.assign({ type, id: "set-" + id }, attrs)));
+  const field = (id, label, ctl, note) => [el("label", { for: "set-" + id, text: label }), el("div", {}, ctl, note ? el("div", { class: "note", text: note }) : null)];
+  const result = el("div", { class: "result" });
+  const conn = el("div", { class: "note" });
+  const clearPw = el("input", { type: "checkbox", id: "set-clearpw" });
+  let CFG = null;
+  const mqtt = el("fieldset", {}, el("legend", { text: "MQTT broker" }),
+    el("div", { class: "form" },
+      field("host", "Host (Pi IP)", input("host", "text", { maxlength: 63, autocomplete: "off", spellcheck: "false" }), "The Raspberry Pi running Mosquitto, e.g. 192.168.1.2"),
+      field("port", "Port", input("port", "number", { min: 1, max: 65535 })),
+      field("username", "Username", input("username", "text", { maxlength: 32, autocomplete: "off" }), "Empty = anonymous (the team broker needs a login)"),
+      field("password", "Password", el("div", {}, input("password", "password", { maxlength: 64, autocomplete: "new-password" }),
+        el("label", { class: "inline", style: "margin-top:4px" }, clearPw, "clear the password"))),
+      field("keepalive", "Keepalive (s)", input("keepalive", "number", { min: 5, max: 120 }), "Last Will fires ~1.5× this after the board drops"),
+      field("publish", "Publish interval (ms)", input("publish", "number", { min: 1000, max: 60000, step: 500 }), "Every room publishes a full snapshot this often")),
+    el("div", { class: "row" },
+      el("button", { class: "primary", onclick: () => applyMqtt() }, "Apply & reconnect"),
+      el("button", { class: "danger", onclick: () => resetMqtt() }, "Restore defaults")),
+    conn, result);
+  const sel = (key, opts, onchange) => el("select", { onchange: (e) => { prefs[key] = typeof PREF_DEFAULTS[key] === "number" ? Number(e.target.value) : e.target.value; savePrefs(); if (onchange) onchange(); } },
+    opts.map(([v, l]) => el("option", { value: v, selected: String(prefs[key]) === String(v) }, l)));
+  const display = el("fieldset", {}, el("legend", { text: "Display (this browser)" }),
+    el("div", { class: "form" },
+      el("label", { text: "Temperature" }), sel("temp", [["both", "°C and °F"], ["c", "°C"], ["f", "°F"]], () => { if (STATE) renderRooms(STATE); }),
+      el("label", { text: "Plot window" }), sel("win", WINDOWS),
+      el("label", { text: "Chart style" }), sel("style", STYLES),
+      el("label", { text: "Refresh every" }), sel("refresh", [[1000, "1 s"], [1500, "1.5 s"], [3000, "3 s"], [5000, "5 s"]], schedulePoll),
+      el("label", { text: "Theme" }), sel("theme", [["auto", "Follow the system"], ["light", "Light"], ["dark", "Dark"]], () => { applyTheme(); redrawSparks(); })));
+  const layoutFs = el("fieldset", {}, el("legend", { text: "Layout (this browser)" }),
+    el("div", { class: "row", style: "margin-top:0" }, CARDS.map((c) => el("label", { class: "inline" },
+      el("input", { type: "checkbox", checked: !layout.hidden[c.id], onchange: (e) => { layout.hidden[c.id] = !e.target.checked; saveLayout(); applyLayout(); } }), c.title))),
+    el("div", { class: "row" }, el("button", { onclick: () => { layout = JSON.parse(JSON.stringify(LAYOUT_DEFAULTS)); saveLayout(); closeModal(); location.reload(); } }, "Reset layout")),
+    el("p", { class: "note", text: "Hidden cards disappear entirely; “hide” on a card only folds it." }));
+  openModal("Settings", [mqtt, display, layoutFs], { onUpdate: () => showConn() });
+
+  const showConn = () => {
+    if (!STATE) return;
+    const s = STATE, up = s.nodes.filter((n) => n.mqtt === "connected").length;
+    conn.textContent = `Now: ${s.mqtt.broker} · ${s.mqtt.reconfiguring ? "switching…" : `${up}/3 rooms + control ${s.mqtt.emulator_connected ? "connected" : "disconnected"}`} · ${s.config_saved ? "saved settings" : "firmware defaults"}`;
+  };
+  const load = async () => {
+    CFG = await api("/api/config");
+    f.host.value = CFG.host; f.port.value = CFG.port; f.username.value = CFG.username;
+    f.password.value = ""; clearPw.checked = false;
+    f.password.placeholder = CFG.password_set ? "set · leave empty to keep" : "none";
+    f.keepalive.value = CFG.keepalive_s; f.publish.value = CFG.publish_interval_ms;
+    showConn();
+  };
+  const report = (r) => { result.className = "result " + (r.ok ? "ok" : "bad"); result.textContent = (r.ok ? "✔ " : "✖ ") + r.msg; toast(r.ok, r.msg); };
+  async function applyMqtt() {
+    const body = {};
+    if (f.host.value.trim() !== CFG.host) body.host = f.host.value.trim();
+    if (Number(f.port.value) !== CFG.port) body.port = Number(f.port.value);
+    if (f.username.value !== CFG.username) body.username = f.username.value;
+    if (clearPw.checked) body.password = "";
+    else if (f.password.value !== "") body.password = f.password.value;
+    if (Number(f.keepalive.value) !== CFG.keepalive_s) body.keepalive_s = Number(f.keepalive.value);
+    if (Number(f.publish.value) !== CFG.publish_interval_ms) body.publish_interval_ms = Number(f.publish.value);
+    if (!Object.keys(body).length) { report({ ok: false, msg: "Nothing changed" }); return; }
+    const clearing = (CFG.username && body.username === "") || (CFG.password_set && body.password === "");
+    if (clearing && !confirm("Clearing the login makes the board reboot to apply it (about 20 s). Continue?")) return;
+    try { report(await api("/api/config", body)); await load(); poll(true); }
+    catch (e) { report({ ok: false, msg: "Emulator unreachable" }); }
+  }
+  async function resetMqtt() {
+    if (!confirm("Restore the broker settings the firmware was built with?")) return;
+    try { report(await api("/api/config/reset", {})); await load(); poll(true); }
+    catch (e) { report({ ok: false, msg: "Emulator unreachable" }); }
+  }
+  try { await load(); } catch (e) { result.className = "result bad"; result.textContent = "Couldn't read the settings from the board."; }
+}
+
+// ============================================================ poll loop
+function schedulePoll() {
+  clearTimeout(pollTimer);
+  const rolling = DEMO.rolling || (STATE && STATE.demo && STATE.demo.state === "rolling");
+  pollTimer = setTimeout(() => poll(), document.hidden ? 5000 : rolling ? 400 : prefs.refresh);
+}
+async function poll(now) {
+  if (polling) return;
+  polling = true;
+  clearTimeout(pollTimer);
   try {
-    const s = await api("/api/state");
-    STATE = s;
-    renderStatus(s);
-    renderRooms(s);
+    const p = await api(`/api/poll?log=${SEQ.log}&cmd=${SEQ.cmd}&ev=${SEQ.ev}&msg=${SEQ.msg}`);
+    if (!p.state) throw new Error("bad poll");
+    if (STATE && p.state.uptime_s + 5 < STATE.uptime_s) {
+      // The board rebooted: start over.
+      Object.keys(SEQ).forEach((k) => (SEQ[k] = 0));
+      LOG.lines = []; LOG.cmds = []; ALLMSGS = []; ROUTE.events = []; DEMO.seq = -1;
+      STATE = null; H = null;
+      toast(false, "The emulator rebooted");
+      polling = false;
+      await refreshHistory();
+      return poll(true);
+    }
+    STATE = p.state; stateAt = performance.now();
+    if (unreachable) { unreachable = false; refreshHistory(); }
+    SEQ.log = p.log.next; SEQ.cmd = p.cmds.next; SEQ.ev = p.routes.next; SEQ.msg = p.messages.next;
+    appendLive(STATE);
+    renderStatus(STATE);
+    renderRooms(STATE);
+    redrawSparks();
+    renderAI(p.ai);
+    ingestMessages(p.messages.items);
+    ingestLog(p);
+    ingestRoutes(p.routes.items);
+    drawRoute();
+    renderDemo(STATE.demo);
+    if (MODAL && MODAL.onUpdate) MODAL.onUpdate();
   } catch (e) {
+    unreachable = true;
     const b = $("b-link");
     b.className = "badge bad";
     b.textContent = "emulator unreachable";
   }
+  polling = false;
+  schedulePoll();
 }
+document.addEventListener("visibilitychange", () => { if (!document.hidden) poll(true); });
+window.addEventListener("resize", () => { clearTimeout(window._rs); window._rs = setTimeout(() => { redrawSparks(); if (MODAL && MODAL.onUpdate) MODAL.onUpdate(); }, 150); });
 
-async function pollMessages() {
-  try {
-    const j = await api("/api/messages");
-    const box = $("msgs");
-    if (!j.messages.length) return;
-    box.replaceChildren(...j.messages.map((m) => el("div", { class: "msg" },
-      el("div", { class: "meta" },
-        el("span", { class: "room" }, m.room),
-        el("span", {}, m.node_id),
-        m.ts ? el("span", {}, "ts " + m.ts) : null,
-        el("span", {}, m.age_s < 60 ? `${m.age_s}s ago` : `${Math.round(m.age_s / 60)} min ago`),
-        m.retained ? el("span", { class: "badge" }, "retained") : null,
-        m.raw ? el("span", { class: "badge bad" }, "not {text} JSON") : null),
-      el("div", { class: "text" }, m.text))));
-  } catch (e) { /* shown by the state poll */ }
-}
-
+// ============================================================ init
 async function init() {
+  applyTheme();
+  showTab(location.hash === "#demo" ? "demo" : location.hash === "#dev" ? "dev" : prefs.tab);
   try {
     META = await api("/api/meta");
+    if (!META.metrics) throw new Error("bad meta");
   } catch (e) {
     $("b-link").className = "badge bad";
     $("b-link").textContent = "emulator unreachable";
     setTimeout(init, 3000);
     return;
   }
-  buildControls();
-  $("test-room").replaceChildren(...META.nodes.map((n) => el("option", { value: n.id }, n.label)));
+  SERIES = META.metrics.concat([{ key: "presence", label: "Presence", unit: "", decimals: 0 }]);
+  $("ver").textContent = "v" + META.fw;
+  buildRooms();
+  buildEmulate();
+  buildAI();
+  buildRoute();
+  initDemo();
   $("btn-apply").onclick = applyRanges;
   $("btn-normal").onclick = () => cmd({ node: selected, action: "clear" });
   $("btn-reset").onclick = () => cmd({ node: selected, action: "reset" });
-  $("btn-test").onclick = async () => {
-    const text = $("test-text").value.trim();
-    if (!text) { toast(false, "Type a message first"); return; }
-    if (await cmd({ node: $("test-room").value, action: "display", text, retain: $("test-retain").checked })) {
-      setTimeout(pollMessages, 700);
-    }
-  };
-  pollState();
-  pollMessages();
-  setInterval(pollState, 1500);
-  setInterval(pollMessages, 2000);
+  await refreshHistory();
+  poll(true);
+  setInterval(() => refreshHistory("coarse"), 60000);
+  setInterval(() => refreshHistory("fine"), 300000);
 }
+$("tab-dev").onclick = () => showTab("dev");
+$("tab-demo").onclick = () => showTab("demo");
+["b-link", "b-wifi", "b-mqtt", "b-time"].forEach((id) => ($(id).onclick = showStatus));
+$("btn-guide").onclick = () => openGuide();
+$("btn-settings").onclick = () => openSettings();
+setupCards();
+setupLog();
 init();
 </script>
 </body>

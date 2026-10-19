@@ -6,9 +6,19 @@
 #include <stdbool.h>
 #include <stddef.h>
 
+#include "app_config.h"
+
 void ctrl_init(void);   // call once at boot
 void ctrl_start(void);  // emulator MQTT connection (after the first IP)
+void ctrl_mqtt_stop(void);  // for a broker change (not from an MQTT event handler)
+void ctrl_mqtt_restart(const app_config_t *cfg, const char *uri);
 bool ctrl_mqtt_connected(void);
+
+// Records a command result: last_cmd in the state, the command log and the serial log.
+void ctrl_record(const char *source, bool ok, const char *msg);
+
+// Publishes on the control connection (QoS 1, retained) and logs it as demo traffic.
+bool ctrl_publish_demo(const char *topic, const char *data, int len);
 
 // Runs a JSON command. Returns ok and writes a human-readable result into msg.
 bool ctrl_execute(const char *json, size_t len, const char *source, char *msg, size_t msg_len);

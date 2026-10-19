@@ -10,6 +10,9 @@
 #define TOPIC_EMULATOR_STATUS TOPIC_ROOT "/emulator/status"
 #define TOPIC_EMULATOR_STATE TOPIC_ROOT "/emulator/state"
 #define TOPIC_EMULATOR_CMD TOPIC_ROOT "/emulator/cmd"
+#define TOPIC_EMULATOR_DEMO TOPIC_ROOT "/emulator/demo"  // + /state, /home, /<node_id>/sensors
+#define TOPIC_AI_SUMMARY TOPIC_ROOT "/ai/summary"
+#define TOPIC_AI_INFERENCE TOPIC_ROOT "/ai/inference_status"
 
 // "intellithings/<node_id>/<leaf>". Returns false if it didn't fit.
 bool payload_topic(char *buf, size_t len, const char *node_id, const char *leaf);

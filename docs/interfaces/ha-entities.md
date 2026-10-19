@@ -70,3 +70,8 @@ isn't possible yet** (no `HassTurnOff`).
   weather), covering **everything that can change or be controlled** (readings, lights, doors,
   the car, presence), each with a **low/high cap** for the demo master's random rolls. **In demo
   mode the agent sees only these demo entities**; how HA switches the agent over is still open.
+  - **Draft to start from:** the emulator's demo-mode stand-in (v2.1.0) uses 61 entities in 9
+    areas. They are listed with their caps, normal ranges and options in
+    `ai/emulator/esp32_c3_emulator/demo/demo_home.json`, and published on the experimental
+    `intellithings/emulator/demo/home` topic ([`mqtt.md`](mqtt.md#reserved-intellithingsemulator)).
+  - **Still needs the AI lead's review.**

@@ -1,0 +1,8 @@
+# Emulator partition table (4 MB flash). Two app slots; the bootloader boots ota_0 until an
+# update selects ota_1. nvs keeps the offset and size of v0.1.0's table, so Wi-Fi data survives.
+# Name,   Type, SubType, Offset,   Size
+nvs,      data, nvs,     0x9000,   0x6000
+otadata,  data, ota,     0xf000,   0x2000
+phy_init, data, phy,     0x11000,  0x1000
+ota_0,    app,  ota_0,   0x20000,  0x1F0000
+ota_1,    app,  ota_1,   0x210000, 0x1F0000

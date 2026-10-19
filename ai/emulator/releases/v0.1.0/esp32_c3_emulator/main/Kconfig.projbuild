@@ -1,0 +1,94 @@
+menu "IntelliThings Emulator"
+
+    menu "Wi-Fi"
+        config EMU_WIFI_SSID
+            string "Wi-Fi SSID"
+            default ""
+            help
+                Network the emulator joins (2.4 GHz). Set in sdkconfig.local or here;
+                never in a tracked file.
+
+        config EMU_WIFI_PASSWORD
+            string "Wi-Fi password"
+            default ""
+    endmenu
+
+    menu "MQTT broker"
+        config EMU_MQTT_HOST
+            string "Broker host"
+            default "homeassistant.local"
+            help
+                Mosquitto broker (Home Assistant add-on). Hostname or IP.
+
+        config EMU_MQTT_PORT
+            int "Broker port"
+            default 1883
+            range 1 65535
+
+        config EMU_MQTT_USERNAME
+            string "Broker username (empty = anonymous)"
+            default ""
+
+        config EMU_MQTT_PASSWORD
+            string "Broker password"
+            default ""
+    endmenu
+
+    menu "Virtual nodes"
+        config EMU_NODE_ID_KITCHEN
+            string "Kitchen node ID"
+            default "emu-kitchen"
+
+        config EMU_NODE_ID_BEDROOM
+            string "Bedroom node ID"
+            default "emu-bedroom"
+
+        config EMU_NODE_ID_LIVING_ROOM
+            string "Living room node ID"
+            default "emu-living-room"
+    endmenu
+
+    config EMU_PUBLISH_INTERVAL_MS
+        int "Sensor publish interval (ms)"
+        default 3000
+        range 1000 60000
+        help
+            Every node publishes a full snapshot at this interval, even when nothing changed.
+
+    config EMU_SIM_TICK_MS
+        int "Simulation tick (ms)"
+        default 1000
+        range 200 5000
+
+    config EMU_SIM_SPEED
+        int "Simulation speed multiplier"
+        default 1
+        range 1 120
+        help
+            Speeds up environmental dynamics (CO2 build-up, decay, occupancy changes).
+            Time of day always follows the real clock.
+
+    config EMU_TIMEZONE
+        string "POSIX timezone"
+        default "EST5EDT,M3.2.0,M11.1.0"
+        help
+            Used for day/night behaviour and the "ts" field. Default: US Eastern (Indiana).
+
+    config EMU_NTP_SERVER
+        string "NTP server"
+        default "pool.ntp.org"
+
+    config EMU_FALLBACK_START_HOUR
+        int "Hour of day to assume until NTP syncs"
+        default 12
+        range 0 23
+
+    config EMU_HOSTNAME
+        string "Hostname (control panel at http://<hostname>.local/)"
+        default "intellithings-emu"
+
+    config EMU_LOG_READINGS
+        bool "Log every published snapshot on serial"
+        default y
+
+endmenu

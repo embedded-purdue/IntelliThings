@@ -16,9 +16,11 @@ menu "IntelliThings Emulator"
     menu "MQTT broker"
         config EMU_MQTT_HOST
             string "Broker host"
-            default "homeassistant.local"
+            default "192.168.1.2"
             help
-                Mosquitto broker (Home Assistant add-on). Hostname or IP.
+                Mosquitto broker (its own Docker container on the HA Pi). Hostname or IP; use
+                the IP, since homeassistant.local doesn't resolve on the team network. This is
+                the default: the panel's Settings can change it at runtime (saved in NVS).
 
         config EMU_MQTT_PORT
             int "Broker port"
@@ -32,6 +34,14 @@ menu "IntelliThings Emulator"
         config EMU_MQTT_PASSWORD
             string "Broker password"
             default ""
+
+        config EMU_MQTT_KEEPALIVE_S
+            int "Keepalive (s)"
+            default 15
+            range 5 120
+            help
+                The broker publishes the Last Will ("offline") about 1.5 x this after the
+                board drops.
     endmenu
 
     menu "Virtual nodes"
@@ -54,6 +64,7 @@ menu "IntelliThings Emulator"
         range 1000 60000
         help
             Every node publishes a full snapshot at this interval, even when nothing changed.
+            Default only; the panel's Settings can change it at runtime.
 
     config EMU_SIM_TICK_MS
         int "Simulation tick (ms)"

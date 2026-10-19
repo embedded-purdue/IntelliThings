@@ -106,6 +106,7 @@ and `intellithings/ai/summary`.
 | Part | Where | Owner |
 |---|---|---|
 | Demo master firmware: scenario library, randomizer, buzzer, web interface, MQTT | [`demo/demo-master/`](demo-master/) | **@spicybutter (PM)** — C on ESP-IDF, LuatOS ESP32-C3 Core (like the emulator) |
+| Test stand-in until the demo master exists: demo home (61 entities, 50 presets), loop, *Roll the house*, on `intellithings/emulator/demo/#` | [`ai/emulator/`](../ai/emulator/README.md#demo-mode) (emulator v2.1.0, experimental) | @spicybutter (PM) |
 | Scenario library drafts (50–200 groups) | `demo/demo-master/` | @spicybutter; drafts to be generated later |
 | Demo mode in the node firmware: show demo data from `intellithings/demo/<node_id>/sensors`; the hybrid node | `software/firmware/` | Software (@LukeTuthill) |
 | Demo or hybrid fields on the DWIN UI, if needed | VP map ([`docs/interfaces/display-vp-map.md`](../docs/interfaces/display-vp-map.md)) | @rakkicow (PM) |
