@@ -165,10 +165,51 @@ Tested (Oct 19, Pi still off):
 - [ ] For @ProgrammingJohn: stale "emulator needs an extra subscription" lines in
   `ai/docs/inference.md` and `ai/deployment/home_assistant/README.md` (listed in the PR)
 
-### Phase 6: soak and release (next, needs the Pi)
+### Phase 6: soak and release
 
-- [ ] Broker-up checks from phases 1–4 (above)
-- [ ] 2-hour soak: two browsers + `api_check.py` polling, a broker change mid-run, demo loop on
+**Broker-up tests, Oct 25 (team session; Pi, HA and the 5-min agent running).** Build:
+`2.1.0-dev` from phase 4 (the board ran it all week). New: `tests/mqtt_check.py` (MQTT-level
+checks, standard library only, login read from `sdkconfig.local`) and `tests/soak.py`.
+
+- [x] `mqtt_check.py`: 21/21 basics.
+  - The three rooms and the control connection are retained `online`.
+  - Snapshots arrive every 2.5–3.5 s with the contract's fields, ranges and `ts`.
+  - The retained emulator state is there.
+  - A command over MQTT shows in the state in 0.24–0.48 s.
+  - A test AI message makes the round trip; the room's previous retained message was put back
+    afterwards.
+  - The agent's summary, thinking state and the three room messages show on the board.
+- [x] **Demo topics:** `state`, `home` (9 areas, 61 values) and the three node topics are published
+  and retained for a new subscriber; turning publishing off announces `"publish":false`. 3 runs,
+  27/27.
+  - An apparent loss in the first run was the test checking before the burst had finished
+    (fixed in the test).
+- [x] **Broker switch away and back:** all 4 statuses go `offline` on the broker (the goodbye),
+  then all 4 are back `online` 0.6–7.7 s after switching back. No reboot.
+- [x] **Last Will:** board held in reset 35 s. All 4 statuses went `offline` after 22.8 s, and
+  back `online` 1.8 s after release.
+- [x] **`api_check.py --demo --broker-test`:** 91/91, including the display round trip that
+  couldn't run with the Pi off. The test sends a non-retained message to the bedroom, which HA's
+  bedroom AI sensor shows until the next agent run. The retained message was re-published after
+  the test.
+- [x] **Panel with real traffic:**
+  - The AI boxes show the agent's messages and the summary.
+  - The route view shows the room, state and agent traffic (63 snapshots/min).
+  - The **whole loop worked**: the MQTT-check's PM2.5 spike in the kitchen led the agent to
+    "Elevated particles; ventilate" on the kitchen box.
+  - An agent run lasts ~2 s (start → 3 room messages + summary → stop), so "thinking…" shows
+    for one or two panel refreshes.
+- [ ] **Heap, lowest point:** **41.5 KB** in the first minutes of the session (several panels
+  plus the test burst), under the 50 KB target. Free heap stays ~73–75 KB.
+  - **Steady state:** three simulated panels polling for a minute give a 53.6 KB low point, with
+    0 failed requests.
+  - **Cause:** transient — the state JSON is built as a cJSON tree (~10–16 KB) by the sim task
+    every 3 s *and* by every panel poll.
+  - **Fix to do:** stream the state JSON (like `/api/poll`'s other parts) instead of building a
+    tree.
+- [ ] Cosmetic: long topic labels in the route view overlap the rooms box
+- [ ] 2-hour soak (`soak.py`): started Oct 25 ~14:35 local (one simulated panel + the browser
+  pane, demo loop on with presets + rolls, broker switch at 60 min). Results below when done
 - [ ] `PROJECT_VER` → `2.1.0`; merged image + SHA-256 to the team Drive; tag `emulator-v2.1.0`
 
 ---

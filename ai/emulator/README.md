@@ -676,6 +676,17 @@ board (`--board <ip>` for another address). Edit, reload, repeat; flash once you
   python ai/emulator/tests/api_check.py --host 192.168.1.4 --broker-test  # + switch brokers and back
   ```
 
+- **[`tests/mqtt_check.py`](tests/mqtt_check.py):** checks what actually reaches the broker:
+  - retained statuses, snapshot timing and fields;
+  - commands over MQTT;
+  - the AI message round trip (it puts the room's previous retained message back afterwards);
+  - with `--demo`, the demo topics; with `--broker-switch`, a switch away and back.
+
+  It reads the broker login from `sdkconfig.local` and never prints it.
+- **[`tests/soak.py`](tests/soak.py):** a long run (default 2 h) with a simulated panel, the demo
+  loop, MQTT counting and a broker switch at the halfway point. It prints a summary of reboots,
+  heap and missed snapshots.
+
 - **Panel checklist:** [the guide's *How to test this portal*](GUIDE.md#how-to-test-this-portal).
 - **Test log:** results and open checks are in [`TODO.md`](TODO.md).
 
