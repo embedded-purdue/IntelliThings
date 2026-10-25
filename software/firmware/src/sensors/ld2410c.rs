@@ -2,7 +2,8 @@
 //! Sensor TX -> GPIO20, RX -> GPIO21, VCC -> 5 V, GND -> shared ground.
 //! OUT is unused. Disconnect the PMS5003 signal wires before using this test.
 //! Protocol: Hi-Link LD2410C Serial Communication Protocol V1.00, section 2.3.
-
+//! TEMP FILE, AI generated to test sensor
+//! 
 #[cfg(not(test))]
 pub use hardware::start;
 
@@ -95,7 +96,8 @@ impl Parser {
 mod hardware {
     use super::Parser;
     use embassy_executor::Spawner;
-    use embassy_time::{Duration, Instant, with_timeout};
+    use embassy_time::{Duration, Instant, Timer, with_timeout};
+    use embedded_io_async::Write;
     use esp_hal::{
         Async,
         peripherals::{GPIO20, GPIO21, UART1},
@@ -103,7 +105,7 @@ mod hardware {
     };
     use esp_println::println;
 
-    /// Start once after RTOS initialization. The sensor must use its default baud rate.
+    /// Start once after RTOS initialization. Probe the sensor's saved baud rate.
     pub fn start(spawner: Spawner, uart: UART1<'static>, rx: GPIO20<'static>, tx: GPIO21<'static>) {
         let uart = Uart::new(uart, Config::default().with_baudrate(256_000))
             .expect("Failed to initialize LD2410C UART1")
@@ -113,9 +115,119 @@ mod hardware {
         spawner.spawn(run(uart).expect("Failed to create LD2410C test task"));
     }
 
+    // Configuration packets and ACKs use a different header from radar reports.
+    // Commands must be sent at the sensor's CURRENT baud rate, even when setting
+    // a new baud rate. The new setting only takes effect after a sensor restart.
+    async fn command(uart: &mut Uart<'static, Async>, word: u8, value: Option<u16>) -> bool {
+        let mut packet = [0_u8; 14];
+        packet[..4].copy_from_slice(&[0xfd, 0xfc, 0xfb, 0xfa]);
+        let length = if value.is_some() { 4 } else { 2 };
+        packet[4] = length as u8;
+        packet[6] = word;
+        if let Some(value) = value {
+            packet[8..10].copy_from_slice(&value.to_le_bytes());
+        }
+        let total = length + 10;
+        packet[total - 4..total].copy_from_slice(&[4, 3, 2, 1]);
+
+        let mut received = 0_u32;
+        let mut errors = 0_u32;
+        let mut sample = [0_u8; 16];
+        let mut sample_count = 0;
+        let result = with_timeout(Duration::from_secs(1), async {
+            uart.write_all(&packet[..total]).await?;
+            Write::flush(uart).await?;
+            // Enter-config ACK has four extra bytes (protocol version / buffer
+            // size); the remaining commands here have only a status word.
+            let ack_len = if word == 0xff { 18 } else { 14 };
+            let mut window = [0_u8; 18];
+            let mut used = 0;
+            loop {
+                let mut incoming = [0_u8; 64];
+                let count = match uart.read_async(&mut incoming).await {
+                    Ok(count) => count,
+                    Err(_) => {
+                        // A baud change can leave a framing error from the last
+                        // probe. Keep listening until this command's deadline.
+                        errors += 1;
+                        used = 0;
+                        continue;
+                    }
+                };
+                received += count as u32;
+                for &byte in &incoming[..count] {
+                    if sample_count < sample.len() {
+                        sample[sample_count] = byte;
+                        sample_count += 1;
+                    }
+                    if used == ack_len {
+                        window.copy_within(1..ack_len, 0);
+                        used -= 1;
+                    }
+                    window[used] = byte;
+                    used += 1;
+                    if used == ack_len
+                        && window[..4] == [0xfd, 0xfc, 0xfb, 0xfa]
+                        && window[4..8] == [(ack_len - 10) as u8, 0, word, 1]
+                        && window[ack_len - 4..ack_len] == [4, 3, 2, 1]
+                    {
+                        return Ok::<bool, esp_hal::uart::IoError>(window[8..10] == [0, 0]);
+                    }
+                }
+            }
+        }).await;
+        match result {
+            Ok(Ok(true)) => {
+                println!("LD2410C command 0x{:02x}: ACK OK", word);
+                true
+            }
+            other => {
+                println!("LD2410C command 0x{:02x}: {:?}; received={} bytes errors={} first={:02x?}", word, other, received, errors, &sample[..sample_count]);
+                false
+            }
+        }
+    }
+
+    async fn configure_baud(uart: &mut Uart<'static, Async>) -> u32 {
+        Timer::after(Duration::from_secs(1)).await;
+        // All eight baud rates supported by the manufacturer's protocol.
+        // Only a complete successful config ACK identifies a matching rate.
+        for baud in [256_000, 115_200, 9_600, 19_200, 38_400, 57_600, 230_400, 460_800] {
+            uart.apply_config(&Config::default().with_baudrate(baud))
+                .expect("Failed to change LD2410C probe baud");
+            Timer::after(Duration::from_millis(100)).await;
+            println!("LD2410C: probing baud={}", baud);
+            if !command(uart, 0xff, Some(1)).await {
+                continue;
+            }
+            println!("LD2410C: sensor confirmed at {}; setting baud to 256000", baud);
+            if !command(uart, 0xa1, Some(7)).await {
+                command(uart, 0xfe, None).await;
+                println!("LD2410C: baud setting failed; continuing at {}", baud);
+                return baud;
+            }
+            // Restart inside config mode to apply the saved baud setting.
+            let restarted = command(uart, 0xa3, None).await;
+            uart.apply_config(&Config::default().with_baudrate(256_000))
+                .expect("Failed to select LD2410C report baud");
+            Timer::after(Duration::from_secs(1)).await;
+            if restarted {
+                println!("LD2410C: sensor restarted at 256000 baud");
+            } else {
+                println!("LD2410C: restart not confirmed; power cycle sensor to apply saved 256000 baud");
+            }
+            return 256_000;
+        }
+        uart.apply_config(&Config::default().with_baudrate(256_000))
+            .expect("Failed to restore LD2410C default baud");
+        println!("LD2410C: no config ACK at any supported baud; listening at 256000");
+        256_000
+    }
+
     #[embassy_executor::task]
     async fn run(mut uart: Uart<'static, Async>) {
-        println!("LD2410C: UART1 RX=GPIO20 TX=GPIO21, 256000 8N1; waiting for reports");
+        let baud = configure_baud(&mut uart).await;
+        println!("LD2410C: UART1 RX=GPIO20 TX=GPIO21, {} 8N1; waiting for reports", baud);
         let mut parser = Parser::new();
         let mut bytes = 0_u64;
         let mut frames = 0_u64;
@@ -191,7 +303,7 @@ mod hardware {
                         &sample[..sample_count]
                     );
                     println!(
-                        "Check sensor TX -> GPIO20, RX -> GPIO21, 5 V, shared GND and baud=256000"
+                        "Check sensor TX -> GPIO20, RX -> GPIO21, 5 V, shared GND and baud={}", baud
                     );
                 }
                 last_report = Instant::now();
