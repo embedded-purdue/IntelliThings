@@ -207,9 +207,27 @@ checks, standard library only, login read from `sdkconfig.local`) and `tests/soa
     every 3 s *and* by every panel poll.
   - **Fix to do:** stream the state JSON (like `/api/poll`'s other parts) instead of building a
     tree.
+  - **Done Oct 25 (streaming writer, `json_writer.c`):** the state goes straight into the HTTP
+    response (`/api/state`, `/api/poll`) and, for MQTT, into one 4 KB buffer per publish (the
+    JSON is ~2.3 KB). Locks are released before any write. Numbers and strings print like cJSON.
+    Old and new documents have the same 129 members, key order and types (`/api/state`, the poll's
+    `state`, the retained MQTT state).
+  - **Checks on the new build:** `mqtt_check.py --demo` 30/30. `api_check.py --demo` 86/86 twice.
+    The first run was 85/86: "loop steps through presets" saw one step in 14 s, not two. That's a
+    timing race in the test; the state it printed was correct.
+  - **After, three panels from boot (60 s, 117 polls, 0 failed):** lowest **55.1 KB** (before:
+    53.6 KB). Free heap 71–75 KB. The lowest was already 61.5 KB 29 s after boot.
+  - **After `api_check.py --demo` ×3 + `mqtt_check.py --demo`:** lowest **50.6 KB** (before:
+    41.5 KB with the test burst).
+  - **Still close to 50 KB.** The tree was only part of the dip. The rest looks like lwIP and Wi-Fi
+    buffers per concurrent response (TCP send buffer 5760 B per connection, up to 32 dynamic Wi-Fi
+    TX buffers). Next: tune those in `sdkconfig.defaults` and measure again.
 - [ ] Cosmetic: long topic labels in the route view overlap the rooms box
-- [ ] 2-hour soak (`soak.py`): started Oct 25 ~14:35 local (one simulated panel + the browser
-  pane, demo loop on with presets + rolls, broker switch at 60 min). Results below when done
+- [ ] 2-hour soak (`soak.py`): started Oct 25 14:32 local (one simulated panel + the browser
+  pane, demo loop on with presets + rolls, broker switch at 60 min). **Stopped at 31 min** on
+  @spicybutter's request, to flash the streaming-writer build. Up to then (old build, uptime 39
+  min): no reboot, Wi-Fi reconnects 0, all 4 MQTT connections up, free heap 73.7 KB, lowest
+  47.7 KB. The 2-hour run still needs a rerun on the new build.
 - [ ] `PROJECT_VER` → `2.1.0`; merged image + SHA-256 to the team Drive; tag `emulator-v2.1.0`
 
 ---

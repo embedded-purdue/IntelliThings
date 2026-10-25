@@ -1,7 +1,6 @@
 #include "web_server.h"
 
 #include <math.h>
-#include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -18,6 +17,7 @@
 #include "esp_timer.h"
 #include "event_log.h"
 #include "history.h"
+#include "json_writer.h"
 #include "mqtt_node.h"
 #include "time_sync.h"
 #include "virtual_node.h"
@@ -105,81 +105,37 @@ static uint32_t query_u32(httpd_req_t *req, const char *key)
     return query_param(req, key, v, sizeof(v)) ? (uint32_t)strtoul(v, NULL, 10) : 0;
 }
 
-// Chunked JSON writer: keeps big responses (poll) out of a cJSON tree and off the heap.
+// Chunked JSON responses: big documents go out through a small buffer, never as a cJSON tree.
 typedef struct {
     httpd_req_t *req;
     esp_err_t err;
-    size_t n;
-    char buf[768];
-} jw_t;
+} http_sink_t;
 
-static void jw_flush(jw_t *w)
+static bool http_sink(void *ctx, const char *data, size_t len)
 {
-    if (w->n && w->err == ESP_OK) {
-        w->err = httpd_resp_send_chunk(w->req, w->buf, w->n);
-    }
-    w->n = 0;
+    http_sink_t *s = ctx;
+    s->err = httpd_resp_send_chunk(s->req, data, len);
+    return s->err == ESP_OK;
 }
 
-static void jw_mem(jw_t *w, const char *s, size_t len)
+static http_sink_t s_sink;
+static char s_jw_buf[768];
+
+static jw_t *jw_begin(httpd_req_t *req)
 {
-    while (len) {
-        if (w->n == sizeof(w->buf)) {
-            jw_flush(w);
-        }
-        size_t k = sizeof(w->buf) - w->n;
-        k = len < k ? len : k;
-        memcpy(w->buf + w->n, s, k);
-        w->n += k;
-        s += k;
-        len -= k;
-    }
+    static jw_t w;  // httpd runs one handler at a time
+    s_sink.req = req;
+    s_sink.err = ESP_OK;
+    jw_init(&w, s_jw_buf, sizeof(s_jw_buf), http_sink, &s_sink);
+    httpd_resp_set_type(req, "application/json");
+    httpd_resp_set_hdr(req, "Cache-Control", "no-store");
+    return &w;
 }
 
-static void jw_raw(jw_t *w, const char *s)
+static esp_err_t jw_end(jw_t *w)
 {
-    jw_mem(w, s, strlen(s));
-}
-
-static void jw_printf(jw_t *w, const char *fmt, ...)
-{
-    char tmp[128];
-    va_list ap;
-    va_start(ap, fmt);
-    int n = vsnprintf(tmp, sizeof(tmp), fmt, ap);
-    va_end(ap);
-    if (n > 0) {
-        jw_mem(w, tmp, (size_t)n < sizeof(tmp) ? (size_t)n : sizeof(tmp) - 1);
-    }
-}
-
-static void jw_str(jw_t *w, const char *s)
-{
-    jw_mem(w, "\"", 1);
-    const char *run = s;
-    for (; *s; s++) {
-        unsigned char c = (unsigned char)*s;
-        if (c == '"' || c == '\\' || c < 0x20) {
-            jw_mem(w, run, s - run);
-            char esc[8];
-            if (c == '"' || c == '\\') {
-                esc[0] = '\\';
-                esc[1] = (char)c;
-                esc[2] = '\0';
-            } else {
-                snprintf(esc, sizeof(esc), "\\u%04x", c);
-            }
-            jw_raw(w, esc);
-            run = s + 1;
-        }
-    }
-    jw_mem(w, run, s - run);
-    jw_mem(w, "\"", 1);
-}
-
-static const char *jbool(bool b)
-{
-    return b ? "true" : "false";
+    jw_flush(w);
+    return s_sink.err != ESP_OK ? s_sink.err : httpd_resp_send_chunk(s_sink.req, NULL, 0);
 }
 
 // ---------------------------------------------------------------------------
@@ -215,7 +171,9 @@ static esp_err_t meta_get(httpd_req_t *req)
 
 static esp_err_t state_get(httpd_req_t *req)
 {
-    return send_json(req, ctrl_state_json());
+    jw_t *w = jw_begin(req);
+    ctrl_write_state(w);
+    return jw_end(w);
 }
 
 static esp_err_t messages_get(httpd_req_t *req)
@@ -372,51 +330,35 @@ static esp_err_t poll_get(httpd_req_t *req)
 {
     uint32_t a_log = query_u32(req, "log"), a_cmd = query_u32(req, "cmd");
     uint32_t a_ev = query_u32(req, "ev"), a_msg = query_u32(req, "msg");
-    char *state = ctrl_state_json();
-    if (!state) {
-        httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "out of memory");
-        return ESP_FAIL;
-    }
-    httpd_resp_set_type(req, "application/json");
-    httpd_resp_set_hdr(req, "Cache-Control", "no-store");
-
-    static jw_t w;  // 780 bytes; httpd runs one handler at a time
-    w.req = req;
-    w.err = ESP_OK;
-    w.n = 0;
+    jw_t *w = jw_begin(req);
     int64_t now = esp_timer_get_time();
 
-    jw_raw(&w, "{\"state\":");
-    jw_raw(&w, state);
-    cJSON_free(state);
-    jw_raw(&w, ",\"log\":");
-    write_lines(&w, a_log);
-    jw_raw(&w, ",\"cmds\":");
-    write_cmds(&w, a_cmd);
-    jw_raw(&w, ",\"routes\":");
-    write_routes(&w, a_ev);
-    jw_raw(&w, ",\"messages\":");
-    write_messages(&w, a_msg, now);
+    jw_raw(w, "{\"state\":");
+    ctrl_write_state(w);
+    jw_raw(w, ",\"log\":");
+    write_lines(w, a_log);
+    jw_raw(w, ",\"cmds\":");
+    write_cmds(w, a_cmd);
+    jw_raw(w, ",\"routes\":");
+    write_routes(w, a_ev);
+    jw_raw(w, ",\"messages\":");
+    write_messages(w, a_msg, now);
 
-    jw_raw(&w, ",\"ai\":{\"latest\":[");
+    jw_raw(w, ",\"ai\":{\"latest\":[");
     for (int i = 0; i < NODE_COUNT; i++) {
         ai_msg_t m;
-        jw_raw(&w, i ? "," : "");
+        jw_raw(w, i ? "," : "");
         if (ai_message_latest(i, &m)) {
-            write_msg(&w, &m, now);
+            write_msg(w, &m, now);
         } else {
-            jw_raw(&w, "null");
+            jw_raw(w, "null");
         }
     }
-    jw_raw(&w, "]");
-    write_ai_topic(&w, "summary", "text", AI_TOPIC_SUMMARY, now);
-    write_ai_topic(&w, "inference", "state", AI_TOPIC_INFERENCE, now);
-    jw_raw(&w, "}}");
-    jw_flush(&w);
-    if (w.err != ESP_OK) {
-        return w.err;
-    }
-    return httpd_resp_send_chunk(req, NULL, 0);
+    jw_raw(w, "]");
+    write_ai_topic(w, "summary", "text", AI_TOPIC_SUMMARY, now);
+    write_ai_topic(w, "inference", "state", AI_TOPIC_INFERENCE, now);
+    jw_raw(w, "}}");
+    return jw_end(w);
 }
 
 // ---------------------------------------------------------------------------
@@ -675,28 +617,6 @@ static esp_err_t config_reset_post(httpd_req_t *req)
 // ---------------------------------------------------------------------------
 // Demo mode: GET /api/demo/meta (static), /api/demo (current values), /api/demo/history
 
-static jw_t *jw_begin(httpd_req_t *req)
-{
-    static jw_t w;  // httpd runs one handler at a time
-    w.req = req;
-    w.err = ESP_OK;
-    w.n = 0;
-    httpd_resp_set_type(req, "application/json");
-    httpd_resp_set_hdr(req, "Cache-Control", "no-store");
-    return &w;
-}
-
-static esp_err_t jw_end(jw_t *w)
-{
-    jw_flush(w);
-    return w->err != ESP_OK ? w->err : httpd_resp_send_chunk(w->req, NULL, 0);
-}
-
-static void jw_num(jw_t *w, float v, int dec)
-{
-    jw_printf(w, "%.*f", dec, (double)v);
-}
-
 static esp_err_t demo_meta_get(httpd_req_t *req)
 {
     jw_t *w = jw_begin(req);
@@ -730,14 +650,14 @@ static esp_err_t demo_meta_get(httpd_req_t *req)
         jw_str(w, d->unit);
         jw_printf(w, ",\"type\":\"%s\",\"dec\":%u,\"derived\":%s,\"min\":", types[d->type],
                   (unsigned)d->dec, jbool(d->derive != DERIVE_NONE));
-        jw_num(w, d->min, d->dec);
+        jw_fixed(w, d->min, d->dec);
         jw_raw(w, ",\"max\":");
-        jw_num(w, d->max, d->dec);
+        jw_fixed(w, d->max, d->dec);
         if (d->type == DEMO_NUM && d->derive == DERIVE_NONE) {
             jw_raw(w, ",\"normal\":[");
-            jw_num(w, d->nmin, d->dec);
+            jw_fixed(w, d->nmin, d->dec);
             jw_raw(w, ",");
-            jw_num(w, d->nmax, d->dec);
+            jw_fixed(w, d->nmax, d->dec);
             jw_raw(w, "]");
         }
         if (d->options) {
@@ -801,7 +721,7 @@ static esp_err_t demo_get(httpd_req_t *req)
         if (e) {
             jw_raw(w, ",");
         }
-        jw_num(w, s.values.v[e], DEMO_ENTITIES[e].type == DEMO_NUM ? DEMO_ENTITIES[e].dec : 0);
+        jw_fixed(w, s.values.v[e], DEMO_ENTITIES[e].type == DEMO_NUM ? DEMO_ENTITIES[e].dec : 0);
     }
     jw_raw(w, "]}");
     return jw_end(w);
@@ -840,7 +760,7 @@ void web_server_start(void)
         return;
     }
     httpd_config_t cfg = HTTPD_DEFAULT_CONFIG();
-    cfg.stack_size = 8192;  // cJSON state document
+    cfg.stack_size = 8192;  // cJSON command parsing and small result documents
     cfg.lru_purge_enable = true;
     cfg.max_uri_handlers = 16;
     if (httpd_start(&server, &cfg) != ESP_OK) {
