@@ -4,8 +4,8 @@ Owner: @spicybutter · last updated 2026-10-18
 
 ## v2.1.0 progress
 
-Plan: [`PLAN-v2.1.0.md`](PLAN-v2.1.0.md) · branch `ai/emulator-v2` · the board runs the latest
-`2.1.0-dev` build. The rest of this file below is the v0.1.0 log; its frozen copy is in
+Plan: [`PLAN-v2.1.0.md`](PLAN-v2.1.0.md) · branch `ai/emulator-v2` · the board runs `2.1.1`
+(the latest build). The rest of this file below is the v0.1.0 log; its frozen copy is in
 [`releases/v0.1.0/`](releases/v0.1.0/README.md).
 
 ### Phase 0: freeze v0.1.0 (Oct 18)
@@ -261,7 +261,9 @@ checks, standard library only, login read from `sdkconfig.local`) and `tests/soa
       soak).
     - Demo and broker settings were back to idle/unsaved defaults afterwards.
   - The full 2-hour soak on this build is still open.
-- [ ] `PROJECT_VER` → `2.1.0`; merged image + SHA-256 to the team Drive; tag `emulator-v2.1.0`
+- [x] `PROJECT_VER` → `2.1.1` (Oct 25, on @spicybutter's request; `2.1.0` was never built as a
+  release)
+- [ ] Merged image + SHA-256 to the team Drive; tag `emulator-v2.1.1`
 
 ---
 

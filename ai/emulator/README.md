@@ -1,7 +1,7 @@
 # Emulator ESP32
 
-Owner: @spicybutter (PM) · AI subteam · firmware **v2.1.0** (in development; the board runs
-`2.1.0-dev` builds) · plan: [`PLAN-v2.1.0.md`](PLAN-v2.1.0.md) · progress and test log:
+Owner: @spicybutter (PM) · AI subteam · firmware **v2.1.1** (the board runs
+`2.1.1`) · plan: [`PLAN-v2.1.0.md`](PLAN-v2.1.0.md) · progress and test log:
 [`TODO.md`](TODO.md)
 
 One **LuatOS ESP32-C3 Core** board with no sensors attached, pretending to be **three
@@ -606,13 +606,12 @@ Exit the monitor with `Ctrl+]`.
   alone leaves the old table, and the board won't boot.
 - **After changing `sdkconfig.defaults`:** delete `sdkconfig` so the new defaults are picked up.
 
-**Version:** `PROJECT_VER` in `CMakeLists.txt` is the only place it's set. It's `2.1.0-dev`
-until the release.
+**Version:** `PROJECT_VER` in `CMakeLists.txt` is the only place it's set. It's `2.1.1`.
 
 ### Expected serial output
 
 ```
-I (414) emulator: IntelliThings emulator 2.1.0-dev booting: 3 virtual nodes
+I (414) emulator: IntelliThings emulator 2.1.1 booting: 3 virtual nodes
 I (424) config: Broker mqtt://192.168.1.2:1883, publish every 3000 ms (defaults)
 I (424) nodes: Kitchen      -> emu-kitchen
 I (424) nodes: Bedroom      -> emu-bedroom
