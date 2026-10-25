@@ -81,6 +81,13 @@ async fn main(spawner: Spawner) -> ! {
     let timg0 = TimerGroup::new(peripherals.TIMG0);
     esp_rtos::start(timg0.timer0, peripherals.FROM_CPU_INTR0);
 
+    sensors::pms5003::start(
+        spawner,
+        peripherals.LP_UART,
+        peripherals.GPIO4,
+        peripherals.GPIO5,
+    );
+
     sensors::ld2410c::start(
         spawner,
         peripherals.UART1,
