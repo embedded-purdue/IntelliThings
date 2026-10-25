@@ -248,7 +248,19 @@ checks, standard library only, login read from `sdkconfig.local`) and `tests/soa
   pane, demo loop on with presets + rolls, broker switch at 60 min). **Stopped at 31 min** on
   @spicybutter's request, to flash the streaming-writer build. Up to then (old build, uptime 39
   min): no reboot, Wi-Fi reconnects 0, all 4 MQTT connections up, free heap 73.7 KB, lowest
-  47.7 KB. The 2-hour run still needs a rerun on the new build.
+  47.7 KB.
+  - **On the tuned build:** a 2-hour rerun started 15:48 was stopped after ~3 min on
+    @spicybutter's request, in favour of a 10-minute run.
+  - **10-minute soak, Oct 25 15:52 (`soak.py --minutes 10`, broker switch at 5 min): no
+    problems.**
+    - No reboot (uptime 758 → 1341 s); Wi-Fi reconnects 0.
+    - Each room reconnected once, for the broker switch; all rooms back 4.9 s after switching back.
+    - 383 panel polls, 0 failed.
+    - 200 snapshots per room of ~205 expected (the switch costs a few); 9 demo home updates.
+    - Free heap 91.9–95.4 KB; lowest since boot 71.0 KB (set earlier by the test runs, not the
+      soak).
+    - Demo and broker settings were back to idle/unsaved defaults afterwards.
+  - The full 2-hour soak on this build is still open.
 - [ ] `PROJECT_VER` → `2.1.0`; merged image + SHA-256 to the team Drive; tag `emulator-v2.1.0`
 
 ---
