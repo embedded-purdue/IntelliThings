@@ -1,4 +1,6 @@
 mod bh1750;
+pub mod ld2410c;
+pub mod pms5003;
 mod scd41;
 mod sgp40;
 mod sht41;

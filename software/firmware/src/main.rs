@@ -41,7 +41,7 @@ esp_bootloader_esp_idf::esp_app_desc!();
     reason = "all bus users run sequentially in this task; each borrow ends before the next sensor call"
 )]
 #[esp_rtos::main]
-async fn main(_spawner: Spawner) -> ! {
+async fn main(spawner: Spawner) -> ! {
     // generator version: 1.4.0
     // generator parameters: -o esp32c6 -o esp32c6-wroom-1 -o unstable-hal -o alloc -o embassy -o wifi -o zed
 
@@ -81,6 +81,13 @@ async fn main(_spawner: Spawner) -> ! {
     let timg0 = TimerGroup::new(peripherals.TIMG0);
     esp_rtos::start(timg0.timer0, peripherals.FROM_CPU_INTR0);
 
+    sensors::pms5003::start(
+        spawner,
+        peripherals.UART1,
+        peripherals.GPIO20,
+        peripherals.GPIO21,
+    );
+    
     //let (_wifi_controller, _stack) = wifi::setup(spawner, peripherals.WIFI).await;
 
     // All I2C access stays sequential in this task. Release each temporary
@@ -111,6 +118,8 @@ async fn main(_spawner: Spawner) -> ! {
     }
 
     loop {
+        Timer::after(Duration::from_secs(1)).await;
+        continue;
         let result = {
             let mut i2c = bus.borrow_mut();
             sht41.read(&mut i2c).await
