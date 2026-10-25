@@ -1,6 +1,7 @@
 use embassy_executor::Spawner;
 use embassy_net::icmp::PacketMetadata;
 use embassy_net::icmp::ping::{PingManager, PingParams};
+use embassy_net::tcp::TcpSocket;
 use embassy_net::{Config as NetConfig, Runner, Stack, StackResources};
 use embassy_time::{Duration, Timer, with_timeout};
 use esp_hal::peripherals::WIFI;
@@ -10,8 +11,8 @@ use esp_radio::wifi::{
 };
 use static_cell::StaticCell;
 
-// DHCP keeps one socket occupied; the ping test needs a second socket.
-static NET_RESOURCES: StaticCell<StackResources<2>> = StaticCell::new();
+// Network resources for DHCP, diagnostics, and MQTT TCP.
+static NET_RESOURCES: StaticCell<StackResources<3>> = StaticCell::new();
 static ICMP_RX_META: StaticCell<[PacketMetadata; 1]> = StaticCell::new();
 static ICMP_TX_META: StaticCell<[PacketMetadata; 1]> = StaticCell::new();
 static ICMP_RX_BUFFER: StaticCell<[u8; 256]> = StaticCell::new();
@@ -44,15 +45,33 @@ async fn ping_smoke_test(stack: Stack<'static>) {
     }
 }
 
-pub async fn network_call(_stack: Stack<'static>) {
-    
+pub async fn network_call(stack: Stack<'static>) {
+    let mut rx_buffer = [0u8; 1024];
+    let mut tx_buffer = [0u8; 1024];
+
+    let mut socket = TcpSocket::new(stack, &mut rx_buffer, &mut tx_buffer);
+
+    socket.set_timeout(Some(Duration::from_secs(10)));
+
+    println!("Testing connection to MQTT broker...");
+
+    match socket
+        .connect((embassy_net::Ipv4Address::new(192, 168, 1, 2), 1883))
+        .await
+    {
+        Ok(()) => {
+            println!("Success: ESP32 reached MQTT broker port 1883");
+        }
+        Err(error) => {
+            println!("Failed to reach MQTT broker: {:?}", error);
+        }
+    }
 }
 
 /// Connects to Wi-Fi and runs a ping test if DHCP completes within 20 seconds.
 /// DHCP continues in the background after a timeout. Keep the returned controller
 /// alive for as long as the connection is needed; check stack readiness before use.
-pub async fn setup<'d>(spawner: Spawner, wifi: WIFI<'d>) ->
-    (WifiController<'d>, Stack<'static>) {
+pub async fn setup<'d>(spawner: Spawner, wifi: WIFI<'d>) -> (WifiController<'d>, Stack<'static>) {
     let wifi_ssid = option_env!("WIFI_SSID").unwrap_or("");
     let wifi_password = option_env!("WIFI_PASSWORD").unwrap_or("");
     if wifi_ssid.is_empty() || wifi_password.is_empty() {
@@ -98,7 +117,7 @@ pub async fn setup<'d>(spawner: Spawner, wifi: WIFI<'d>) ->
         println!("DHCP timed out; starting sensors while DHCP continues in the background");
         return (wifi_controller, stack);
     }
-    
+
     println!("DHCP configured");
     ping_smoke_test(stack).await;
 
