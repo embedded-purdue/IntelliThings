@@ -199,7 +199,7 @@ checks, standard library only, login read from `sdkconfig.local`) and `tests/soa
     "Elevated particles; ventilate" on the kitchen box.
   - An agent run lasts ~2 s (start → 3 room messages + summary → stop), so "thinking…" shows
     for one or two panel refreshes.
-- [ ] **Heap, lowest point:** **41.5 KB** in the first minutes of the session (several panels
+- [x] **Heap, lowest point:** **41.5 KB** in the first minutes of the session (several panels
   plus the test burst), under the 50 KB target. Free heap stays ~73–75 KB.
   - **Steady state:** three simulated panels polling for a minute give a 53.6 KB low point, with
     0 failed requests.
@@ -219,9 +219,30 @@ checks, standard library only, login read from `sdkconfig.local`) and `tests/soa
     53.6 KB). Free heap 71–75 KB. The lowest was already 61.5 KB 29 s after boot.
   - **After `api_check.py --demo` ×3 + `mqtt_check.py --demo`:** lowest **50.6 KB** (before:
     41.5 KB with the test burst).
-  - **Still close to 50 KB.** The tree was only part of the dip. The rest looks like lwIP and Wi-Fi
-    buffers per concurrent response (TCP send buffer 5760 B per connection, up to 32 dynamic Wi-Fi
-    TX buffers). Next: tune those in `sdkconfig.defaults` and measure again.
+  - **Still close to 50 KB after that.** The tree was only part of the dip; the rest was RAM-placed
+    Wi-Fi code and per-connection network buffers.
+  - **Tuned in `sdkconfig.defaults` (Oct 25), one change at a time.** Each row: rebuild, flash, then
+    three panels from boot for 60 s (117 polls, 0 failed, slowest poll 145–187 ms in every row).
+
+    | Change | Static RAM freed | Lowest free heap |
+    |---|---|---|
+    | Streaming state only (baseline, run twice) | – | 55.1 / 55.4 KB |
+    | Wi-Fi code in flash (`ESP_WIFI_IRAM_OPT`, `ESP_WIFI_RX_IRAM_OPT` off) | 19.7 KB | 65.2 KB |
+    | + TCP send buffer and window 5760 → 2880 | – | 72.7 KB |
+    | + dynamic Wi-Fi TX/RX buffers 32 → 16 | – | **76.7 KB** |
+
+    - Steady free heap is now ~94–95 KB (was ~74 KB).
+    - After all the checks below (`api_check.py --demo` ×4 incl. `--broker-test`,
+      `mqtt_check.py --demo`), the lowest point is **71.0 KB** (was 41.5 KB with the test burst).
+    - Not changed: static Wi-Fi RX buffers (10) and AMPDU. Shrinking them trades robustness for
+      headroom we no longer need.
+    - The biggest RAM user is still the app's own `.bss` (73 KB: history tiers, event log, AI
+      messages). That's by design.
+  - **Checks on the tuned build:** `mqtt_check.py --demo` 30/30; `api_check.py --demo` 86/86 ×3;
+    `--demo --broker-test` 91/91.
+    - The "loop steps through presets" failure was a race in the test: loop-on takes its first step
+      within one 200 ms demo tick, sometimes before the test read the starting `seq`. Fixed by
+      reading `seq` before turning the loop on.
 - [ ] Cosmetic: long topic labels in the route view overlap the rooms box
 - [ ] 2-hour soak (`soak.py`): started Oct 25 14:32 local (one simulated panel + the browser
   pane, demo loop on with presets + rolls, broker switch at 60 min). **Stopped at 31 min** on
