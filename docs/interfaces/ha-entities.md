@@ -151,6 +151,26 @@ Same sequence regardless of which row above you're building:
    per 5-minute run. Plan which devices are genuinely agent-controlled for the demo vs. visually
    driven by the emulator/demo master instead.
 
+## This week (Nov 1 milestone): what to actually build
+
+Project_Guideline.md §9 schedules "Dashboard incl. 3D/floor-plan view" for this session. Not
+every entity in the tables above needs to exist for that — split by what's already real vs. what
+still needs new harness code:
+
+**Build this week (no new code needed, just HA config):**
+- Real sensor entities — already exist via MQTT discovery (temperature, humidity, VOC, CO₂,
+  presence, etc.)
+- `light_on` / `window_open` per room, `door_open` + `car` in the garage, `front_door_locked` —
+  all already defined in `demo_home.json`; just need the matching HA template entities created
+  and exposed to Assist
+- These alone are enough for a working dashboard: real data drives the heatmaps, presence drives
+  room occupancy, lights are controllable today (`HassTurnOn` already supports on/off)
+
+**Stretch, not blocking this week:**
+- The 7 new appliance types (fan, AC, purifier, humidifier, TV, plug, vacuum) — covers/climate/
+  vacuum also need new code in `ai/agent/controls.py` before the agent can act on them, so these
+  can wait until after the dashboard itself is working
+
 ## Open points
 
 - Discovery for the real nodes on their per-node topics ([`mqtt.md`](mqtt.md#home-assistant-discovery-homeassistant)).
