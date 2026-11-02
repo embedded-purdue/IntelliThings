@@ -1,0 +1,256 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Display VP Map</title>
+<style>
+:root {
+  --bg: #ffffff; --fg: #17202a; --muted: #5b6878; --line: #dfe4ea; --soft: #f4f6f9;
+  --accent: #0f766e; --accent-soft: #e3f4f1; --code: #24303d; --tag: #9a3412; --tag-bg: #fff1e6;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0b0f14; --fg: #e8eef4; --muted: #93a1b2; --line: #243040; --soft: #121a23;
+    --accent: #5eead4; --accent-soft: #10282a; --code: #d6e2ee; --tag: #fdba74; --tag-bg: #2a1a0e;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0b0f14; --fg: #e8eef4; --muted: #93a1b2; --line: #243040; --soft: #121a23;
+  --accent: #5eead4; --accent-soft: #10282a; --code: #d6e2ee; --tag: #fdba74; --tag-bg: #2a1a0e;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--fg);
+  font: 15px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+main { max-width: 1180px; margin: 0 auto; padding: 32px 16px 64px; }
+h1 { font-size: 28px; margin: 0 0 4px; letter-spacing: -0.01em; }
+h2 { font-size: 19px; margin: 40px 0 6px; }
+h3 { font-size: 15px; margin: 0 0 6px; }
+p { margin: 6px 0 10px; }
+a { color: var(--accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
+code { font: 13px/1.4 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; color: var(--code); }
+.lede { color: var(--muted); max-width: 800px; }
+.cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 14px; margin: 20px 0 6px; }
+.card { border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; background: var(--soft); }
+.card ul { margin: 6px 0 0; padding-left: 18px; }
+.card li { margin: 4px 0; }
+.toc { list-style: none; padding: 0 !important; }
+.toc code.addr { display: inline-block; min-width: 118px; }
+.scroll { overflow-x: auto; border: 1px solid var(--line); border-radius: 10px; margin: 10px 0; }
+table { border-collapse: collapse; width: 100%; font-size: 14px; }
+th, td { text-align: left; vertical-align: top; padding: 8px 10px; border-bottom: 1px solid var(--line); }
+thead th { background: var(--soft); font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); white-space: nowrap; }
+tbody tr:last-child td { border-bottom: 0; }
+td.vp { white-space: nowrap; }
+td.vp code { color: var(--accent); font-weight: 600; }
+td.name { white-space: nowrap; }
+.sub, .mqtt { color: var(--muted); font-size: 12px; }
+.mqtt { margin-top: 4px; }
+.note { color: var(--muted); max-width: 900px; }
+.fine { color: var(--muted); font-size: 13px; }
+.tag { display: inline-block; font-size: 11px; color: var(--tag); background: var(--tag-bg); border-radius: 6px; padding: 0 6px; margin-left: 4px; white-space: nowrap; }
+ul.values { list-style: none; padding: 0; margin: 4px 0 0; }
+ul.values li { margin: 1px 0; }
+ul.values code { display: inline-block; min-width: 56px; }
+code.bytes { white-space: normal; word-break: break-word; }
+.key { display: inline-block; background: var(--accent-soft); border-radius: 6px; padding: 0 6px; font-weight: 600; }
+footer { margin-top: 48px; color: var(--muted); font-size: 13px; }
+@media print { .scroll { overflow: visible; } body { font-size: 12px; } h2 { break-after: avoid; } tr { break-inside: avoid; } }
+</style>
+</head>
+<body>
+<main>
+<h1>Companion display VP map</h1>
+<p class=lede>Version 1.0. What the node firmware writes to show real data on the IntelliThings
+display. Every value is a 16-bit word at a VP address, written with an ordinary DGUS II write
+frame, as the firmware architecture plans for the DWIN display. The display turns the values
+into the screens and the light bar; anything you don't write keeps its power-up value.</p>
+
+<div class=cards>
+ <div class=card>
+  <h3>Write frame</h3>
+  <p><code>5A A5 &lt;len&gt; 82 &lt;VP hi&gt; &lt;VP lo&gt; &lt;data…&gt;</code></p>
+  <ul>
+   <li><code>len</code> = 3 + data bytes. Data is whole 16-bit words, high byte first: at most 240 bytes (120 words) per frame. One frame may cover several variables in a row.</li>
+   <li>The display answers <code>5A A5 03 82 4F 4B</code> ("OK"). No CRC.</li>
+   <li>Read back: <code>5A A5 04 83 &lt;VP&gt; &lt;n&gt;</code> → <code>5A A5 &lt;4+2n&gt; 83 &lt;VP&gt; &lt;n&gt; &lt;words&gt;</code>.</li>
+  </ul>
+ </div>
+ <div class=card>
+  <h3>Values</h3>
+  <ul>
+   <li>Readings: <code>0x8000</code> = no reading. Temperature and humidity are × 10 (<code>224</code> = 22.4 °C); temperature is signed.</li>
+   <li><code>u32</code>: two words, high word first.</li>
+   <li>Text: UTF-8, two bytes per word (first byte in the high half), ending with a <code>0x00</code> byte. A first word of <code>0x0000</code> = empty.</li>
+   <li>Characters drawn: A–Z a–z 0–9 ! &quot; # $ % &amp; &#x27; ( ) * + , - . / : ; &lt; = &gt; ? @ [ \ ] ^ _ ` { | } ~ ° ₂ µ ³ · … ’ ‘ “ ” – — − ×. Others are skipped.</li>
+  </ul>
+ </div>
+ <div class=card>
+  <h3>Where to send it</h3>
+  <ul>
+   <li><b>Bench, now:</b> a UART to the companion ESP32-C6 that drives the panel, 115200 8N1, 3.3 V: node TX → companion <span class=key>GP2</span>, companion <span class=key>GP3</span> → node RX (for the "OK" replies), and GND to GND. Or from a laptop over the companion's USB with <code>tools/companion.py</code>.</li>
+   <li><b>One-chip node, later:</b> the same VPs, in-process: <code>companion_ui::vp::Inputs::write(vp, words, now)</code>.</li>
+  </ul>
+ </div>
+</div>
+
+<div class=cards>
+ <div class=card>
+  <h3>The minimum for a working demo</h3>
+  <ul>
+   <li><a href="#sensors">Sensor readings</a> every 0.5–1 s</li>
+   <li><a href="#connection"><code>wifi</code>, <code>hub</code>, <code>synced_ago</code></a> when they change</li>
+   <li><a href="#clock">The clock</a> once after SNTP</li>
+   <li><a href="#message"><code>message_text</code></a> (and <code>message_ts</code>) for each MQTT <code>…/display</code> message. The AI section shows about <b>110 characters</b> (80 with action chips).</li>
+  </ul>
+ </div>
+ <div class=card>
+  <h3>Map at a glance</h3>
+  <ul class=toc><li><a href="#sensors"><code class=addr>0x1000–0x1009</code> Sensor readings (this node)</a></li><li><a href="#connection"><code class=addr>0x1010–0x1013</code> Connection</a></li><li><a href="#clock"><code class=addr>0x1020–0x1022</code> Clock</a></li><li><a href="#settings"><code class=addr>0x1030–0x104B</code> Settings</a></li><li><a href="#status"><code class=addr>0x10F0–0x10F5</code> Display status (read-only)</a></li><li><a href="#message"><code class=addr>0x10FE–0x1255</code> AI message (the MQTT <code>…/display</code> payload)</a></li><li><a href="#toast"><code class=addr>0x1300–0x1333</code> Toast</a></li><li><a href="#alert"><code class=addr>0x1400–0x14E5</code> Alert</a></li><li><a href="#rooms"><code class=addr>0x1500–0x154E</code> Rooms page</a></li><li><a href="#boot"><code class=addr>0x1600–0x16B3</code> Boot checklist</a></li><li><a href="#setup"><code class=addr>0x1700–0x172F</code> Wi-Fi setup</a></li></ul>
+ </div>
+</div>
+
+<section id="sensors"><h2>Sensor readings (this node)</h2>
+<p class=note>Same order as the MQTT <code>…/sensors</code> snapshot, so one frame of 10 words sends them all. Write every 0.5–1 s or on change. <code>0x8000</code> = no reading (sensor missing or faulted): the tile shows <i>Waiting</i>.</p>
+<div class=scroll><table><thead><tr><th>VP</th><th>Name</th><th>Type</th><th>Units</th><th>Power-up</th><th>Meaning</th></tr></thead><tbody>
+<tr><td class=vp><code>0x1000</code></td><td class=name><code>temperature</code></td><td>i16</td><td>°C × 10, signed</td><td><code>0x8000</code></td><td>224 = 22.4 °C. Shown in °F or °C (see <code>units</code>).<div class=mqtt>MQTT <code>temperature_c</code></div></td></tr>
+<tr><td class=vp><code>0x1001</code></td><td class=name><code>humidity</code></td><td>u16</td><td>%RH × 10</td><td><code>0x8000</code></td><td>412 = 41.2 %<div class=mqtt>MQTT <code>humidity_pct</code></div></td></tr>
+<tr><td class=vp><code>0x1002</code></td><td class=name><code>voc_index</code></td><td>u16</td><td>index 1–500</td><td><code>0x8000</code></td><td>SGP40 VOC index (≈100 is typical)<div class=mqtt>MQTT <code>voc_index</code></div></td></tr>
+<tr><td class=vp><code>0x1003</code></td><td class=name><code>co2</code></td><td>u16</td><td>ppm</td><td><code>0x8000</code></td><td>SCD41, 400–5000<div class=mqtt>MQTT <code>co2_ppm</code></div></td></tr>
+<tr><td class=vp><code>0x1004</code></td><td class=name><code>lux</code></td><td>u16</td><td>lux, whole</td><td><code>0x8000</code></td><td>BH1750. Clamp brighter readings to 32767.<div class=mqtt>MQTT <code>lux</code></div></td></tr>
+<tr><td class=vp><code>0x1005</code></td><td class=name><code>distance</code></td><td>u16</td><td>mm</td><td><code>0x8000</code></td><td>VL53L0X. Accepted, not shown yet.<div class=mqtt>MQTT <code>distance_mm</code></div></td></tr>
+<tr><td class=vp><code>0x1006</code></td><td class=name><code>pm1_0</code></td><td>u16</td><td>µg/m³</td><td><code>0x8000</code></td><td>Accepted, not shown yet.<div class=mqtt>MQTT <code>pm1_0_ugm3</code></div></td></tr>
+<tr><td class=vp><code>0x1007</code></td><td class=name><code>pm2_5</code></td><td>u16</td><td>µg/m³</td><td><code>0x8000</code></td><td>PMS5003, 0–500<div class=mqtt>MQTT <code>pm2_5_ugm3</code></div></td></tr>
+<tr><td class=vp><code>0x1008</code></td><td class=name><code>pm10</code></td><td>u16</td><td>µg/m³</td><td><code>0x8000</code></td><td>Accepted, not shown yet.<div class=mqtt>MQTT <code>pm10_ugm3</code></div></td></tr>
+<tr><td class=vp><code>0x1009</code></td><td class=name><code>presence</code></td><td>u16</td><td></td><td><code>0x8000</code></td><td>LD2410C OUT. With no sensor (<code>0x8000</code>) the screen never switches to the away page.<ul class=values><li><code>0</code> nobody</li><li><code>1</code> someone&#x27;s there</li></ul><div class=mqtt>MQTT <code>presence</code></div></td></tr>
+</tbody></table></div>
+</section>
+<section id="connection"><h2>Connection</h2>
+<p class=note>Shown in the top bar and on the offline card.</p>
+<div class=scroll><table><thead><tr><th>VP</th><th>Name</th><th>Type</th><th>Units</th><th>Power-up</th><th>Meaning</th></tr></thead><tbody>
+<tr><td class=vp><code>0x1010</code></td><td class=name><code>wifi</code></td><td>u16</td><td></td><td><code>0 (disconnected)</code></td><td>Wi-Fi icon<ul class=values><li><code>0</code> disconnected</li><li><code>1</code> connected</li></ul></td></tr>
+<tr><td class=vp><code>0x1011</code></td><td class=name><code>hub</code></td><td>u16</td><td></td><td><code>0 (connecting)</code></td><td>MQTT broker / Home Assistant link. <i>offline</i> turns the AI card into the offline card.<ul class=values><li><code>0</code> connecting</li><li><code>1</code> online</li><li><code>2</code> offline</li></ul></td></tr>
+<tr><td class=vp><code>0x1012</code></td><td class=name><code>synced_ago</code></td><td>u16</td><td>seconds</td><td><code>0xFFFF</code></td><td>Since the last good exchange with the hub. Write 0 after each publish or message; the display counts up (“Synced 2 min ago”). <code>0xFFFF</code> = never.</td></tr>
+<tr><td class=vp><code>0x1013</code></td><td class=name><code>retry_in</code></td><td>u16</td><td>seconds</td><td><code>0</code></td><td>To the next reconnect attempt; the offline card counts down (“retry in 0:42”). 0 = no countdown.</td></tr>
+</tbody></table></div>
+</section>
+<section id="clock"><h2>Clock</h2>
+<p class=note>Write once after SNTP sync (again every hour is fine); the display keeps time from there.</p>
+<div class=scroll><table><thead><tr><th>VP</th><th>Name</th><th>Type</th><th>Units</th><th>Power-up</th><th>Meaning</th></tr></thead><tbody>
+<tr><td class=vp><code>0x1020–0x1021</code></td><td class=name><code>unix_time</code></td><td>u32</td><td>seconds since 1970 UTC</td><td><code>0</code></td><td>High word first. 0 = unknown: no clock shown.</td></tr>
+<tr><td class=vp><code>0x1022</code></td><td class=name><code>utc_offset</code></td><td>i16</td><td>minutes</td><td><code>0</code></td><td>Local offset from UTC: −240 = EDT, −300 = EST.</td></tr>
+</tbody></table></div>
+</section>
+<section id="settings"><h2>Settings</h2>
+<p class=note>Optional; the defaults suit the bench.</p>
+<div class=scroll><table><thead><tr><th>VP</th><th>Name</th><th>Type</th><th>Units</th><th>Power-up</th><th>Meaning</th></tr></thead><tbody>
+<tr><td class=vp><code>0x1030</code></td><td class=name><code>units</code></td><td>u16</td><td></td><td><code>0 (°F)</code></td><td>Temperature unit<ul class=values><li><code>0</code> °F</li><li><code>1</code> °C</li></ul></td></tr>
+<tr><td class=vp><code>0x1031</code></td><td class=name><code>clock_24h</code></td><td>u16</td><td></td><td><code>0 (12-hour)</code></td><td>Clock format<ul class=values><li><code>0</code> 12-hour</li><li><code>1</code> 24-hour</li></ul></td></tr>
+<tr><td class=vp><code>0x1032</code></td><td class=name><code>room</code></td><td>u16</td><td></td><td><code>0 (Living Room)</code></td><td>This node's room: its name in the top bar and the <i>This display</i> tile on the rooms page.<ul class=values><li><code>0</code> Living Room</li><li><code>1</code> Kitchen</li><li><code>2</code> Bedroom</li><li><code>3</code> Office</li><li><code>4</code> Entry</li></ul></td></tr>
+<tr><td class=vp><code>0x1033</code></td><td class=name><code>night_start</code></td><td>u16</td><td>minutes after midnight</td><td><code>1350</code></td><td>Night page from 22:30. <code>0xFFFF</code> = never.</td></tr>
+<tr><td class=vp><code>0x1034</code></td><td class=name><code>night_end</code></td><td>u16</td><td>minutes after midnight</td><td><code>390</code></td><td>Night page until 6:30</td></tr>
+<tr><td class=vp><code>0x1035</code></td><td class=name><code>away_after</code></td><td>u16</td><td>seconds</td><td><code>600</code></td><td>Away page after this long without presence. 0 = never.</td></tr>
+<tr><td class=vp><code>0x1036</code></td><td class=name><code>rotate_pages</code></td><td>u16</td><td></td><td><code>0 (off)</code></td><td>Off keeps the AI message on screen at all times (the team's layout rule).<ul class=values><li><code>0</code> off</li><li><code>1</code> sensors and rooms pages, 10 s each per minute</li></ul></td></tr>
+<tr><td class=vp><code>0x1037</code></td><td class=name><code>screen</code></td><td>u16</td><td></td><td><code>0 (automatic)</code></td><td>Force a screen, for testing<ul class=values><li><code>0</code> automatic</li><li><code>1</code> home</li><li><code>2</code> sensors</li><li><code>3</code> rooms</li><li><code>4</code> alert</li><li><code>5</code> night</li><li><code>6</code> away</li><li><code>7</code> boot</li><li><code>8</code> setup</li><li><code>9</code> test pattern</li></ul></td></tr>
+<tr><td class=vp><code>0x1038</code></td><td class=name><code>mode</code></td><td>u16</td><td></td><td><code>0 (auto: demo until the first write, then live)</code></td><td>Demo loop or live data<ul class=values><li><code>0</code> auto: demo until the first write, then live</li><li><code>1</code> live only</li><li><code>2</code> demo only</li></ul></td></tr>
+<tr><td class=vp><code>0x1039</code></td><td class=name><code>led_brightness</code></td><td>u16</td><td>%</td><td><code>100</code></td><td>Light bar, as a share of its safe maximum (0–100)</td></tr>
+<tr><td class=vp><code>0x103F</code></td><td class=name><code>inputs_reset</code></td><td>u16</td><td>command</td><td><code>0</code></td><td>Write <code>0x5AA5</code> to put every input back to its power-up value. Do it when the node boots.</td></tr>
+<tr><td class=vp><code>0x1040–0x104B</code></td><td class=name><code>room_name</code></td><td>text<div class=sub>24 bytes</div></td><td></td><td><code>empty</code></td><td>Overrides the top bar's room name. Empty = the name of <code>room</code>.</td></tr>
+</tbody></table></div>
+</section>
+<section id="status"><h2>Display status (read-only)</h2>
+<p class=note>Read with <code>5A A5 04 83 10 F0 06</code> to check the display is alive and what it shows.</p>
+<div class=scroll><table><thead><tr><th>VP</th><th>Name</th><th>Type</th><th>Units</th><th>Power-up</th><th>Meaning</th></tr></thead><tbody>
+<tr><td class=vp><code>0x10F0</code></td><td class=name><code>interface_version</code> <span class=tag>read-only</span></td><td>u16</td><td></td><td><code>0x0100</code></td><td><code>0x0100</code> = v1.0</td></tr>
+<tr><td class=vp><code>0x10F1</code></td><td class=name><code>panel_state</code> <span class=tag>read-only</span></td><td>u16</td><td></td><td><code>0 (no panel)</code></td><td>The DWIN panel behind the display<ul class=values><li><code>0</code> no panel</li><li><code>1</code> panel without the companion files</li><li><code>2</code> drawing</li></ul></td></tr>
+<tr><td class=vp><code>0x10F2</code></td><td class=name><code>screen_shown</code> <span class=tag>read-only</span></td><td>u16</td><td></td><td><code>0</code></td><td>Same codes as <code>screen</code><ul class=values><li><code>1</code> home</li><li><code>2</code> sensors</li><li><code>3</code> rooms</li><li><code>4</code> alert</li><li><code>5</code> night</li><li><code>6</code> away</li><li><code>7</code> boot</li><li><code>8</code> setup</li><li><code>9</code> test pattern</li></ul></td></tr>
+<tr><td class=vp><code>0x10F3</code></td><td class=name><code>mode_now</code> <span class=tag>read-only</span></td><td>u16</td><td></td><td><code>0 (demo)</code></td><td><ul class=values><li><code>0</code> demo</li><li><code>1</code> live</li></ul></td></tr>
+<tr><td class=vp><code>0x10F4</code></td><td class=name><code>writes_ok</code> <span class=tag>read-only</span></td><td>u16</td><td>count</td><td><code>0</code></td><td>Write frames applied (wraps)</td></tr>
+<tr><td class=vp><code>0x10F5</code></td><td class=name><code>writes_rejected</code> <span class=tag>read-only</span></td><td>u16</td><td>count</td><td><code>0</code></td><td>Write frames outside the map or to read-only words</td></tr>
+</tbody></table></div>
+</section>
+<section id="message"><h2>AI message (the MQTT <code>…/display</code> payload)</h2>
+<p class=note>The card shows the text until a different text arrives: no timeout, and rewriting the same text changes nothing. About <b>110 characters</b> fit (4 lines; 80 with action chips); longer text is cut with “…”. A new text also clears <code>thinking</code>.</p>
+<div class=scroll><table><thead><tr><th>VP</th><th>Name</th><th>Type</th><th>Units</th><th>Power-up</th><th>Meaning</th></tr></thead><tbody>
+<tr><td class=vp><code>0x10FE–0x10FF</code></td><td class=name><code>message_ts</code></td><td>u32</td><td>seconds since 1970 UTC</td><td><code>0</code></td><td>The payload's <code>ts</code>, for “2 min ago”. 0 = none: counted from arrival.<div class=mqtt>MQTT <code>ts</code></div></td></tr>
+<tr><td class=vp><code>0x1100–0x11FF</code></td><td class=name><code>message_text</code></td><td>text<div class=sub>512 bytes</div></td><td></td><td><code>empty</code></td><td>The payload's <code>text</code>. Empty = the card's idle line. 512 bytes take 3 frames: at 0x1100, 0x1178 and 0x11F0.<div class=mqtt>MQTT <code>text</code></div></td></tr>
+<tr><td class=vp><code>0x1200–0x121F</code></td><td class=name><code>thinking</code></td><td>text<div class=sub>64 bytes</div></td><td></td><td><code>empty</code></td><td>While not empty the card shows the spinning orb and this line (“Reading 6 sensors across 3 rooms…”). Write empty, or a new message, to end it.</td></tr>
+</tbody></table></div>
+<div class=scroll><table class=matrix><thead><tr><th>Field</th><th>Type</th><th>Meaning</th><th>Chip 1</th><th>Chip 2</th></tr></thead><tbody>
+<tr><td class=name><code>device</code></td><td>u16</td><td>Icon<ul class=values><li><code>0</code> fan</li><li><code>1</code> light</li><li><code>2</code> thermostat</li><li><code>3</code> purifier</li><li><code>4</code> humidifier</li><li><code>5</code> window</li><li><code>6</code> door</li><li><code>7</code> lock</li><li><code>0xFFFF</code> no chip</li></ul></td><td class=vp><code>0x1220</code></td><td class=vp><code>0x1240</code></td></tr>
+<tr><td class=name><code>label</code></td><td>text<div class=sub>28 bytes</div></td><td>“Fan”, “Close the bedroom door”</td><td class=vp><code>0x1221–0x122E</code></td><td class=vp><code>0x1241–0x124E</code></td></tr>
+<tr><td class=name><code>value</code></td><td>text<div class=sub>12 bytes</div></td><td>After an arrow: “40%”. Empty for none.</td><td class=vp><code>0x1230–0x1235</code></td><td class=vp><code>0x1250–0x1255</code></td></tr>
+</tbody></table></div>
+<p class=fine>Every entry has the same layout (stride <code>0x20</code>). In <code>dwin_vp.rs</code>: <code>CHIP1 + chip::VALUE</code>, or <code>MESSAGE_CHIPS[k]</code>.</p>
+</section>
+<section id="toast"><h2>Toast</h2>
+<p class=note>A banner over the home page for 5.5 s, for an action the user should notice.</p>
+<div class=scroll><table><thead><tr><th>VP</th><th>Name</th><th>Type</th><th>Units</th><th>Power-up</th><th>Meaning</th></tr></thead><tbody>
+<tr><td class=vp><code>0x1300</code></td><td class=name><code>toast_trigger</code></td><td>u16</td><td></td><td><code>0</code></td><td>Write a new value (count up) to show the toast. Fill the fields in the same frame or before.</td></tr>
+<tr><td class=vp><code>0x1301</code></td><td class=name><code>toast_device</code></td><td>u16</td><td></td><td><code>0 (fan)</code></td><td>Icon<ul class=values><li><code>0</code> fan</li><li><code>1</code> light</li><li><code>2</code> thermostat</li><li><code>3</code> purifier</li><li><code>4</code> humidifier</li><li><code>5</code> window</li><li><code>6</code> door</li><li><code>7</code> lock</li></ul></td></tr>
+<tr><td class=vp><code>0x1302–0x1315</code></td><td class=name><code>toast_title</code></td><td>text<div class=sub>40 bytes</div></td><td></td><td><code>empty</code></td><td>“Lights dimmed to 30%”</td></tr>
+<tr><td class=vp><code>0x1316–0x1333</code></td><td class=name><code>toast_detail</code></td><td>text<div class=sub>60 bytes</div></td><td></td><td><code>empty</code></td><td>“Living Room · after sunset, someone's here”</td></tr>
+</tbody></table></div>
+</section>
+<section id="alert"><h2>Alert</h2>
+<p class=note>Takes over the screen while active.</p>
+<div class=scroll><table><thead><tr><th>VP</th><th>Name</th><th>Type</th><th>Units</th><th>Power-up</th><th>Meaning</th></tr></thead><tbody>
+<tr><td class=vp><code>0x1400</code></td><td class=name><code>alert_active</code></td><td>u16</td><td></td><td><code>0 (no alert)</code></td><td><ul class=values><li><code>0</code> no alert</li><li><code>1</code> alert page</li></ul></td></tr>
+<tr><td class=vp><code>0x1401</code></td><td class=name><code>alert_metric</code></td><td>u16</td><td></td><td><code>0 (temperature)</code></td><td>The reading in trouble<ul class=values><li><code>0</code> temperature</li><li><code>1</code> humidity</li><li><code>2</code> CO₂</li><li><code>3</code> PM2.5</li><li><code>4</code> VOC index</li><li><code>5</code> light</li></ul></td></tr>
+<tr><td class=vp><code>0x1402</code></td><td class=name><code>alert_value</code></td><td>i16</td><td>as the sensor block</td><td><code>0</code></td><td>Shown big. Same scaling as that reading: temperature °C × 10, humidity × 10, others whole.</td></tr>
+<tr><td class=vp><code>0x1403</code></td><td class=name><code>alert_since</code></td><td>u16</td><td>seconds</td><td><code>0</code></td><td>Since it started; the display counts up.</td></tr>
+<tr><td class=vp><code>0x1404–0x1417</code></td><td class=name><code>alert_title</code></td><td>text<div class=sub>40 bytes</div></td><td></td><td><code>empty</code></td><td>“Smoke or cooking particles”</td></tr>
+<tr><td class=vp><code>0x1418–0x1423</code></td><td class=name><code>alert_place</code></td><td>text<div class=sub>24 bytes</div></td><td></td><td><code>empty</code></td><td>“Kitchen”</td></tr>
+<tr><td class=vp><code>0x1424–0x1431</code></td><td class=name><code>alert_normal</code></td><td>text<div class=sub>28 bytes</div></td><td></td><td><code>empty</code></td><td>“Normal is under 12”</td></tr>
+<tr><td class=vp><code>0x1432–0x1481</code></td><td class=name><code>alert_message</code></td><td>text<div class=sub>160 bytes</div></td><td></td><td><code>empty</code></td><td>“Probably the stove. I'll tell you when the air clears.”</td></tr>
+</tbody></table></div>
+<div class=scroll><table class=matrix><thead><tr><th>Field</th><th>Type</th><th>Meaning</th><th>Done 1</th><th>Done 2</th><th>Request for the user</th></tr></thead><tbody>
+<tr><td class=name><code>device</code></td><td>u16</td><td>Icon<ul class=values><li><code>0</code> fan</li><li><code>1</code> light</li><li><code>2</code> thermostat</li><li><code>3</code> purifier</li><li><code>4</code> humidifier</li><li><code>5</code> window</li><li><code>6</code> door</li><li><code>7</code> lock</li><li><code>0xFFFF</code> no chip</li></ul></td><td class=vp><code>0x1490</code></td><td class=vp><code>0x14B0</code></td><td class=vp><code>0x14D0</code></td></tr>
+<tr><td class=name><code>label</code></td><td>text<div class=sub>28 bytes</div></td><td>“Fan”, “Close the bedroom door”</td><td class=vp><code>0x1491–0x149E</code></td><td class=vp><code>0x14B1–0x14BE</code></td><td class=vp><code>0x14D1–0x14DE</code></td></tr>
+<tr><td class=name><code>value</code></td><td>text<div class=sub>12 bytes</div></td><td>After an arrow: “40%”. Empty for none.</td><td class=vp><code>0x14A0–0x14A5</code></td><td class=vp><code>0x14C0–0x14C5</code></td><td class=vp><code>0x14E0–0x14E5</code></td></tr>
+</tbody></table></div>
+<p class=fine>Every entry has the same layout (stride <code>0x20</code>). In <code>dwin_vp.rs</code>: <code>ALERT_DONE1 + chip::VALUE</code>, or <code>ALERT_CHIPS[k]</code>.</p>
+</section>
+<section id="rooms"><h2>Rooms page</h2>
+<p class=note>One entry per room in the rooms page's layout. Fill them from the other nodes' <code>…/sensors</code> snapshots; the display works out each room's colour and word (“Air fresh”, “Particles up”) from the readings.</p>
+<div class=scroll><table class=matrix><thead><tr><th>Field</th><th>Type</th><th>Meaning</th><th>Living Room</th><th>Kitchen</th><th>Bedroom</th><th>Office</th><th>Entry</th></tr></thead><tbody>
+<tr><td class=name><code>online</code></td><td>u16</td><td>Automatic: this node's own room fills itself from the sensor block; other rooms show offline.<ul class=values><li><code>0</code> offline</li><li><code>1</code> online</li><li><code>0xFFFF</code> automatic</li></ul></td><td class=vp><code>0x1500</code></td><td class=vp><code>0x1510</code></td><td class=vp><code>0x1520</code></td><td class=vp><code>0x1530</code></td><td class=vp><code>0x1540</code></td></tr>
+<tr><td class=name><code>temperature</code></td><td>i16<div class=sub>°C × 10</div></td><td></td><td class=vp><code>0x1501</code></td><td class=vp><code>0x1511</code></td><td class=vp><code>0x1521</code></td><td class=vp><code>0x1531</code></td><td class=vp><code>0x1541</code></td></tr>
+<tr><td class=name><code>humidity</code></td><td>u16<div class=sub>%RH × 10</div></td><td></td><td class=vp><code>0x1502</code></td><td class=vp><code>0x1512</code></td><td class=vp><code>0x1522</code></td><td class=vp><code>0x1532</code></td><td class=vp><code>0x1542</code></td></tr>
+<tr><td class=name><code>co2</code></td><td>u16<div class=sub>ppm</div></td><td></td><td class=vp><code>0x1503</code></td><td class=vp><code>0x1513</code></td><td class=vp><code>0x1523</code></td><td class=vp><code>0x1533</code></td><td class=vp><code>0x1543</code></td></tr>
+<tr><td class=name><code>pm2_5</code></td><td>u16<div class=sub>µg/m³</div></td><td></td><td class=vp><code>0x1504</code></td><td class=vp><code>0x1514</code></td><td class=vp><code>0x1524</code></td><td class=vp><code>0x1534</code></td><td class=vp><code>0x1544</code></td></tr>
+<tr><td class=name><code>voc_index</code></td><td>u16<div class=sub>index</div></td><td></td><td class=vp><code>0x1505</code></td><td class=vp><code>0x1515</code></td><td class=vp><code>0x1525</code></td><td class=vp><code>0x1535</code></td><td class=vp><code>0x1545</code></td></tr>
+<tr><td class=name><code>presence</code></td><td>u16</td><td><ul class=values><li><code>0</code> nobody</li><li><code>1</code> someone&#x27;s there</li></ul></td><td class=vp><code>0x1506</code></td><td class=vp><code>0x1516</code></td><td class=vp><code>0x1526</code></td><td class=vp><code>0x1536</code></td><td class=vp><code>0x1546</code></td></tr>
+<tr><td class=name><code>note</code></td><td>text<div class=sub>16 bytes</div></td><td>Rooms without a node: “Lights on”</td><td class=vp><code>0x1507–0x150E</code></td><td class=vp><code>0x1517–0x151E</code></td><td class=vp><code>0x1527–0x152E</code></td><td class=vp><code>0x1537–0x153E</code></td><td class=vp><code>0x1547–0x154E</code></td></tr>
+</tbody></table></div>
+<p class=fine>Every entry has the same layout (stride <code>0x10</code>). In <code>dwin_vp.rs</code>: <code>ROOM1 + room::NOTE</code>, or <code>ROOMS[k]</code>.</p>
+</section>
+<section id="boot"><h2>Boot checklist</h2>
+<p class=note>The boot page shows while any step is pending or running, and for 1.5 s after the last one finishes. Write all four of yours (done for any you don't use). Step 0 is the display's own.</p>
+<div class=scroll><table><thead><tr><th>VP</th><th>Name</th><th>Type</th><th>Units</th><th>Power-up</th><th>Meaning</th></tr></thead><tbody>
+<tr><td class=vp><code>0x16A0–0x16B3</code></td><td class=name><code>boot_version</code></td><td>text<div class=sub>40 bytes</div></td><td></td><td><code>empty</code></td><td>Bottom line of the boot page: “v0.1.0 · node living-room-01”</td></tr>
+</tbody></table></div>
+<div class=scroll><table class=matrix><thead><tr><th>Field</th><th>Type</th><th>Meaning</th><th>Display <span class=tag>read-only</span></th><th>Sensors</th><th>Wi-Fi</th><th>MQTT broker</th><th>Home Assistant</th></tr></thead><tbody>
+<tr><td class=name><code>state</code></td><td>u16</td><td><ul class=values><li><code>0</code> pending</li><li><code>1</code> running</li><li><code>2</code> done</li><li><code>3</code> failed</li><li><code>0xFFFF</code> not used</li></ul></td><td class=vp><code>0x1600</code></td><td class=vp><code>0x1620</code></td><td class=vp><code>0x1640</code></td><td class=vp><code>0x1660</code></td><td class=vp><code>0x1680</code></td></tr>
+<tr><td class=name><code>detail</code></td><td>text<div class=sub>32 bytes</div></td><td>Shown once done: “HomeNet · −52 dBm”</td><td class=vp><code>0x1601–0x1610</code></td><td class=vp><code>0x1621–0x1630</code></td><td class=vp><code>0x1641–0x1650</code></td><td class=vp><code>0x1661–0x1670</code></td><td class=vp><code>0x1681–0x1690</code></td></tr>
+</tbody></table></div>
+<p class=fine>Every entry has the same layout (stride <code>0x20</code>). In <code>dwin_vp.rs</code>: <code>BOOT0 + step::DETAIL</code>, or <code>BOOT_STEPS[k]</code>.</p>
+</section>
+<section id="setup"><h2>Wi-Fi setup</h2>
+<p class=note>The setup page (join this network, with a QR code) shows while the SSID isn't empty.</p>
+<div class=scroll><table><thead><tr><th>VP</th><th>Name</th><th>Type</th><th>Units</th><th>Power-up</th><th>Meaning</th></tr></thead><tbody>
+<tr><td class=vp><code>0x1700–0x170F</code></td><td class=name><code>setup_ssid</code></td><td>text<div class=sub>32 bytes</div></td><td></td><td><code>empty</code></td><td>“IntelliThings-3F2A”</td></tr>
+<tr><td class=vp><code>0x1710–0x171F</code></td><td class=name><code>setup_password</code></td><td>text<div class=sub>32 bytes</div></td><td></td><td><code>empty</code></td><td>“48213907”</td></tr>
+<tr><td class=vp><code>0x1720–0x172F</code></td><td class=name><code>setup_url</code></td><td>text<div class=sub>32 bytes</div></td><td></td><td><code>empty</code></td><td>“192.168.4.1”</td></tr>
+</tbody></table></div>
+</section>
+
+<section id=examples><h2>Example frames</h2>
+<div class=scroll><table><thead><tr><th>What</th><th>Bytes</th></tr></thead><tbody><tr><td>CO₂ = 812 ppm</td><td><code class=bytes>5A A5 05 82 10 03 03 2C</code></td></tr><tr><td>Temperature 22.4 °C (224)</td><td><code class=bytes>5A A5 05 82 10 00 00 E0</code></td></tr><tr><td>Temperature −5.0 °C (−50 = 0xFFCE)</td><td><code class=bytes>5A A5 05 82 10 00 FF CE</code></td></tr><tr><td>All ten readings: 22.4 °C, 41.2 %, VOC 118, 642 ppm, 320 lx, 1180 mm, PM 3/6/7, someone there</td><td><code class=bytes>5A A5 17 82 10 00 00 E0 01 9C 00 76 02 82 01 40 04 9C 00 03 00 06 00 07 00 01</code></td></tr><tr><td>PM2.5 sensor faulted</td><td><code class=bytes>5A A5 05 82 10 07 80 00</code></td></tr><tr><td>Wi-Fi connected, hub online, just synced</td><td><code class=bytes>5A A5 09 82 10 10 00 01 00 01 00 00</code></td></tr><tr><td>Clock: 2026-10-18 14:05 EDT (18:05 UTC, offset −240)</td><td><code class=bytes>5A A5 09 82 10 20 6A D5 0A 4C FF 10</code></td></tr><tr><td>AI message “Hi!”</td><td><code class=bytes>5A A5 07 82 11 00 48 69 21 00</code></td></tr><tr><td>Clear the AI message</td><td><code class=bytes>5A A5 05 82 11 00 00 00</code></td></tr><tr><td>Reset every input (when the node boots)</td><td><code class=bytes>5A A5 05 82 10 3F 5A A5</code></td></tr><tr><td>Read the display status (6 words)</td><td><code class=bytes>5A A5 04 83 10 F0 06</code></td></tr></tbody></table></div>
+</section>
+
+<footer>Generated from <code>dgus/vpmap.py</code>, with <code>vp_map.csv</code>, <code>vp_map.json</code> and the drop-in <code>dwin_vp.rs</code> next to this file. 0x1000–0x17FF is the companion firmware's input memory; the DWIN panel's own VPs are internal and never written by the node.</footer>
+</main>
+</body>
+</html>

@@ -1,0 +1,5 @@
+pillow>=11
+qrcode>=8
+pyserial>=3.5
+pytest>=8
+markdown>=3.7

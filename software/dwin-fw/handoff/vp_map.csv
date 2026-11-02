@@ -1,0 +1,119 @@
+vp,last_vp,words,name,section,type,unit,default,access,mqtt_field,values,description
+0x1000,0x1000,1,temperature,sensors,i16,"°C × 10, signed",0x8000,read/write,temperature_c,,224 = 22.4 °C. Shown in °F or °C (see units).
+0x1001,0x1001,1,humidity,sensors,u16,%RH × 10,0x8000,read/write,humidity_pct,,412 = 41.2 %
+0x1002,0x1002,1,voc_index,sensors,u16,index 1–500,0x8000,read/write,voc_index,,SGP40 VOC index (≈100 is typical)
+0x1003,0x1003,1,co2,sensors,u16,ppm,0x8000,read/write,co2_ppm,,"SCD41, 400–5000"
+0x1004,0x1004,1,lux,sensors,u16,"lux, whole",0x8000,read/write,lux,,BH1750. Clamp brighter readings to 32767.
+0x1005,0x1005,1,distance,sensors,u16,mm,0x8000,read/write,distance_mm,,"VL53L0X. Accepted, not shown yet."
+0x1006,0x1006,1,pm1_0,sensors,u16,µg/m³,0x8000,read/write,pm1_0_ugm3,,"Accepted, not shown yet."
+0x1007,0x1007,1,pm2_5,sensors,u16,µg/m³,0x8000,read/write,pm2_5_ugm3,,"PMS5003, 0–500"
+0x1008,0x1008,1,pm10,sensors,u16,µg/m³,0x8000,read/write,pm10_ugm3,,"Accepted, not shown yet."
+0x1009,0x1009,1,presence,sensors,u16,,0x8000,read/write,presence,0=nobody; 1=someone's there,LD2410C OUT. With no sensor (0x8000) the screen never switches to the away page.
+0x1010,0x1010,1,wifi,connection,u16,,0 (disconnected),read/write,,0=disconnected; 1=connected,Wi-Fi icon
+0x1011,0x1011,1,hub,connection,u16,,0 (connecting),read/write,,0=connecting; 1=online; 2=offline,MQTT broker / Home Assistant link. offline turns the AI card into the offline card.
+0x1012,0x1012,1,synced_ago,connection,u16,seconds,0xFFFF,read/write,,,Since the last good exchange with the hub. Write 0 after each publish or message; the display counts up (“Synced 2 min ago”). 0xFFFF = never.
+0x1013,0x1013,1,retry_in,connection,u16,seconds,0,read/write,,,To the next reconnect attempt; the offline card counts down (“retry in 0:42”). 0 = no countdown.
+0x1020,0x1021,2,unix_time,clock,u32,seconds since 1970 UTC,0,read/write,,,High word first. 0 = unknown: no clock shown.
+0x1022,0x1022,1,utc_offset,clock,i16,minutes,0,read/write,,,"Local offset from UTC: −240 = EDT, −300 = EST."
+0x1030,0x1030,1,units,settings,u16,,0 (°F),read/write,,0=°F; 1=°C,Temperature unit
+0x1031,0x1031,1,clock_24h,settings,u16,,0 (12-hour),read/write,,0=12-hour; 1=24-hour,Clock format
+0x1032,0x1032,1,room,settings,u16,,0 (Living Room),read/write,,0=Living Room; 1=Kitchen; 2=Bedroom; 3=Office; 4=Entry,This node's room: its name in the top bar and the This display tile on the rooms page.
+0x1033,0x1033,1,night_start,settings,u16,minutes after midnight,1350,read/write,,,Night page from 22:30. 0xFFFF = never.
+0x1034,0x1034,1,night_end,settings,u16,minutes after midnight,390,read/write,,,Night page until 6:30
+0x1035,0x1035,1,away_after,settings,u16,seconds,600,read/write,,,Away page after this long without presence. 0 = never.
+0x1036,0x1036,1,rotate_pages,settings,u16,,0 (off),read/write,,"0=off; 1=sensors and rooms pages, 10 s each per minute",Off keeps the AI message on screen at all times (the team's layout rule).
+0x1037,0x1037,1,screen,settings,u16,,0 (automatic),read/write,,0=automatic; 1=home; 2=sensors; 3=rooms; 4=alert; 5=night; 6=away; 7=boot; 8=setup; 9=test pattern,"Force a screen, for testing"
+0x1038,0x1038,1,mode,settings,u16,,"0 (auto: demo until the first write, then live)",read/write,,"0=auto: demo until the first write, then live; 1=live only; 2=demo only",Demo loop or live data
+0x1039,0x1039,1,led_brightness,settings,u16,%,100,read/write,,,"Light bar, as a share of its safe maximum (0–100)"
+0x103F,0x103F,1,inputs_reset,settings,u16,command,0,read/write,,,Write 0x5AA5 to put every input back to its power-up value. Do it when the node boots.
+0x1040,0x104B,12,room_name,settings,text (24 bytes),,empty,read/write,,,Overrides the top bar's room name. Empty = the name of room.
+0x10F0,0x10F0,1,interface_version,status,u16,,0x0100,read,,,0x0100 = v1.0
+0x10F1,0x10F1,1,panel_state,status,u16,,0 (no panel),read,,0=no panel; 1=panel without the companion files; 2=drawing,The DWIN panel behind the display
+0x10F2,0x10F2,1,screen_shown,status,u16,,0,read,,1=home; 2=sensors; 3=rooms; 4=alert; 5=night; 6=away; 7=boot; 8=setup; 9=test pattern,Same codes as screen
+0x10F3,0x10F3,1,mode_now,status,u16,,0 (demo),read,,0=demo; 1=live,
+0x10F4,0x10F4,1,writes_ok,status,u16,count,0,read,,,Write frames applied (wraps)
+0x10F5,0x10F5,1,writes_rejected,status,u16,count,0,read,,,Write frames outside the map or to read-only words
+0x10FE,0x10FF,2,message_ts,message,u32,seconds since 1970 UTC,0,read/write,ts,,"The payload's ts, for “2 min ago”. 0 = none: counted from arrival."
+0x1100,0x11FF,256,message_text,message,text (512 bytes),,empty,read/write,text,,"The payload's text. Empty = the card's idle line. 512 bytes take 3 frames: at 0x1100, 0x1178 and 0x11F0."
+0x1200,0x121F,32,thinking,message,text (64 bytes),,empty,read/write,,,"While not empty the card shows the spinning orb and this line (“Reading 6 sensors across 3 rooms…”). Write empty, or a new message, to end it."
+0x1220,0x1220,1,chip1_device,message,u16,,0xFFFF (no chip),read/write,,0=fan; 1=light; 2=thermostat; 3=purifier; 4=humidifier; 5=window; 6=door; 7=lock; 0xFFFF=no chip,Icon
+0x1221,0x122E,14,chip1_label,message,text (28 bytes),,empty,read/write,,,"“Fan”, “Close the bedroom door”"
+0x1230,0x1235,6,chip1_value,message,text (12 bytes),,empty,read/write,,,After an arrow: “40%”. Empty for none.
+0x1240,0x1240,1,chip2_device,message,u16,,0xFFFF (no chip),read/write,,0=fan; 1=light; 2=thermostat; 3=purifier; 4=humidifier; 5=window; 6=door; 7=lock; 0xFFFF=no chip,Icon
+0x1241,0x124E,14,chip2_label,message,text (28 bytes),,empty,read/write,,,"“Fan”, “Close the bedroom door”"
+0x1250,0x1255,6,chip2_value,message,text (12 bytes),,empty,read/write,,,After an arrow: “40%”. Empty for none.
+0x1300,0x1300,1,toast_trigger,toast,u16,,0,read/write,,,Write a new value (count up) to show the toast. Fill the fields in the same frame or before.
+0x1301,0x1301,1,toast_device,toast,u16,,0 (fan),read/write,,0=fan; 1=light; 2=thermostat; 3=purifier; 4=humidifier; 5=window; 6=door; 7=lock,Icon
+0x1302,0x1315,20,toast_title,toast,text (40 bytes),,empty,read/write,,,“Lights dimmed to 30%”
+0x1316,0x1333,30,toast_detail,toast,text (60 bytes),,empty,read/write,,,"“Living Room · after sunset, someone's here”"
+0x1400,0x1400,1,alert_active,alert,u16,,0 (no alert),read/write,,0=no alert; 1=alert page,
+0x1401,0x1401,1,alert_metric,alert,u16,,0 (temperature),read/write,,0=temperature; 1=humidity; 2=CO₂; 3=PM2.5; 4=VOC index; 5=light,The reading in trouble
+0x1402,0x1402,1,alert_value,alert,i16,as the sensor block,0,read/write,,,"Shown big. Same scaling as that reading: temperature °C × 10, humidity × 10, others whole."
+0x1403,0x1403,1,alert_since,alert,u16,seconds,0,read/write,,,Since it started; the display counts up.
+0x1404,0x1417,20,alert_title,alert,text (40 bytes),,empty,read/write,,,“Smoke or cooking particles”
+0x1418,0x1423,12,alert_place,alert,text (24 bytes),,empty,read/write,,,“Kitchen”
+0x1424,0x1431,14,alert_normal,alert,text (28 bytes),,empty,read/write,,,“Normal is under 12”
+0x1432,0x1481,80,alert_message,alert,text (160 bytes),,empty,read/write,,,“Probably the stove. I'll tell you when the air clears.”
+0x1490,0x1490,1,alert_done1_device,alert,u16,,0xFFFF (no chip),read/write,,0=fan; 1=light; 2=thermostat; 3=purifier; 4=humidifier; 5=window; 6=door; 7=lock; 0xFFFF=no chip,Icon
+0x1491,0x149E,14,alert_done1_label,alert,text (28 bytes),,empty,read/write,,,"“Fan”, “Close the bedroom door”"
+0x14A0,0x14A5,6,alert_done1_value,alert,text (12 bytes),,empty,read/write,,,After an arrow: “40%”. Empty for none.
+0x14B0,0x14B0,1,alert_done2_device,alert,u16,,0xFFFF (no chip),read/write,,0=fan; 1=light; 2=thermostat; 3=purifier; 4=humidifier; 5=window; 6=door; 7=lock; 0xFFFF=no chip,Icon
+0x14B1,0x14BE,14,alert_done2_label,alert,text (28 bytes),,empty,read/write,,,"“Fan”, “Close the bedroom door”"
+0x14C0,0x14C5,6,alert_done2_value,alert,text (12 bytes),,empty,read/write,,,After an arrow: “40%”. Empty for none.
+0x14D0,0x14D0,1,alert_ask_device,alert,u16,,0xFFFF (no chip),read/write,,0=fan; 1=light; 2=thermostat; 3=purifier; 4=humidifier; 5=window; 6=door; 7=lock; 0xFFFF=no chip,Icon
+0x14D1,0x14DE,14,alert_ask_label,alert,text (28 bytes),,empty,read/write,,,"“Fan”, “Close the bedroom door”"
+0x14E0,0x14E5,6,alert_ask_value,alert,text (12 bytes),,empty,read/write,,,After an arrow: “40%”. Empty for none.
+0x1500,0x1500,1,room1_online,rooms,u16,,0xFFFF (automatic),read/write,,0=offline; 1=online; 0xFFFF=automatic,Automatic: this node's own room fills itself from the sensor block; other rooms show offline.
+0x1501,0x1501,1,room1_temperature,rooms,i16,°C × 10,0x8000,read/write,temperature_c,,
+0x1502,0x1502,1,room1_humidity,rooms,u16,%RH × 10,0x8000,read/write,humidity_pct,,
+0x1503,0x1503,1,room1_co2,rooms,u16,ppm,0x8000,read/write,co2_ppm,,
+0x1504,0x1504,1,room1_pm2_5,rooms,u16,µg/m³,0x8000,read/write,pm2_5_ugm3,,
+0x1505,0x1505,1,room1_voc_index,rooms,u16,index,0x8000,read/write,voc_index,,
+0x1506,0x1506,1,room1_presence,rooms,u16,,0 (nobody),read/write,presence,0=nobody; 1=someone's there,
+0x1507,0x150E,8,room1_note,rooms,text (16 bytes),,empty,read/write,,,Rooms without a node: “Lights on”
+0x1510,0x1510,1,room2_online,rooms,u16,,0xFFFF (automatic),read/write,,0=offline; 1=online; 0xFFFF=automatic,Automatic: this node's own room fills itself from the sensor block; other rooms show offline.
+0x1511,0x1511,1,room2_temperature,rooms,i16,°C × 10,0x8000,read/write,temperature_c,,
+0x1512,0x1512,1,room2_humidity,rooms,u16,%RH × 10,0x8000,read/write,humidity_pct,,
+0x1513,0x1513,1,room2_co2,rooms,u16,ppm,0x8000,read/write,co2_ppm,,
+0x1514,0x1514,1,room2_pm2_5,rooms,u16,µg/m³,0x8000,read/write,pm2_5_ugm3,,
+0x1515,0x1515,1,room2_voc_index,rooms,u16,index,0x8000,read/write,voc_index,,
+0x1516,0x1516,1,room2_presence,rooms,u16,,0 (nobody),read/write,presence,0=nobody; 1=someone's there,
+0x1517,0x151E,8,room2_note,rooms,text (16 bytes),,empty,read/write,,,Rooms without a node: “Lights on”
+0x1520,0x1520,1,room3_online,rooms,u16,,0xFFFF (automatic),read/write,,0=offline; 1=online; 0xFFFF=automatic,Automatic: this node's own room fills itself from the sensor block; other rooms show offline.
+0x1521,0x1521,1,room3_temperature,rooms,i16,°C × 10,0x8000,read/write,temperature_c,,
+0x1522,0x1522,1,room3_humidity,rooms,u16,%RH × 10,0x8000,read/write,humidity_pct,,
+0x1523,0x1523,1,room3_co2,rooms,u16,ppm,0x8000,read/write,co2_ppm,,
+0x1524,0x1524,1,room3_pm2_5,rooms,u16,µg/m³,0x8000,read/write,pm2_5_ugm3,,
+0x1525,0x1525,1,room3_voc_index,rooms,u16,index,0x8000,read/write,voc_index,,
+0x1526,0x1526,1,room3_presence,rooms,u16,,0 (nobody),read/write,presence,0=nobody; 1=someone's there,
+0x1527,0x152E,8,room3_note,rooms,text (16 bytes),,empty,read/write,,,Rooms without a node: “Lights on”
+0x1530,0x1530,1,room4_online,rooms,u16,,0xFFFF (automatic),read/write,,0=offline; 1=online; 0xFFFF=automatic,Automatic: this node's own room fills itself from the sensor block; other rooms show offline.
+0x1531,0x1531,1,room4_temperature,rooms,i16,°C × 10,0x8000,read/write,temperature_c,,
+0x1532,0x1532,1,room4_humidity,rooms,u16,%RH × 10,0x8000,read/write,humidity_pct,,
+0x1533,0x1533,1,room4_co2,rooms,u16,ppm,0x8000,read/write,co2_ppm,,
+0x1534,0x1534,1,room4_pm2_5,rooms,u16,µg/m³,0x8000,read/write,pm2_5_ugm3,,
+0x1535,0x1535,1,room4_voc_index,rooms,u16,index,0x8000,read/write,voc_index,,
+0x1536,0x1536,1,room4_presence,rooms,u16,,0 (nobody),read/write,presence,0=nobody; 1=someone's there,
+0x1537,0x153E,8,room4_note,rooms,text (16 bytes),,empty,read/write,,,Rooms without a node: “Lights on”
+0x1540,0x1540,1,room5_online,rooms,u16,,0xFFFF (automatic),read/write,,0=offline; 1=online; 0xFFFF=automatic,Automatic: this node's own room fills itself from the sensor block; other rooms show offline.
+0x1541,0x1541,1,room5_temperature,rooms,i16,°C × 10,0x8000,read/write,temperature_c,,
+0x1542,0x1542,1,room5_humidity,rooms,u16,%RH × 10,0x8000,read/write,humidity_pct,,
+0x1543,0x1543,1,room5_co2,rooms,u16,ppm,0x8000,read/write,co2_ppm,,
+0x1544,0x1544,1,room5_pm2_5,rooms,u16,µg/m³,0x8000,read/write,pm2_5_ugm3,,
+0x1545,0x1545,1,room5_voc_index,rooms,u16,index,0x8000,read/write,voc_index,,
+0x1546,0x1546,1,room5_presence,rooms,u16,,0 (nobody),read/write,presence,0=nobody; 1=someone's there,
+0x1547,0x154E,8,room5_note,rooms,text (16 bytes),,empty,read/write,,,Rooms without a node: “Lights on”
+0x1600,0x1600,1,boot0_state,boot,u16,,0xFFFF (not used),read,,0=pending; 1=running; 2=done; 3=failed; 0xFFFF=not used,
+0x1601,0x1610,16,boot0_detail,boot,text (32 bytes),,empty,read,,,Shown once done: “HomeNet · −52 dBm”
+0x1620,0x1620,1,boot1_state,boot,u16,,0xFFFF (not used),read/write,,0=pending; 1=running; 2=done; 3=failed; 0xFFFF=not used,
+0x1621,0x1630,16,boot1_detail,boot,text (32 bytes),,empty,read/write,,,Shown once done: “HomeNet · −52 dBm”
+0x1640,0x1640,1,boot2_state,boot,u16,,0xFFFF (not used),read/write,,0=pending; 1=running; 2=done; 3=failed; 0xFFFF=not used,
+0x1641,0x1650,16,boot2_detail,boot,text (32 bytes),,empty,read/write,,,Shown once done: “HomeNet · −52 dBm”
+0x1660,0x1660,1,boot3_state,boot,u16,,0xFFFF (not used),read/write,,0=pending; 1=running; 2=done; 3=failed; 0xFFFF=not used,
+0x1661,0x1670,16,boot3_detail,boot,text (32 bytes),,empty,read/write,,,Shown once done: “HomeNet · −52 dBm”
+0x1680,0x1680,1,boot4_state,boot,u16,,0xFFFF (not used),read/write,,0=pending; 1=running; 2=done; 3=failed; 0xFFFF=not used,
+0x1681,0x1690,16,boot4_detail,boot,text (32 bytes),,empty,read/write,,,Shown once done: “HomeNet · −52 dBm”
+0x16A0,0x16B3,20,boot_version,boot,text (40 bytes),,empty,read/write,,,Bottom line of the boot page: “v0.1.0 · node living-room-01”
+0x1700,0x170F,16,setup_ssid,setup,text (32 bytes),,empty,read/write,,,“IntelliThings-3F2A”
+0x1710,0x171F,16,setup_password,setup,text (32 bytes),,empty,read/write,,,“48213907”
+0x1720,0x172F,16,setup_url,setup,text (32 bytes),,empty,read/write,,,“192.168.4.1”
