@@ -9,6 +9,7 @@
 
 #include "cJSON.h"
 #include "demo_home.h"
+#include "json_writer.h"
 
 #define DEMO_HISTORY_LEN 30
 
@@ -37,6 +38,6 @@ void demo_engine_on_connected(void);  // control client (re)connected: republish
 bool demo_engine_command(const cJSON *root, char *msg, size_t len);
 
 void demo_engine_snapshot(demo_snapshot_t *out);
-void demo_engine_add_state(cJSON *root);  // "demo" object for /api/state
+void demo_engine_write_state(jw_t *w);  // "demo" object of the emulator state
 // History entry i (0 = oldest) of the last DEMO_HISTORY_LEN changes; false past the end.
 bool demo_engine_history(int i, demo_hist_t *out);

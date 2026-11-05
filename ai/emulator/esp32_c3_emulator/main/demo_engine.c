@@ -591,45 +591,75 @@ bool demo_engine_history(int i, demo_hist_t *out)
     return ok;
 }
 
-void demo_engine_add_state(cJSON *root)
+void demo_engine_write_state(jw_t *w)
 {
+    // Copied under the lock, written after it (the writer may be sending to a socket).
     int64_t now = esp_timer_get_time();
-    cJSON *d = cJSON_AddObjectToObject(root, "demo");
     lock();
-    cJSON_AddStringToObject(d, "state", STATE_NAMES[D.state]);
-    cJSON_AddBoolToObject(d, "publish", D.publish);
-    cJSON_AddBoolToObject(d, "loop", D.loop);
-    cJSON_AddNumberToObject(d, "interval_s", D.interval_s);
-    cJSON_AddStringToObject(d, "loop_source", SRC_NAMES[D.source]);
-    cJSON_AddNumberToObject(d, "mix_pct", D.mix_pct);
-    cJSON_AddNumberToObject(d, "roll_s", D.roll_ms / 1000.0);
-    cJSON_AddNumberToObject(d, "hold_s", D.hold_s);
-    cJSON_AddStringToObject(d, "spread", SPREAD_NAMES[D.spread]);
-    cJSON_AddNumberToObject(d, "abnormal_pct", D.abnormal_pct);
-    cJSON_AddNumberToObject(d, "seq", D.seq);
-    cJSON *step = cJSON_AddObjectToObject(d, "step");
-    if (D.preset >= 0) {
-        cJSON_AddStringToObject(step, "source", "preset");
-        cJSON_AddNumberToObject(step, "scenario_id", D.preset + 1);
-        cJSON_AddStringToObject(step, "scenario", DEMO_PRESETS[D.preset].name);
-        cJSON_AddStringToObject(step, "group", DEMO_GROUPS[DEMO_PRESETS[D.preset].group]);
+    dstate_t state = D.state;
+    bool publish = D.publish, loop = D.loop;
+    uint16_t interval_s = D.interval_s, roll_ms = D.roll_ms, hold_s = D.hold_s;
+    uint8_t source = D.source, mix_pct = D.mix_pct, spread = D.spread, abnormal = D.abnormal_pct;
+    uint32_t seq = D.seq, roll = D.roll;
+    int preset = D.preset;
+    int step_left = left_s(D.next_us, now), lock_left = lock_left_s(now);
+    double roll_left_ms = state == DS_ROLLING && D.next_us > now
+                              ? (double)((D.next_us - now) / 1000) : 0;
+    bool roll_from_loop = state == DS_ROLLING && D.roll_from_loop;
+    unlock();
+
+    jw_raw(w, "{\"state\":");
+    jw_str(w, STATE_NAMES[state]);
+    jw_key(w, false, "publish");
+    jw_raw(w, jbool(publish));
+    jw_key(w, false, "loop");
+    jw_raw(w, jbool(loop));
+    jw_key(w, false, "interval_s");
+    jw_num(w, interval_s);
+    jw_key(w, false, "loop_source");
+    jw_str(w, SRC_NAMES[source]);
+    jw_key(w, false, "mix_pct");
+    jw_num(w, mix_pct);
+    jw_key(w, false, "roll_s");
+    jw_num(w, roll_ms / 1000.0);
+    jw_key(w, false, "hold_s");
+    jw_num(w, hold_s);
+    jw_key(w, false, "spread");
+    jw_str(w, SPREAD_NAMES[spread]);
+    jw_key(w, false, "abnormal_pct");
+    jw_num(w, abnormal);
+    jw_key(w, false, "seq");
+    jw_num(w, seq);
+    jw_raw(w, ",\"step\":{\"source\":");
+    if (preset >= 0) {
+        jw_str(w, "preset");
+        jw_key(w, false, "scenario_id");
+        jw_num(w, preset + 1);
+        jw_key(w, false, "scenario");
+        jw_str(w, DEMO_PRESETS[preset].name);
+        jw_key(w, false, "group");
+        jw_str(w, DEMO_GROUPS[DEMO_PRESETS[preset].group]);
     } else {
         char name[32];
-        snprintf(name, sizeof(name), "Random roll #%lu", (unsigned long)D.roll);
-        cJSON_AddStringToObject(step, "source", "roll");
-        cJSON_AddNullToObject(step, "scenario_id");
-        cJSON_AddStringToObject(step, "scenario", name);
-        cJSON_AddStringToObject(step, "group", "random");
+        snprintf(name, sizeof(name), "Random roll #%lu", (unsigned long)roll);
+        jw_str(w, "roll");
+        jw_raw(w, ",\"scenario_id\":null,\"scenario\":");
+        jw_str(w, name);
+        jw_raw(w, ",\"group\":\"random\"");
     }
-    cJSON_AddNumberToObject(step, "roll", D.roll);
-    if (D.state == DS_IDLE) {
-        cJSON_AddNullToObject(d, "step_left_s");
+    jw_key(w, false, "roll");
+    jw_num(w, roll);
+    jw_raw(w, "},\"step_left_s\":");
+    if (state == DS_IDLE) {
+        jw_raw(w, "null");
     } else {
-        cJSON_AddNumberToObject(d, "step_left_s", left_s(D.next_us, now));
+        jw_num(w, step_left);
     }
-    cJSON_AddNumberToObject(d, "lock_left_s", lock_left_s(now));
-    cJSON_AddNumberToObject(d, "roll_left_ms",
-                            D.state == DS_ROLLING && D.next_us > now ? (double)((D.next_us - now) / 1000) : 0);
-    cJSON_AddBoolToObject(d, "roll_from_loop", D.state == DS_ROLLING && D.roll_from_loop);
-    unlock();
+    jw_key(w, false, "lock_left_s");
+    jw_num(w, lock_left);
+    jw_key(w, false, "roll_left_ms");
+    jw_num(w, roll_left_ms);
+    jw_key(w, false, "roll_from_loop");
+    jw_raw(w, jbool(roll_from_loop));
+    jw_raw(w, "}");
 }

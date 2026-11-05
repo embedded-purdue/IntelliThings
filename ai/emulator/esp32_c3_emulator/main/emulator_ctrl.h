@@ -7,6 +7,7 @@
 #include <stddef.h>
 
 #include "app_config.h"
+#include "json_writer.h"
 
 void ctrl_init(void);   // call once at boot
 void ctrl_start(void);  // emulator MQTT connection (after the first IP)
@@ -23,7 +24,9 @@ bool ctrl_publish_demo(const char *topic, const char *data, int len);
 // Runs a JSON command. Returns ok and writes a human-readable result into msg.
 bool ctrl_execute(const char *json, size_t len, const char *source, char *msg, size_t msg_len);
 
-char *ctrl_state_json(void);  // caller frees with cJSON_free()
+// Writes the state document (GET /api/state, the retained intellithings/emulator/state).
+// Takes and releases the nodes, command and demo locks on its own; call it holding none.
+void ctrl_write_state(jw_t *w);
 char *ctrl_meta_json(void);   // metrics, scenarios, nodes; caller frees with cJSON_free()
 
 // Called from the sim task: publishes state if due (every publish, or right after a command).
