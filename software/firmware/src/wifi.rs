@@ -7,9 +7,13 @@ use embassy_time::{Duration, Timer, with_timeout};
 use esp_hal::peripherals::WIFI;
 use esp_println::println;
 use esp_radio::wifi::{
-    AuthenticationMethodConfig, Config as WifiConfig, Interface, WifiController, sta::StationConfig,
+    AuthenticationMethodConfig, Config as WifiConfig, ConnectionError, Interface, WifiController,
+    sta::StationConfig,
 };
 use static_cell::StaticCell;
+
+const RETRY_DELAY: Duration = Duration::from_secs(5);
+const CONNECT_TIMEOUT: Duration = Duration::from_secs(20);
 
 // Network resources for DHCP, diagnostics, and MQTT TCP.
 static NET_RESOURCES: StaticCell<StackResources<3>> = StaticCell::new();
@@ -68,35 +72,69 @@ pub async fn network_call(stack: Stack<'static>) {
     }
 }
 
-/// Connects to Wi-Fi and runs a ping test if DHCP completes within 20 seconds.
+async fn reboot_for_wifi_retry() -> ! {
+    println!("Restarting ESP32 to retry Wi-Fi in 5 seconds");
+    Timer::after(RETRY_DELAY).await;
+    esp_hal::system::software_reset()
+}
+
+/// Retries Wi-Fi association and runs a ping test if DHCP completes within 20 seconds.
 /// DHCP continues in the background after a timeout. Keep the returned controller
 /// alive for as long as the connection is needed; check stack readiness before use.
 pub async fn setup<'d>(spawner: Spawner, wifi: WIFI<'d>) -> (WifiController<'d>, Stack<'static>) {
     let wifi_ssid = option_env!("WIFI_SSID").unwrap_or("");
     let wifi_password = option_env!("WIFI_PASSWORD").unwrap_or("");
-    if wifi_ssid.is_empty() || wifi_password.is_empty() {
-        println!("Set WIFI_SSID and WIFI_PASSWORD in .cargo/esp-config.toml");
-        loop {
-            Timer::after(Duration::from_secs(5)).await;
+    let (ssid, password) = loop {
+        if !wifi_ssid.is_empty()
+            && !wifi_password.is_empty()
+            && let (Ok(ssid), Ok(password)) = (wifi_ssid.try_into(), wifi_password.try_into())
+        {
+            break (ssid, password);
         }
-    }
+        println!("Set valid WIFI_SSID and WIFI_PASSWORD in .cargo/esp-config.toml and reflash");
+        Timer::after(RETRY_DELAY).await;
+    };
 
-    let mut wifi_controller = WifiController::new(wifi, Default::default())
-        .expect("Failed to initialize Wi-Fi controller");
+    let mut wifi_controller = match WifiController::new(wifi, Default::default()) {
+        Ok(controller) => controller,
+        Err(error) => {
+            println!("Failed to initialize Wi-Fi controller: {:?}", error);
+            reboot_for_wifi_retry().await;
+        }
+    };
     let wifi_config = WifiConfig::Station(
         StationConfig::default()
-            .with_ssid(wifi_ssid.try_into().expect("WIFI_SSID is invalid"))
-            .with_authentication(AuthenticationMethodConfig::Wpa2Personal(
-                wifi_password.try_into().expect("WIFI_PASSWORD is invalid"),
-            )),
+            .with_ssid(ssid)
+            .with_authentication(AuthenticationMethodConfig::Wpa2Personal(password)),
     );
-    wifi_controller
-        .set_config(&wifi_config)
-        .expect("Failed to apply Wi-Fi configuration");
-    wifi_controller
-        .connect_async()
-        .await
-        .expect("Failed to connect to Wi-Fi");
+    if let Err(error) = wifi_controller.set_config(&wifi_config) {
+        println!("Failed to apply Wi-Fi configuration: {:?}", error);
+        reboot_for_wifi_retry().await;
+    }
+
+    loop {
+        println!("Connecting to Wi-Fi...");
+        match with_timeout(CONNECT_TIMEOUT, wifi_controller.connect_async()).await {
+            Ok(Ok(_)) => break,
+            Ok(Err(ConnectionError::Failed(info))) => {
+                println!(
+                    "Wi-Fi connection failed: {:?}. Retrying in 5 seconds",
+                    info.reason
+                );
+                Timer::after(RETRY_DELAY).await;
+            }
+            Ok(Err(error)) => {
+                println!("Wi-Fi driver error while connecting: {:?}", error);
+                reboot_for_wifi_retry().await;
+            }
+            Err(_) => {
+                // Dropping the future stops waiting for an event, but the radio may
+                // still be trying to connect. Restart before beginning another attempt.
+                println!("Wi-Fi connection attempt timed out");
+                reboot_for_wifi_retry().await;
+            }
+        }
+    }
     println!("Wi-Fi connected");
 
     let interface = Interface::station();
