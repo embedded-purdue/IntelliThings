@@ -1,5 +1,9 @@
 # Firmware
 
+For the standalone **C LED strip test** on GPIO10, see
+[`led_strip_test_c/README.md`](led_strip_test_c/README.md) for ESP-IDF setup,
+compile, and flash commands.
+
 Bare-metal **`no_std` Rust firmware for the ESP32-C6**, using `esp-hal`, `esp-rtos`,
 Embassy async tasks/networking, and `esp-radio` for Wi-Fi. The package and binary are
 named `intelli_things`.
