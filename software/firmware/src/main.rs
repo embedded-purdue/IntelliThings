@@ -91,7 +91,7 @@ async fn main(spawner: Spawner) -> ! {
         Ok(sensor) => Some(sensor),
         Err(err) => {
             println!("VL53L0 start error: {}", err);
-            None
+            panic!();
         }
     };
 
@@ -111,19 +111,17 @@ async fn main(spawner: Spawner) -> ! {
         Err(err) => println!("SCD41 start error: {}", err),
     }
     
-    let mut led = Led::new(peripherals.RMT, peripherals.GPIO10, 160)
-        .expect("Failed to initialize LED strip");
+    let mut led = match Led::new(peripherals.RMT, peripherals.GPIO10, 160) {
+        Ok(led) => Some(led),
+        Err(err) => {
+            println!("Failed to initialize LED strip");
+            panic!();
+        }
+    };
     
 
-    let mut i = 0;
     loop {
         Timer::after(Duration::from_secs(1)).await;
-        led.set_color(i, 0, 0).await;
-        Timer::after(Duration::from_secs(1)).await;
-        led.set_color(0, i, 0).await;
-        Timer::after(Duration::from_secs(1)).await;
-        led.set_color(0, 0, i).await;
-        i += 10;
         continue;
         let result = {
             let mut i2c = bus.borrow_mut();
