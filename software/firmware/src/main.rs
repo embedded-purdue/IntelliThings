@@ -18,7 +18,7 @@ use esp_hal::{
     time::Rate,
 };
 use esp_println::println;
-use intelli_things::{sensors, wifi};
+use intelli_things::{led::Led, sensors, wifi};
 
 #[panic_handler]
 fn panic(panic_info: &core::panic::PanicInfo) -> ! {
@@ -81,9 +81,8 @@ async fn main(spawner: Spawner) -> ! {
     let timg0 = TimerGroup::new(peripherals.TIMG0);
     esp_rtos::start(timg0.timer0, peripherals.FROM_CPU_INTR0);
 
-    let (_wifi_controller, stack) = wifi::setup(spawner, peripherals.WIFI).await;
-    println!("Dummy MQTT TEST");
-    wifi::network_call(stack).await;
+    //let (_wifi_controller, stack) = wifi::setup(spawner, peripherals.WIFI).await;
+    //stack.wait_config_up().await;
 
     // All I2C access stays sequential in this task. Release each temporary
     // borrow before calling a driver that uses a RefCellDevice handle.
@@ -111,9 +110,20 @@ async fn main(spawner: Spawner) -> ! {
         Ok(()) => scd41_started = true,
         Err(err) => println!("SCD41 start error: {}", err),
     }
+    
+    let mut led = Led::new(peripherals.RMT, peripherals.GPIO10, 160)
+        .expect("Failed to initialize LED strip");
+    
 
+    let mut i = 0;
     loop {
         Timer::after(Duration::from_secs(1)).await;
+        led.set_color(i, 0, 0).await;
+        Timer::after(Duration::from_secs(1)).await;
+        led.set_color(0, i, 0).await;
+        Timer::after(Duration::from_secs(1)).await;
+        led.set_color(0, 0, i).await;
+        i += 10;
         continue;
         let result = {
             let mut i2c = bus.borrow_mut();
