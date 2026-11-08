@@ -81,8 +81,21 @@ async fn main(spawner: Spawner) -> ! {
     let timg0 = TimerGroup::new(peripherals.TIMG0);
     esp_rtos::start(timg0.timer0, peripherals.FROM_CPU_INTR0);
 
-    //let (_wifi_controller, stack) = wifi::setup(spawner, peripherals.WIFI).await;
-    //stack.wait_config_up().await;
+    sensors::pms5003::start(
+        spawner,
+        peripherals.LP_UART,
+        peripherals.GPIO4,
+        peripherals.GPIO5,
+    );
+
+    sensors::ld2410c::start(
+        spawner,
+        peripherals.UART1,
+        peripherals.GPIO20,
+        peripherals.GPIO21,
+    );
+    
+    //let (_wifi_controller, _stack) = wifi::setup(spawner, peripherals.WIFI).await;
 
     // All I2C access stays sequential in this task. Release each temporary
     // borrow before calling a driver that uses a RefCellDevice handle.
