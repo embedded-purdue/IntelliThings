@@ -138,6 +138,8 @@ pub async fn setup<'d>(spawner: Spawner, wifi: WIFI<'d>) -> (WifiController<'d>,
     println!("Wi-Fi connected");
 
     let interface = Interface::station();
+    let [a, b, c, d, e, f] = interface.mac_address();
+    println!("Wi-Fi MAC: {a:02X}:{b:02X}:{c:02X}:{d:02X}:{e:02X}:{f:02X}");
     let resources = NET_RESOURCES.init(StackResources::new());
     let (stack, runner) = embassy_net::new(
         interface,
