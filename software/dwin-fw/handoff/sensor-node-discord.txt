@@ -1,0 +1,12 @@
+**Sensor node firmware** It reads the SHT41, SGP40, SCD41, BH1750 and VL53L0X on I2C (SDA GPIO6, SCL GPIO7) and prints all five @ 1Hz
+
+Wire VIN to **3V3** for the sensors before powering!
+
+**Flash it:**
+run this in the `sensor-node` folder:
+```
+espflash flash --chip esp32c6 --monitor sensor-node.elf
+```
+• if no espflash: `cargo install espflash --locked`
+
+This hasn't run on hardware yet. It passes against simulated sensors. Lmk what your output is.

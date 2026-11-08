@@ -1,0 +1,155 @@
+FLASHING THE COMPANION ESP32-C6 FROM THE MACBOOK
+Written October 18, 2026
+
+The new firmware is already built: build/companion-node.elf in this folder. It plays the
+demo exactly as before, takes the software team's VP numbers (node link on GP2/GP3, or USB
+from the laptop), and fixes the light bar's random flicker. The panel's SD card files didn't
+change: no SD reload.
+
+Do everything in ONE Terminal window (PORT is only remembered in that window).
+Copy-paste the indented lines. The other lines are notes, not commands.
+
+
+0. FIRST, CHECK THE BOARD SURVIVED (it got very hot)
+
+   Let it cool, and unplug every wire from its pins. Plug in only its USB-C and hover a finger
+   over it for a few seconds. If anything heats up fast, unplug it at once: the board is
+   damaged, and the rest of this file waits for a new one. If nothing heats:
+
+    ls /dev/cu.usbmodem*
+
+   A /dev/cu.usbmodem name other than ...5B7B0300481 (the P4) means the chip is alive.
+   "no matches found" means it isn't showing up (try another cable once; else replace it).
+   If it's alive: unplug it, wire the panel back as in docs/wiring.png (the LED strip comes in
+   step 7), then carry on.
+
+
+1. GO TO THIS FOLDER
+
+    cd "$HOME/Library/Mobile Documents/com~apple~CloudDocs/Documents/Projects/IntelliThings/Display"
+    ls -l build/companion-node.elf
+
+   It should be about 4.7 MB. "No such file" means iCloud hasn't synced it yet: wait, or
+   find it in Finder and choose Download Now.
+
+
+2. GET ESPFLASH (once per Mac, no Rust needed)
+
+    mkdir -p ~/espflash
+    curl -L -o ~/espflash/espflash.zip "https://github.com/esp-rs/espflash/releases/download/v4.6.0/espflash-$(uname -m | sed s/arm64/aarch64/)-apple-darwin.zip"
+    unzip -o ~/espflash/espflash.zip -d ~/espflash
+    ~/espflash/espflash --version
+
+   The last line prints: espflash 4.6.0
+
+
+3. FIND THE C6's PORT
+
+   Plug the C6 into the MacBook with USB-C. Leave the ESP32-P4 unplugged.
+
+    ls /dev/cu.usbmodem*
+    PORT=$(ls /dev/cu.usbmodem* | grep -v 5B7B0300481 | head -n 1); echo $PORT
+
+   The C6 is a name ending in digits, like /dev/cu.usbmodem1101 (/dev/cu.usbmodem5B7B0300481
+   is the P4: never that one). If the echo shows the wrong port, set it by hand:
+   PORT=/dev/cu.usbmodem<the C6's digits>
+
+
+4. FLASH IT AND WATCH IT START
+
+    ~/espflash/espflash flash --chip esp32c6 --port $PORT --monitor build/companion-node.elf
+
+   It writes about 270 KB, restarts the C6 and shows its log, including:
+     IntelliThings companion demo: 13 scenes, ... s loop
+     Node link (VP frames, see handoff/VP_MAP.html): GPIO2 RX / GPIO3 TX, 115200 baud, or USB
+     DWIN panel answered at 115200 baud ...          (only with the panel powered)
+     > demo ...                                      (a line each time the demo changes scene)
+   The panel plays the demo as before. Press Ctrl+C to leave the log (the C6 keeps running).
+
+
+5. PYTHON FOR THE TEST TOOL (once per Mac)
+
+    python3 -m venv ~/display-venv
+    ~/display-venv/bin/pip install pyserial
+
+   If macOS offers to install the "command line developer tools", click Install, wait, then
+   run these two lines again.
+
+
+6. TEST THE LIVE NUMBERS (panel powered and wired as on the bench)
+
+    ~/display-venv/bin/python tools/companion.py --port $PORT status
+
+   Expect interface_version 256, panel_state 2 (drawing), mode_now 0 (demo), writes_ok 0.
+   (panel_state 0 means the C6 can't see the panel: check its 12 V and the GP18/GP19 wires.)
+
+    ~/display-venv/bin/python tools/companion.py --port $PORT play
+
+   About 80 seconds, driven only by VP writes: boot checklist, home with an AI message, CO2
+   climbing with a "thinking" line, the fan chip and a toast, the sensors page, the rooms page,
+   a kitchen alert, the hub going offline and coming back. The C6's own screen says
+   "live data" and counts "VP writes".
+
+    ~/display-venv/bin/python tools/companion.py --port $PORT status
+
+   Now mode_now 1 (live), writes_ok about 210, writes_rejected 0.
+
+   Your own numbers (the display stays live until you reset it):
+
+    ~/display-venv/bin/python tools/companion.py --port $PORT set temperature=23.5 co2=950 hub=online
+    ~/display-venv/bin/python tools/companion.py --port $PORT message "Hello from the MacBook. The air is fine."
+
+   Back to the demo (unplugging the C6 does the same):
+
+    ~/display-venv/bin/python tools/companion.py --port $PORT reset
+
+
+7. THE LIGHT BAR (WS2812B)
+
+   Wire it with the C6 UNPLUGGED, three wires, GND first:
+     strip GND  ->  C6 GND           required: without it the strip runs through GP20 and kills it
+     strip 5V   ->  C6 5V
+     strip DIN  ->  330 ohm  ->  C6 GP20   (DIN is the input end: the strip's arrows point away)
+   A 470-1000 uF capacitor across the strip's 5V and GND helps. Then plug the C6 back in; the
+   bar follows the demo. To check the wiring, hold the bar still:
+
+    ~/display-venv/bin/python tools/companion.py --port $PORT set screen=test
+
+   It should stand perfectly still: red, green, blue, white, repeating from the input end.
+   - Flicker or random LEDs: wiring. Check GND first, then DIN. If every wire is solid and it
+     still flickers, the C6's 3.3 V data is too weak for this strip: a 74AHCT125 level shifter
+     between GP20 and DIN fixes that.
+   - First LED green instead of red: the strip uses another colour order. Tell me.
+
+    ~/display-venv/bin/python tools/companion.py --port $PORT reset
+
+
+IF SOMETHING GOES WRONG
+
+- "no matches found: /dev/cu.usbmodem*": the Mac doesn't see the C6. Try another USB-C
+  cable (some only charge) or another port.
+- "Resource busy" / "could not open port": something else has the port open (another
+  Terminal window running espflash, Arduino IDE, a serial monitor). Close it, try again.
+- espflash can't connect: hold BOOT on the C6, press and release RESET, let go of BOOT,
+  then run step 4 again. Press RESET once when it's done.
+- "no answer to the read at 0x10f0" or "no OK for the write": the new firmware isn't running
+  on that port. Wrong port, step 4 didn't finish, or the C6 is waiting in download mode
+  (press RESET).
+- "No module named serial": use ~/display-venv/bin/python as written, not plain python3.
+- The panel stays dark: check its 12 V supply. Flashing the C6 never changes the panel.
+
+
+ONLY IF YOU CHANGE THE FIRMWARE CODE (rebuild on the MacBook, ~10 min the first time)
+
+    curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+    source "$HOME/.cargo/env"
+    rustup target add riscv32imac-unknown-none-elf
+    rustup component add rust-src
+    make firmware
+
+   That rewrites build/companion-node.elf (the build itself goes in ~/.cache, so iCloud
+   doesn't sync it). Then flash it with step 4.
+
+
+When it's done, tell me what you saw (or paste the status output) and I'll mark the VP input
+as verified on the hardware in handoff/HANDOFF.md.

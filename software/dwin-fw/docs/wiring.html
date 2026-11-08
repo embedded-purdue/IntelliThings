@@ -1,0 +1,404 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Companion Display Wiring</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@600&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;600&display=swap">
+<style>
+  /* Layout: one bench sheet - the wiring figure first, then the pin table and the power-up order side by side. */
+  :root {
+    --bg: #f3f5f7;
+    --panel: #ffffff;
+    --fg: #16202a;
+    --muted: #5a6673;
+    --line: #a3aeb9;
+    --comp: #e9eef2;
+    --conn: #dfe5ea;
+    --red: #cf2f27;
+    --gnd: #2c343d;
+    --tx: #1c66c9;
+    --rx: #b86e00;
+    --led: #7448d0;
+    --v5: #c2255c;
+    --ok: #0d8b79;
+    --warn: #fff1e2;
+    --warn-line: #e6a35a;
+    --display: "Barlow Semi Condensed", "Arial Narrow", system-ui, sans-serif;
+    --body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+    --mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0e1318; --panel: #151c23; --fg: #e5eaef; --muted: #98a5b2; --line: #3b4753;
+      --comp: #1a222b; --conn: #222c36; --red: #ff5b50; --gnd: #c4cdd6; --tx: #5ea4ff;
+      --rx: #ffb64d; --led: #b38dff; --v5: #f06595; --ok: #43d3b8; --warn: #2a2117; --warn-line: #9a6a33;
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #0e1318; --panel: #151c23; --fg: #e5eaef; --muted: #98a5b2; --line: #3b4753;
+    --comp: #1a222b; --conn: #222c36; --red: #ff5b50; --gnd: #c4cdd6; --tx: #5ea4ff;
+    --rx: #ffb64d; --led: #b38dff; --v5: #f06595; --ok: #43d3b8; --warn: #2a2117; --warn-line: #9a6a33;
+    color-scheme: dark;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--fg);
+    font: 15px/1.55 var(--body);
+  }
+  .page {
+    max-width: 1120px;
+    margin: 0 auto;
+    padding-block: 28px 48px;
+    padding-left: max(16px, env(safe-area-inset-left, 0px));
+    padding-right: max(16px, env(safe-area-inset-right, 0px));
+    display: grid;
+    gap: 22px;
+  }
+  header { display: grid; gap: 6px; }
+  .eyebrow {
+    font: 500 12px/1 var(--mono);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  h1 {
+    font: 600 clamp(28px, 4.2vw, 40px)/1.05 var(--display);
+    letter-spacing: 0.01em;
+    margin: 0;
+    text-wrap: balance;
+  }
+  .sub { margin: 0; color: var(--muted); max-width: 68ch; }
+
+  figure { margin: 0; display: grid; gap: 10px; }
+  .sheet {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    overflow-x: auto;
+  }
+  .sheet svg {
+    display: block;
+    width: 100%;
+    min-width: 760px;
+    height: auto;
+    color: var(--fg);
+  }
+  figcaption { color: var(--muted); font-size: 13.5px; max-width: 90ch; }
+
+  /* SVG styling (kept outside the drawing so it follows the theme tokens). */
+  .comp { fill: var(--comp); stroke: var(--line); stroke-width: 1.5; }
+  .conn { fill: var(--conn); stroke: var(--line); stroke-width: 1.2; }
+  .pad { fill: var(--panel); stroke: currentColor; stroke-width: 1.2; }
+  .t { fill: currentColor; font: 12.5px var(--body); }
+  .tb { fill: currentColor; font: 600 14px var(--body); }
+  .tm { fill: currentColor; font: 12px var(--mono); }
+  .mut { fill: var(--muted); }
+  .tag { fill: var(--panel); stroke: var(--line); stroke-width: 1.2; }
+  .w { fill: none; stroke-width: 3; stroke-linejoin: round; stroke-linecap: round; }
+  .w-red { stroke: var(--red); }
+  .w-gnd { stroke: var(--gnd); }
+  .w-tx { stroke: var(--tx); }
+  .w-rx { stroke: var(--rx); }
+  .w-led { stroke: var(--led); }
+  .w-v5 { stroke: var(--v5); }
+  .f-red { fill: var(--red); }
+  .f-gnd { fill: var(--gnd); }
+  .f-tx { fill: var(--tx); }
+  .f-rx { fill: var(--rx); }
+  .f-led { fill: var(--led); }
+  .c-red { fill: var(--red); }
+  .c-tx { fill: var(--tx); }
+  .c-rx { fill: var(--rx); }
+  .c-led { fill: var(--led); }
+  .c-ok { fill: var(--ok); }
+  .opt { fill: none; stroke: var(--line); stroke-width: 1.2; stroke-dasharray: 5 4; }
+  .bridge { fill: var(--ok); }
+
+  .grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+    gap: 22px;
+    align-items: start;
+  }
+  @media (max-width: 820px) { .grid { grid-template-columns: minmax(0, 1fr); } }
+  section {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 18px 20px;
+    min-width: 0;
+  }
+  h2 {
+    font: 600 20px/1.2 var(--display);
+    letter-spacing: 0.02em;
+    margin: 0 0 12px;
+  }
+  .table-wrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th, td { text-align: left; padding: 8px 10px 8px 0; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { font: 500 11.5px/1.3 var(--mono); letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
+  td.pin { font: 500 13px var(--mono); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  tr:last-child td { border-bottom: none; }
+  .sw { display: inline-block; width: 22px; height: 4px; border-radius: 2px; vertical-align: middle; margin-right: 8px; }
+  .sw.red { background: var(--red); }
+  .sw.gnd { background: var(--gnd); }
+  .sw.tx { background: var(--tx); }
+  .sw.rx { background: var(--rx); }
+  .sw.led { background: var(--led); }
+  .sw.v5 { background: var(--v5); }
+  .na { color: var(--muted); }
+  code { font: 13px var(--mono); }
+
+  ol { margin: 0; padding-left: 1.3em; display: grid; gap: 8px; }
+  li::marker { font: 500 13px var(--mono); color: var(--muted); }
+  .warnbox {
+    background: var(--warn);
+    border-color: var(--warn-line);
+  }
+  .warnbox ul { margin: 0; padding-left: 1.1em; display: grid; gap: 6px; }
+  .src { font-size: 12.5px; color: var(--muted); margin: 0; }
+  .src a { color: inherit; }
+</style>
+</head>
+<body>
+<div class="page">
+  <header>
+    <div class="eyebrow">IntelliThings · bench setup</div>
+    <h1>Companion Display Wiring</h1>
+    <p class="sub">DWIN DMG80480T050_09WN display, Waveshare ESP32-C6-LCD-1.47, FNIRSI bench supply, and the optional 24-LED bar. The display runs from the bench supply; the ESP32 runs from your laptop's USB-C. They share only ground and two serial wires.</p>
+  </header>
+
+  <figure>
+    <div class="sheet">
+      <svg viewBox="0 0 1060 640" role="img" aria-label="Wiring: bench supply plus 12 V to display pins 1 and 2, supply minus to display pin 8; display pin 7 to ESP32 GND; ESP32 GP18 to display pin 5 RX2; display pin 4 TX2 to ESP32 GP19; LED strip: ESP32 5V to strip 5V, ESP32 GND to strip GND, ESP32 GP20 through 330 ohms to strip DIN; ESP32 powered from the laptop over USB-C.">
+        <!-- Display (back view) -->
+        <rect class="comp" x="24" y="70" width="396" height="400" rx="10"/>
+        <text class="tb" x="44" y="100">DWIN DMG80480T050_09WN</text>
+        <text class="t mut" x="44" y="118">5" display · back view</text>
+
+        <!-- microSD slot on the left edge -->
+        <rect class="conn" x="24" y="250" width="30" height="62" rx="3"/>
+        <text class="t" x="66" y="276">microSD slot</text>
+        <text class="t mut" x="66" y="293">DWIN_SET loads from here</text>
+
+        <!-- TTL pads -->
+        <rect class="pad" x="296" y="430" width="10" height="12" rx="1"/>
+        <rect class="pad" x="314" y="430" width="10" height="12" rx="1"/>
+        <rect class="bridge" x="300" y="433" width="20" height="6" rx="2"/>
+        <text class="t" x="286" y="440" text-anchor="end">ON=TTL pads, bridged</text>
+        <text class="t mut" x="286" y="456" text-anchor="end">check: pin 4 to pin 7 reads positive (here +5 V)</text>
+
+        <!-- Connector -->
+        <text class="tm mut" x="384" y="118" text-anchor="middle">6-36V IN</text>
+        <rect class="conn" x="372" y="128" width="40" height="292" rx="4"/>
+        <g>
+          <rect class="pad" x="401" y="145" width="10" height="10"/>
+          <rect class="pad" x="401" y="181" width="10" height="10"/>
+          <rect class="pad" x="401" y="217" width="10" height="10"/>
+          <rect class="pad" x="401" y="253" width="10" height="10"/>
+          <rect class="pad" x="401" y="289" width="10" height="10"/>
+          <rect class="pad" x="401" y="325" width="10" height="10"/>
+          <rect class="pad" x="401" y="361" width="10" height="10"/>
+          <rect class="pad" x="401" y="397" width="10" height="10"/>
+        </g>
+        <g text-anchor="end">
+          <text class="tm" x="362" y="154">8 GND</text>
+          <text class="tm" x="362" y="190">7 GND</text>
+          <text class="tm mut" x="362" y="226">6 RX4 · not used</text>
+          <text class="tm" x="362" y="262">5 RX2</text>
+          <text class="tm" x="362" y="298">4 TX2</text>
+          <text class="tm mut" x="362" y="334">3 TX4 · not used</text>
+          <text class="tm" x="362" y="370">2 VCC</text>
+          <text class="tm" x="362" y="406">1 VCC</text>
+        </g>
+
+        <!-- ESP32-C6 board, drawn screen side up as it sits on the breadboard -->
+        <rect class="tag" x="596" y="62" width="128" height="24" rx="5"/>
+        <text class="t" x="660" y="79" text-anchor="middle">USB-C → laptop</text>
+        <line x1="660" y1="86" x2="660" y2="110" stroke="currentColor" stroke-width="1.5"/>
+        <rect class="conn" x="640" y="110" width="40" height="14" rx="3"/>
+        <rect class="comp" x="580" y="120" width="160" height="330" rx="12"/>
+        <text class="tb" x="660" y="141" text-anchor="middle">ESP32-C6</text>
+        <text class="t mut" x="660" y="500" text-anchor="middle">Waveshare ESP32-C6-LCD-1.47 · screen side up</text>
+        <g>
+          <rect class="pad" x="589" y="147" width="10" height="10"/>
+          <rect class="pad" x="589" y="181" width="10" height="10"/>
+          <rect class="pad" x="589" y="215" width="10" height="10"/>
+          <rect class="pad" x="589" y="249" width="10" height="10"/>
+          <rect class="pad" x="589" y="283" width="10" height="10"/>
+          <rect class="pad" x="589" y="317" width="10" height="10"/>
+          <rect class="pad" x="589" y="351" width="10" height="10"/>
+          <rect class="pad" x="589" y="385" width="10" height="10"/>
+          <rect class="pad" x="589" y="419" width="10" height="10"/>
+          <rect class="pad" x="721" y="147" width="10" height="10"/>
+          <rect class="pad" x="721" y="181" width="10" height="10"/>
+          <rect class="pad" x="721" y="215" width="10" height="10"/>
+          <rect class="pad" x="721" y="249" width="10" height="10"/>
+          <rect class="pad" x="721" y="283" width="10" height="10"/>
+          <rect class="pad" x="721" y="317" width="10" height="10"/>
+          <rect class="pad" x="721" y="351" width="10" height="10"/>
+          <rect class="pad" x="721" y="385" width="10" height="10"/>
+          <rect class="pad" x="721" y="419" width="10" height="10"/>
+        </g>
+        <g class="tm">
+          <text class="mut" x="606" y="156">TXD</text>
+          <text class="mut" x="606" y="190">RXD</text>
+          <text class="mut" x="606" y="224">GP13</text>
+          <text class="mut" x="606" y="258">GP12</text>
+          <text class="mut" x="606" y="292">GP23</text>
+          <text x="606" y="326">GP20</text>
+          <text x="606" y="360">GP19</text>
+          <text x="606" y="394">GP18</text>
+          <text class="mut" x="606" y="428">GP9</text>
+        </g>
+        <g class="tm" text-anchor="end">
+          <text x="714" y="156">5V</text>
+          <text x="714" y="190">GND</text>
+          <text class="mut" x="714" y="224">3V3</text>
+          <text class="mut" x="714" y="258">GP0</text>
+          <text class="mut" x="714" y="292">GP1</text>
+          <text class="mut" x="714" y="326">GP2</text>
+          <text class="mut" x="714" y="360">GP3</text>
+          <text class="mut" x="714" y="394">GP4</text>
+          <text class="mut" x="714" y="428">GP5</text>
+        </g>
+
+        <!-- Bench supply -->
+        <rect class="comp" x="860" y="490" width="152" height="100" rx="8"/>
+        <text class="tb" x="874" y="512">FNIRSI supply</text>
+        <text class="tm" x="874" y="531">12.0 V · 0.5 A</text>
+        <text class="tm mut" x="874" y="549">OVP 14 · OCP 0.8</text>
+        <text class="t" x="900" y="577" text-anchor="middle">+ red</text>
+        <text class="t" x="976" y="577" text-anchor="middle">− black</text>
+
+        <!-- +12 V: supply + to pins 1 and 2 -->
+        <polyline class="w w-red" points="412,366 444,366 444,402 412,402"/>
+        <polyline class="w w-red" points="444,384 444,606 900,606 900,590"/>
+        <circle class="c-red" cx="444" cy="384" r="4.5"/>
+        <circle class="c-red" cx="900" cy="590" r="7"/>
+        <text class="t" x="662" y="598" text-anchor="middle">+12 V · supply + to pins 1 and 2</text>
+
+        <!-- GND: supply − to pin 8 (around the outside) -->
+        <polyline class="w w-gnd" points="412,150 440,150 440,20 1036,20 1036,620 976,620 976,590"/>
+        <circle class="f-gnd" cx="976" cy="590" r="7"/>
+        <text class="t" x="860" y="14" text-anchor="middle">GND · supply − to pin 8</text>
+
+        <!-- Shared ground: pin 7 over the top to the ESP32's GND (right header, 2nd from USB) -->
+        <polyline class="w w-gnd" points="412,186 500,186 500,50 760,50 760,186 732,186"/>
+        <text class="t" x="630" y="44" text-anchor="middle">GND · shared ground</text>
+
+        <!-- ESP32 TX (GP18) to display RX2 (pin 5) -->
+        <polyline class="w w-tx" points="594,390 545,390 545,258 424,258"/>
+        <polygon class="f-tx" points="413,258 425,251 425,265"/>
+        <text class="t" x="484" y="250" text-anchor="middle">GP18 TX → pin 5</text>
+
+        <!-- Display TX2 (pin 4, 5 V) through the 1 k / 2 k divider to ESP32 RX (GP19) -->
+        <polyline class="w w-rx" points="412,294 470,294 470,356 478,356"/>
+        <rect class="w w-rx" x="478" y="348" width="30" height="16" rx="3"/>
+        <path class="w w-rx" d="M508,356 L539,356 A6,6 0 0 1 551,356 L578,356"/>
+        <polygon class="f-rx" points="589,356 577,349 577,363"/>
+        <circle class="f-rx" cx="525" cy="356" r="4.5"/>
+        <polyline class="w w-rx" points="525,356 525,370"/>
+        <rect class="w w-rx" x="517" y="370" width="16" height="28" rx="3"/>
+        <polyline class="w w-gnd" points="525,398 525,408"/>
+        <line class="w w-gnd" x1="513" y1="408" x2="537" y2="408"/>
+        <line class="w w-gnd" x1="517" y1="414" x2="533" y2="414"/>
+        <line class="w w-gnd" x1="521" y1="420" x2="529" y2="420"/>
+        <text class="tm" x="493" y="341" text-anchor="middle">1 kΩ</text>
+        <text class="tm" x="511" y="389" text-anchor="end">2 kΩ</text>
+        <text class="t" x="505" y="439" text-anchor="middle">pin 4 TX2 (5 V)<tspan x="505" dy="16">→ 3.3 V</tspan></text>
+
+        <!-- LED strip: 5V and GND from the right header (GND branches off the shared ground), data
+             from GP20 around the bottom of the board, through 330 Ω near the strip -->
+        <rect class="comp" x="800" y="292" width="206" height="64" rx="6"/>
+        <text class="tb" x="903" y="282" text-anchor="middle">WS2812B strip · 24 LEDs</text>
+        <g>
+          <rect class="pad" x="800" y="301" width="10" height="10"/>
+          <rect class="pad" x="800" y="319" width="10" height="10"/>
+          <rect class="pad" x="800" y="337" width="10" height="10"/>
+        </g>
+        <g class="tm">
+          <text x="816" y="310">5V</text>
+          <text x="816" y="328">GND</text>
+          <text x="816" y="346">DIN</text>
+        </g>
+        <g class="c-led">
+          <rect x="866" y="317" width="12" height="12" rx="2"/>
+          <rect x="883" y="317" width="12" height="12" rx="2"/>
+          <rect x="900" y="317" width="12" height="12" rx="2"/>
+          <rect x="917" y="317" width="12" height="12" rx="2"/>
+          <rect x="934" y="317" width="12" height="12" rx="2"/>
+          <rect x="951" y="317" width="12" height="12" rx="2"/>
+          <rect x="968" y="317" width="12" height="12" rx="2"/>
+          <rect x="985" y="317" width="12" height="12" rx="2"/>
+        </g>
+        <text class="t mut" x="903" y="374" text-anchor="middle">input end left · arrows point away</text>
+
+        <polyline class="w w-gnd" points="760,186 778,186 778,324 800,324"/>
+        <circle class="f-gnd" cx="760" cy="186" r="4.5"/>
+        <path class="w w-v5" d="M732,152 L754,152 A6,6 0 0 1 766,152 L790,152 L790,306 L800,306"/>
+        <path class="w w-led" d="M594,322 L566,322 L566,350 A6,6 0 0 0 566,362 L566,384 A6,6 0 0 0 566,396 L566,478 L766,478 L766,425"/>
+        <rect class="w w-led" x="758" y="395" width="16" height="30" rx="3"/>
+        <polyline class="w w-led" points="766,395 766,342 800,342"/>
+        <text class="tm" x="782" y="414">330 Ω</text>
+      </svg>
+    </div>
+    <figcaption>Pins are numbered as in the DWIN datasheet and printed on the board next to the connector. The supply's minus reaches the far end of the connector (pin 8) and pin 7 carries the shared ground to the ESP32, so one of the two power wires is always long. Serial lines cross over: the ESP32's TX goes to the display's RX2, and the display's TX2 goes to the ESP32's RX. This unit's TX2 idles at 5 V, so a 1 kΩ / 2 kΩ divider (two 560 Ω in series over 2.2 kΩ works too) brings it down to 3.3 V for the ESP32. The ESP32 board is drawn screen side up, as it sits on the breadboard; the pin labels printed on its back read mirrored from this view. The LED strip takes all three wires: 5V and GND from the ESP32's right header, and data from GP20 through 330 Ω placed near the strip. Its GND is not optional.</figcaption>
+  </figure>
+
+  <div class="grid">
+    <section>
+      <h2>Connections</h2>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Display pin</th><th>Signal</th><th>Connect to</th></tr></thead>
+          <tbody>
+            <tr><td class="pin">1, 2</td><td><span class="sw red"></span>VCC</td><td>Supply <strong>+</strong> (red), 12.0 V</td></tr>
+            <tr><td class="pin">3</td><td class="na">TX4</td><td class="na">Not connected</td></tr>
+            <tr><td class="pin">4</td><td><span class="sw rx"></span>TX2</td><td>1 kΩ → ESP32 <code>GP19</code> (left header, 7th from the USB end, screen up), with 2 kΩ from <code>GP19</code> to GND. TX2 idles at 5 V on this unit.</td></tr>
+            <tr><td class="pin">5</td><td><span class="sw tx"></span>RX2</td><td>ESP32 <code>GP18</code> (UART1 TX; left header, 8th from the USB end, screen up)</td></tr>
+            <tr><td class="pin">6</td><td class="na">RX4</td><td class="na">Not connected</td></tr>
+            <tr><td class="pin">7</td><td><span class="sw gnd"></span>GND</td><td>ESP32 <code>GND</code> (right header, 2nd from the USB end, screen up)</td></tr>
+            <tr><td class="pin">8</td><td><span class="sw gnd"></span>GND</td><td>Supply <strong>−</strong> (black)</td></tr>
+            <tr><td class="pin">strip</td><td><span class="sw gnd"></span>GND</td><td>ESP32 <code>GND</code> → strip <strong>GND</strong>. <strong>Required:</strong> without it the strip draws its current through <code>GP20</code>, flickers at random and can destroy the ESP32.</td></tr>
+            <tr><td class="pin">strip</td><td><span class="sw v5"></span>5V</td><td>ESP32 <code>5V</code> (right header, 1st from the USB end) → strip <strong>5V</strong>. The firmware's brightness cap keeps it under 0.5 A; a 470–1000 µF capacitor across 5V and GND at the strip helps.</td></tr>
+            <tr><td class="pin">strip</td><td><span class="sw led"></span>DIN</td><td>ESP32 <code>GP20</code> (left header, 6th) → 330 Ω → strip <strong>DIN</strong>, at the input end (the strip's arrows point away from it). Without a strip, the board's RGB LED and screen show the bar.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section>
+      <h2>Power-up order</h2>
+      <ol>
+        <li>Supply output off. Set 12.0 V and a 0.5 A current limit (OVP 14 V, OCP 0.8 A if your model has them).</li>
+        <li>Check the TTL pads next to the connector are bridged.</li>
+        <li>Connect only the supply: red to pins 1–2, black to pin 8. Identify the cable's wires with a continuity test first.</li>
+        <li>Output on. Expect about 0.1–0.25 A and the backlight on. If the supply hits its current limit, turn it off and recheck polarity.</li>
+        <li>Measure pin 4 against pin 7: a positive reading (3.3–5 V) means TTL. A negative reading means RS232; stop there.</li>
+        <li>Connect the ESP32: GND to pin 7, GP18 to pin 5, and pin 4 through the 1 kΩ / 2 kΩ divider to GP19 (it measured +5 V). Then plug its USB-C into the laptop.</li>
+        <li>Optional LED strip, with the ESP32's USB unplugged: GND first, then 5V, then DIN through 330 Ω. When unplugging, take GND off last.</li>
+      </ol>
+    </section>
+  </div>
+
+  <section class="warnbox">
+    <h2>Never</h2>
+    <ul>
+      <li>Connect the supply's 12 V to any ESP32 pin.</li>
+      <li>Power the display from USB or the ESP32's 5V pin: the display needs at least 6 V.</li>
+      <li>Wire the ESP32 to the display while it is in RS232 mode (pads open).</li>
+      <li>Connect the display's TX2 (5 V) straight to an ESP32 pin; always through the divider.</li>
+      <li>Run the LED strip without its GND wire, or move its wires while the ESP32 is powered.</li>
+    </ul>
+  </section>
+
+  <p class="src">Pinout and TTL pads: DWIN DMG80480T050_09WN datasheet (pin table and board photo). ESP32 header: Waveshare ESP32-C6-LCD-1.47 wiki pinout.</p>
+</div>
+</body>
+</html>

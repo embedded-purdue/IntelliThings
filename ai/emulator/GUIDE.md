@@ -1,6 +1,6 @@
 # IntelliThings emulator: user guide
 
-*Firmware v2.1.0 (in development). This guide is built into the board: open it with **?** in
+*Firmware v2.1.1. This guide is built into the board: open it with **?** in
 the panel, or download it from `/guide.md?download=1`. Full reference: `ai/emulator/README.md`
 in the repo.*
 

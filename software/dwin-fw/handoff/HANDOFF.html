@@ -1,0 +1,376 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Display Handoff</title>
+<style>
+:root {
+  --bg: #ffffff; --fg: #17202a; --muted: #5b6878; --line: #dfe4ea; --soft: #f4f6f9;
+  --accent: #0f766e; --accent-soft: #e3f4f1; --code: #24303d; --tag: #9a3412; --tag-bg: #fff1e6;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0b0f14; --fg: #e8eef4; --muted: #93a1b2; --line: #243040; --soft: #121a23;
+    --accent: #5eead4; --accent-soft: #10282a; --code: #d6e2ee; --tag: #fdba74; --tag-bg: #2a1a0e;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0b0f14; --fg: #e8eef4; --muted: #93a1b2; --line: #243040; --soft: #121a23;
+  --accent: #5eead4; --accent-soft: #10282a; --code: #d6e2ee; --tag: #fdba74; --tag-bg: #2a1a0e;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--fg);
+  font: 15px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+main { max-width: 1180px; margin: 0 auto; padding: 32px 16px 64px; }
+h1 { font-size: 28px; margin: 0 0 4px; letter-spacing: -0.01em; }
+h2 { font-size: 19px; margin: 40px 0 6px; }
+h3 { font-size: 15px; margin: 0 0 6px; }
+p { margin: 6px 0 10px; }
+a { color: var(--accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
+code { font: 13px/1.4 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; color: var(--code); }
+.lede { color: var(--muted); max-width: 800px; }
+.cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 14px; margin: 20px 0 6px; }
+.card { border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; background: var(--soft); }
+.card ul { margin: 6px 0 0; padding-left: 18px; }
+.card li { margin: 4px 0; }
+.toc { list-style: none; padding: 0 !important; }
+.toc code.addr { display: inline-block; min-width: 118px; }
+.scroll { overflow-x: auto; border: 1px solid var(--line); border-radius: 10px; margin: 10px 0; }
+table { border-collapse: collapse; width: 100%; font-size: 14px; }
+th, td { text-align: left; vertical-align: top; padding: 8px 10px; border-bottom: 1px solid var(--line); }
+thead th { background: var(--soft); font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); white-space: nowrap; }
+tbody tr:last-child td { border-bottom: 0; }
+td.vp { white-space: nowrap; }
+td.vp code { color: var(--accent); font-weight: 600; }
+td.name { white-space: nowrap; }
+.sub, .mqtt { color: var(--muted); font-size: 12px; }
+.mqtt { margin-top: 4px; }
+.note { color: var(--muted); max-width: 900px; }
+.fine { color: var(--muted); font-size: 13px; }
+.tag { display: inline-block; font-size: 11px; color: var(--tag); background: var(--tag-bg); border-radius: 6px; padding: 0 6px; margin-left: 4px; white-space: nowrap; }
+ul.values { list-style: none; padding: 0; margin: 4px 0 0; }
+ul.values li { margin: 1px 0; }
+ul.values code { display: inline-block; min-width: 56px; }
+code.bytes { white-space: normal; word-break: break-word; }
+.key { display: inline-block; background: var(--accent-soft); border-radius: 6px; padding: 0 6px; font-weight: 600; }
+footer { margin-top: 48px; color: var(--muted); font-size: 13px; }
+@media print { .scroll { overflow: visible; } body { font-size: 12px; } h2 { break-after: avoid; } tr { break-inside: avoid; } }
+pre { background: var(--soft); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; overflow-x: auto; }
+pre code { font-size: 12.5px; }
+.doc { max-width: 900px; }
+.doc h2 { margin-top: 36px; }
+.doc img { max-width: 100%; height: auto; border-radius: 10px; border: 1px solid var(--line); margin-top: 8px; }
+.doc em { color: var(--muted); font-size: 13px; }
+.doc li { margin: 4px 0; }
+.doc td code, .doc li code, .doc p code { background: var(--soft); border-radius: 5px; padding: 0 4px; }
+</style>
+</head>
+<body>
+<main class=doc>
+<h1>Companion display: handoff</h1>
+<p>October 18, 2026 · for the software team, from the display bench</p>
+<p>The DWIN <strong>DMG80480T050_09WN</strong> (5", 800×480, no touch) runs the approved display concepts: 13
+screen states plus the 24-LED light bar. An ESP32-C6 (the <em>companion</em>, the Waveshare
+ESP32-C6-LCD-1.47 on the bench) draws them. Until now it played demo data; this handoff is how
+the node firmware feeds it real numbers.</p>
+<h2>The short version</h2>
+<ul>
+<li>The node writes <strong>VPs</strong> (16-bit words at addresses <code>0x1000</code>–<code>0x17FF</code>) with ordinary DGUS
+    write frames, <code>5A A5 &lt;len&gt; 82 &lt;VP&gt; &lt;data&gt;</code>. This is the same workflow the firmware
+    architecture planned for the <code>dwin_display</code> thread. <strong>The table is <code>VP_MAP.html</code>.</strong></li>
+<li><strong>Where the frames go:</strong> to the companion C6's node link (UART, 115200 8N1, 3.3 V: node TX → <strong>GP2</strong>,
+    <strong>GP3</strong> → node RX, GND), not straight to the panel. The companion owns the panel's own VPs.</li>
+<li>
+<p><strong>The minimum for a live demo:</strong></p>
+<ul>
+<li>the sensor block every second (10 words in one frame, in MQTT snapshot order);</li>
+<li><code>wifi</code>, <code>hub</code> and <code>synced_ago</code> when they change;</li>
+<li>the clock once after SNTP;</li>
+<li><code>message_text</code> for each <code>…/display</code> message.</li>
+</ul>
+<p>The display picks the screen and the light pattern by itself.</p>
+</li>
+<li>
+<p><strong>For the AI message contract (due today):</strong> the AI section shows about <strong>110 characters</strong>
+    (4 lines). With action chips it shows about 80 (3 lines). Longer text is cut with “…”.</p>
+</li>
+<li>
+<p>No node handy? Try everything from a laptop over the companion's USB:
+    <code>python tools/companion.py --port /dev/cu.usbmodem… play</code>.</p>
+</li>
+</ul>
+<p><img alt="Screens drawn only from VP writes" src="live-screens.png" /></p>
+<p><em>Every screen above comes only from VP writes: real DGUS frames through the companion's decoder,
+drawn by the panel simulator (<code>cargo run --example live</code> in <code>firmware/companion-ui</code>).</em></p>
+<h2>What's in the folder</h2>
+<div class=scroll><table>
+<thead>
+<tr>
+<th>Path</th>
+<th>What</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>handoff/VP_MAP.html</code></td>
+<td><strong>The VP map</strong>: every address, unit, power-up value and value list, with example frames</td>
+</tr>
+<tr>
+<td><code>handoff/vp_map.csv</code>, <code>vp_map.json</code></td>
+<td>The same table for spreadsheets and scripts</td>
+</tr>
+<tr>
+<td><code>handoff/live-screens.png</code></td>
+<td>The screens the VP writes above produce</td>
+</tr>
+<tr>
+<td><code>handoff/dwin_vp.rs</code></td>
+<td>Drop-in Rust for the node firmware: every address as a constant, plus <code>write_frame</code>, <code>read_frame</code>, <code>text_words</code>, <code>x10</code> and <code>whole</code></td>
+</tr>
+<tr>
+<td><code>tools/companion.py</code></td>
+<td>Writes VPs by name from a laptop; <code>play</code> runs a scripted live demo (a reference for what the node sends)</td>
+</tr>
+<tr>
+<td><code>firmware/companion-ui/</code></td>
+<td><code>no_std</code> Rust crate: the DGUS driver, screens, light-bar patterns and the VP decoder (<code>vp.rs</code>). Host-tested</td>
+</tr>
+<tr>
+<td><code>firmware/companion-node/</code></td>
+<td>The companion's firmware (esp-hal 1.2.2 + embassy, the same stack as <code>software/firmware</code>)</td>
+</tr>
+<tr>
+<td><code>dgus/</code></td>
+<td>Builds the panel's <code>DWIN_SET</code> (backgrounds, 3,894 sprites and glyphs, controls) without DWIN's Windows tool. <code>dgus/vpmap.py</code> is the VP map's source</td>
+</tr>
+<tr>
+<td><code>docs/wiring.png</code></td>
+<td>Bench wiring diagram</td>
+</tr>
+<tr>
+<td><code>build/DWIN_SET/</code></td>
+<td>The files on the panel's microSD card</td>
+</tr>
+<tr>
+<td><code>README.md</code></td>
+<td>Bring-up guide, how it works, file formats</td>
+</tr>
+</tbody>
+</table></div>
+<h2>Wiring on the bench</h2>
+<div class=scroll><table>
+<thead>
+<tr>
+<th>From</th>
+<th>To</th>
+<th>Note</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Bench supply 12.0 V (0.5 A limit)</td>
+<td>Display pins 1–2 (+), 7–8 (−)</td>
+<td>The panel takes 6–36 V. Never put 12 V on the ESP32</td>
+</tr>
+<tr>
+<td>C6 <strong>GP18</strong> (UART1 TX)</td>
+<td>Display pin 5 (RX2)</td>
+<td>Direct; the panel reads 3.3 V</td>
+</tr>
+<tr>
+<td>Display pin 4 (TX2)</td>
+<td>1 kΩ → C6 <strong>GP19</strong>, with 2 kΩ from GP19 to GND</td>
+<td>TX2 idles at <strong>5 V</strong>; the C6 isn't 5 V tolerant (2 × 560 Ω over 2.2 kΩ also works)</td>
+</tr>
+<tr>
+<td>Display GND</td>
+<td>C6 GND</td>
+<td></td>
+</tr>
+<tr>
+<td>Node <strong>TX</strong></td>
+<td>C6 <strong>GP2</strong> (node link RX)</td>
+<td>3.3 V to 3.3 V, no divider</td>
+</tr>
+<tr>
+<td>C6 <strong>GP3</strong> (node link TX)</td>
+<td>Node <strong>RX</strong></td>
+<td>For the "OK" replies and reads (optional)</td>
+</tr>
+<tr>
+<td>Node GND</td>
+<td>C6 GND</td>
+<td></td>
+</tr>
+<tr>
+<td>C6 <strong>GND</strong></td>
+<td>LED strip <strong>GND</strong></td>
+<td><strong>Required.</strong> Without it the strip's current flows through GP20: random flicker, and it can destroy the C6</td>
+</tr>
+<tr>
+<td>C6 <strong>5V</strong></td>
+<td>LED strip <strong>5V</strong></td>
+<td>Under 0.5 A at the firmware's brightness cap. A 470–1000 µF capacitor at the strip helps</td>
+</tr>
+<tr>
+<td>C6 <strong>GP20</strong></td>
+<td>330 Ω → LED strip <strong>DIN</strong></td>
+<td>Resistor near the strip. Until a strip is fitted, the C6's RGB LED stands in</td>
+</tr>
+</tbody>
+</table></div>
+<p>With the Waveshare board screen side up and USB at the top, GP18/19/20 are on the left header.
+5V, GND, GP2 and GP3 are on the right header. The display's <strong>ON=TTL</strong> pads are bridged. Change
+the LED strip's wires only with the C6 unplugged: GND on first, off last.</p>
+<h2>For the software team: plugging in the numbers</h2>
+<ol>
+<li><strong>Wire the node link</strong> (above), or start from a laptop with <code>tools/companion.py</code>.</li>
+<li><strong>Copy <code>handoff/dwin_vp.rs</code></strong> into the node firmware (<code>src/ui/dwin_vp.rs</code>) and give the
+    <code>dwin_display</code> task a UART at 115200 baud.</li>
+<li><strong>Write the values</strong> (code below).</li>
+<li><strong>Check it</strong> (list below).</li>
+</ol>
+<p>Writing the values:</p>
+<pre><code class="language-rust">use crate::ui::dwin_vp as vp;
+
+/// Writes `words` at `at`, split into frames of at most 120 words.
+async fn send(uart: &amp;mut UartTx&lt;'_, Async&gt;, at: u16, words: &amp;[u16]) {
+    let mut buf = [0u8; 6 + vp::MAX_DATA];
+    for (k, chunk) in words.chunks(vp::MAX_DATA / 2).enumerate() {
+        let n = vp::write_frame(&amp;mut buf, at + (k * vp::MAX_DATA / 2) as u16, chunk);
+        let _ = uart.write_all(&amp;buf[..n]).await;
+    }
+}
+
+// Once at boot: forget whatever an earlier run left on the display.
+send(&amp;mut uart, vp::INPUTS_RESET, &amp;[vp::RESET_MAGIC]).await;
+
+// Every second: the whole sensor block in one frame, in MQTT snapshot order.
+// x10 for temperature and humidity; NO_READING (0x8000) for a sensor with no value.
+send(&amp;mut uart, vp::TEMPERATURE, &amp;[
+    vp::x10(Some(s.temp_c)), vp::x10(Some(s.humidity_pct)), s.voc_index, s.co2_ppm,
+    vp::whole(Some(s.lux)), s.distance_mm, s.pm1_0, s.pm2_5, s.pm10, s.presence as u16,
+]).await;
+
+// Connection state, when it changes; synced_ago = 0 after each publish or message.
+send(&amp;mut uart, vp::WIFI, &amp;[wifi_up as u16, hub /* 0 connecting, 1 online, 2 offline */, 0]).await;
+
+// After SNTP: Unix time (high word first) and the UTC offset in minutes.
+send(&amp;mut uart, vp::UNIX_TIME, &amp;[(unix &gt;&gt; 16) as u16, unix as u16, (-240i16) as u16]).await;
+
+// Each MQTT …/display message: its ts (0 if none), then the text.
+send(&amp;mut uart, vp::MESSAGE_TS, &amp;[(ts &gt;&gt; 16) as u16, ts as u16]).await;
+let mut words = [0u16; vp::MESSAGE_TEXT_WORDS];
+let n = vp::text_words(&amp;msg.text, &amp;mut words);
+send(&amp;mut uart, vp::MESSAGE_TEXT, &amp;words[..n]).await;
+</code></pre>
+<p>Checking it:</p>
+<ul>
+<li>The display answers every write with <code>5A A5 03 82 4F 4B</code>.</li>
+<li>
+<p>Reading <code>0x10F0</code> (6 words) returns the interface version, the panel state, the screen shown,
+  live or demo, and the count of accepted and refused writes.</p>
+</li>
+<li>
+<p>The companion's USB log prints a line for any refused write.</p>
+</li>
+<li>The companion's own screen shows <strong>LIVE</strong> and counts the writes.</li>
+</ul>
+<p><strong>Behaviour to know:</strong></p>
+<ul>
+<li>The AI text stays until a <em>different</em> text arrives. Rewriting the same retained message after
+    a reconnect doesn't restart the typing.</li>
+<li>Anything you never write keeps its power-up value. With no presence sensor, the screen never
+    dims to the away page.</li>
+<li>Until the first write, the companion plays the demo. <code>mode</code> (<code>0x1038</code>) can force live or
+    demo. <code>screen</code> (<code>0x1037</code>) forces a page for testing.</li>
+</ul>
+<p><strong>Optional extras</strong>, if the AI contract grows to carry them:</p>
+<ul>
+<li>action chips under the message;</li>
+<li>the “thinking” line with the spinning orb;</li>
+<li>toasts;</li>
+<li>alerts that take over the screen;</li>
+<li>other rooms' readings for the rooms page;</li>
+<li>the boot checklist;</li>
+<li>the Wi-Fi setup page with a QR code.</li>
+</ul>
+<p>All are in the VP map.</p>
+<h3>Later: one chip instead of two</h3>
+<p>The bench uses two C6s (node and companion), which keeps the teams independent. For the final
+node, the same VPs work in-process:</p>
+<ol>
+<li>Add <code>firmware/companion-ui</code> as a dependency.</li>
+<li>Keep one <code>vp::Inputs</code>.</li>
+<li>Call <code>inputs.write(vp, words, now)</code> instead of sending frames.</li>
+<li>Run the frame loop from <code>firmware/companion-node/src/bin/main.rs</code>: <code>inputs.apply(...)</code>,
+    <code>director.decide(...)</code>, then <code>ui.frame(...)</code>.</li>
+</ol>
+<p>The VP map stays the contract either way.</p>
+<h2>Building, flashing, loading</h2>
+<pre><code class="language-bash">make setup                 # once: Python venv
+make dwin                  # build/DWIN_SET + firmware tables + the VP map files in handoff/
+make test                  # Python and Rust tests
+make flash                 # build and flash the companion firmware to the C6 on USB
+make firmware              # build/companion-node.elf, to flash without Rust (flash.txt)
+make sd DISK=/dev/diskN    # format a microSD card and copy DWIN_SET (erases it!)
+</code></pre>
+<p><strong>Loading the panel</strong> (only when <code>make dwin</code> changed the <code>DWIN_SET</code> files):</p>
+<ol>
+<li>Power off and insert the card.</li>
+<li>Power on and wait for <strong>"SD card process end"</strong>.</li>
+<li>Power off, remove the card, power on.</li>
+</ol>
+<p>The panel keeps the files in its flash. Rust: <code>rustup target add riscv32imac-unknown-none-elf</code>
+and <code>cargo install espflash</code>.</p>
+<h2>What's verified</h2>
+<p>On the hardware:</p>
+<ul>
+<li>The panel (DGUS 0x65, OS 0x22) loads the generated <code>DWIN_SET</code>.</li>
+<li>A full 104 s loop of all 13 screens ran with every write frame acknowledged and no receive
+    errors.</li>
+<li>The redraw behaviour was checked with <code>paneltest</code>: moving or removing icons leaves no ghosts
+    and doesn't wipe other layers.</li>
+</ul>
+<p>In tests:</p>
+<ul>
+<li>The VP map has no overlaps (checked when generated).</li>
+<li>41 Rust tests pass: frame parsing and resync, every block of the map, text decoding, rooms
+    judging themselves, the boot checklist, reset, read-only words, and a round trip through
+    <code>dwin_vp.rs</code>.</li>
+<li><code>cargo run --example live</code> sends real frames through the parser and decoder for nine
+    situations. The panel simulator draws them as expected (the picture at the top).</li>
+<li><code>tools/companion.py</code> (<code>status</code>, <code>set</code>, <code>get</code>, <code>message</code>, <code>play</code>, <code>reset</code>) ran against the
+    decoder on the computer, inside the firmware's frame loop. <code>play</code> made about 210 writes,
+    none refused, and walked boot → home → sensors → rooms → alert → home.</li>
+</ul>
+<p><strong>Not yet tried on the bench:</strong></p>
+<ul>
+<li>the VP input on the real companion: the firmware is built and tested on the computer, but not
+    flashed yet;</li>
+<li>a real node on the node link (a USB-UART adapter on GP2/GP3 is a good first step);</li>
+<li>the LED strip with the current firmware. A first try flickered at random. Part of that was
+    the firmware: it sent the strip's bits from an async task, and a busy screen task made it
+    miss refills. It now sends each frame with interrupts off (<code>ledbar.rs</code>). The test-pattern
+    screen (<code>screen</code> = 9) holds the bar still in red, green, blue, white for checking the wiring;</li>
+<li>the toast's rounded corners and the brightness scrim behind it.</li>
+</ul>
+<h2>Known limits and open items</h2>
+<ul>
+<li><strong>Characters.</strong> Text draws printable ASCII plus <code>° ₂ µ ³ · … ’ ‘ “ ” – — − ×</code>. Accents and emoji
+    are skipped. Adding characters means a <code>make dwin</code> and an SD reload.</li>
+<li><strong>Room names</strong> on the rooms page are part of the panel's background (<code>dgus/pages.py</code>, <code>ROOMS</code>).
+    Renaming a room needs <code>make dwin</code> and an SD reload.</li>
+<li><strong>Trends</strong> on the sensors page are collected by the companion (one sample per 10 minutes), so
+    they restart empty after it reboots.</li>
+<li><strong>The final PCB</strong> needs a 6–36 V supply for the display and the TX2 divider, or a level shifter.</li>
+<li><strong>The layout rule.</strong> Page rotation (sensors and rooms pages) is off by default, because those
+    pages hide the AI message. <code>rotate_pages</code> turns it on.</li>
+<li><strong>Repo.</strong> Nothing here has been pushed to the team repo. The software lead can copy
+    <code>VP_MAP.html</code> (or the CSV) into <code>docs/interfaces/</code> as the display contract.</li>
+</ul>
+</main>
+</body>
+</html>

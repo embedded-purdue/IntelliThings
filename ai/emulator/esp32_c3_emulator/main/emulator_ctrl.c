@@ -1,6 +1,7 @@
 #include "emulator_ctrl.h"
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 #include "ai_message.h"
@@ -15,6 +16,7 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/semphr.h"
 #include "history.h"
+#include "json_writer.h"
 #include "mqtt_client.h"
 #include "mqtt_node.h"
 #include "payload.h"
@@ -40,13 +42,14 @@ static size_t s_rx_len;
 static bool s_rx_retained;
 static rx_kind_t s_rx_kind;
 
-static struct {
+typedef struct {
     bool valid;
     bool ok;
     char msg[160];
     char source[8];
     int64_t at_us;
-} s_last;
+} last_cmd_t;
+static last_cmd_t s_last;
 
 // ---------------------------------------------------------------------------
 // Commands
@@ -372,82 +375,139 @@ done:
 // ---------------------------------------------------------------------------
 // State / meta JSON
 
-static void add_reading(cJSON *obj, const sim_reading_t *r)
-{
-    for (int m = 0; m < METRIC_COUNT; m++) {
-        cJSON_AddNumberToObject(obj, METRIC_INFO[m].key, r->v[m]);
-    }
-    cJSON_AddBoolToObject(obj, "presence", r->presence);
-}
+// One node's part of the state, copied under the nodes lock and written after it is released
+// (the writer may be sending to a socket).
+typedef struct {
+    const vnode_t *n;  // id and profile are fixed after boot
+    bool mqtt_connected, has_last;
+    uint32_t reconnects, publish_count;
+    int64_t last_publish_us;
+    const char *mode;
+    int occupants;
+    const scenario_t *scenario, *auto_event;
+    bool scenario_forever, ovr_forever;
+    int scenario_left_s, auto_event_left_s, ovr_left_s;
+    int8_t presence_ovr;
+    range_override_t ovr[METRIC_COUNT];
+    sim_reading_t last;
+} node_copy_t;
 
-static void add_node_state(cJSON *arr, const vnode_t *n, int64_t now)
+static void copy_node(node_copy_t *c, const vnode_t *n)
 {
     const sim_state_t *s = &n->sim;
-    cJSON *o = cJSON_CreateObject();
-    cJSON_AddStringToObject(o, "id", n->id);
-    cJSON_AddStringToObject(o, "room", n->profile->name);
-    cJSON_AddStringToObject(o, "label", n->profile->label);
-    cJSON_AddStringToObject(o, "mqtt", n->mqtt_connected ? "connected" : "disconnected");
-    cJSON_AddNumberToObject(o, "mqtt_reconnects", n->mqtt_reconnects);
-    cJSON_AddNumberToObject(o, "publish_count", n->publish_count);
-    if (n->has_last) {
-        cJSON_AddNumberToObject(o, "last_publish_age_s",
-                                (double)((now - n->last_publish_us) / 1000000LL));
-    } else {
-        cJSON_AddNullToObject(o, "last_publish_age_s");
-    }
-    cJSON_AddStringToObject(o, "mode", sim_mode(s));
-    cJSON_AddNumberToObject(o, "occupants", sim_occupants(s));
+    c->n = n;
+    c->mqtt_connected = n->mqtt_connected;
+    c->reconnects = n->mqtt_reconnects;
+    c->publish_count = n->publish_count;
+    c->has_last = n->has_last;
+    c->last_publish_us = n->last_publish_us;
+    c->last = n->last;
+    c->mode = sim_mode(s);
+    c->occupants = sim_occupants(s);
+    c->scenario = s->scenario;
+    c->scenario_forever = s->scenario_forever;
+    c->scenario_left_s = (int)s->scenario_left_s;
+    c->auto_event = s->auto_event;
+    c->auto_event_left_s = (int)s->auto_event_left_s;
+    memcpy(c->ovr, s->ovr, sizeof(c->ovr));
+    c->presence_ovr = s->presence_ovr;
+    c->ovr_forever = s->ovr_forever;
+    c->ovr_left_s = (int)s->ovr_left_s;
+}
 
-    if (s->scenario) {
-        cJSON_AddStringToObject(o, "scenario", s->scenario->name);
-        cJSON_AddStringToObject(o, "scenario_label", s->scenario->label);
-        if (s->scenario_forever) {
-            cJSON_AddNullToObject(o, "scenario_remaining_s");
+static void write_node(jw_t *w, const node_copy_t *c, int64_t now)
+{
+    jw_key(w, true, "id");
+    jw_str(w, c->n->id);
+    jw_key(w, false, "room");
+    jw_str(w, c->n->profile->name);
+    jw_key(w, false, "label");
+    jw_str(w, c->n->profile->label);
+    jw_key(w, false, "mqtt");
+    jw_str(w, c->mqtt_connected ? "connected" : "disconnected");
+    jw_key(w, false, "mqtt_reconnects");
+    jw_num(w, c->reconnects);
+    jw_key(w, false, "publish_count");
+    jw_num(w, c->publish_count);
+    jw_key(w, false, "last_publish_age_s");
+    if (c->has_last) {
+        jw_num(w, (double)((now - c->last_publish_us) / 1000000LL));
+    } else {
+        jw_raw(w, "null");
+    }
+    jw_key(w, false, "mode");
+    jw_str(w, c->mode);
+    jw_key(w, false, "occupants");
+    jw_num(w, c->occupants);
+
+    jw_key(w, false, "scenario");
+    if (c->scenario) {
+        jw_str(w, c->scenario->name);
+        jw_key(w, false, "scenario_label");
+        jw_str(w, c->scenario->label);
+        jw_key(w, false, "scenario_remaining_s");
+        if (c->scenario_forever) {
+            jw_raw(w, "null");
         } else {
-            cJSON_AddNumberToObject(o, "scenario_remaining_s", (int)s->scenario_left_s);
+            jw_num(w, c->scenario_left_s);
         }
     } else {
-        cJSON_AddNullToObject(o, "scenario");
+        jw_raw(w, "null");
     }
-    if (s->auto_event) {
-        cJSON_AddStringToObject(o, "auto_event", s->auto_event->name);
-        cJSON_AddNumberToObject(o, "auto_event_remaining_s", (int)s->auto_event_left_s);
+    jw_key(w, false, "auto_event");
+    if (c->auto_event) {
+        jw_str(w, c->auto_event->name);
+        jw_key(w, false, "auto_event_remaining_s");
+        jw_num(w, c->auto_event_left_s);
     } else {
-        cJSON_AddNullToObject(o, "auto_event");
+        jw_raw(w, "null");
     }
 
-    cJSON *ovr = cJSON_AddObjectToObject(o, "overrides");
+    jw_key(w, false, "overrides");
+    jw_raw(w, "{");
     bool any = false;
     for (int m = 0; m < METRIC_COUNT; m++) {
-        if (s->ovr[m].active) {
-            cJSON *r = cJSON_AddObjectToObject(ovr, METRIC_INFO[m].key);
-            cJSON_AddNumberToObject(r, "min", s->ovr[m].min);
-            cJSON_AddNumberToObject(r, "max", s->ovr[m].max);
+        if (c->ovr[m].active) {
+            jw_key(w, !any, METRIC_INFO[m].key);
+            jw_raw(w, "{\"min\":");
+            jw_num(w, c->ovr[m].min);
+            jw_raw(w, ",\"max\":");
+            jw_num(w, c->ovr[m].max);
+            jw_raw(w, "}");
             any = true;
         }
     }
-    if (s->presence_ovr >= 0) {
-        cJSON_AddBoolToObject(o, "presence_override", s->presence_ovr == 1);
+    jw_raw(w, "}");
+    jw_key(w, false, "presence_override");
+    if (c->presence_ovr >= 0) {
+        jw_raw(w, jbool(c->presence_ovr == 1));
         any = true;
     } else {
-        cJSON_AddNullToObject(o, "presence_override");
+        jw_raw(w, "null");
     }
-    if (any && !s->ovr_forever) {
-        cJSON_AddNumberToObject(o, "override_remaining_s", (int)s->ovr_left_s);
+    jw_key(w, false, "override_remaining_s");
+    if (any && !c->ovr_forever) {
+        jw_num(w, c->ovr_left_s);
     } else {
-        cJSON_AddNullToObject(o, "override_remaining_s");
+        jw_raw(w, "null");
     }
 
-    if (n->has_last) {
-        add_reading(cJSON_AddObjectToObject(o, "reading"), &n->last);
+    jw_key(w, false, "reading");
+    if (c->has_last) {
+        jw_raw(w, "{");
+        for (int m = 0; m < METRIC_COUNT; m++) {
+            jw_key(w, m == 0, METRIC_INFO[m].key);
+            jw_num(w, c->last.v[m]);
+        }
+        jw_key(w, false, "presence");
+        jw_raw(w, jbool(c->last.presence));
+        jw_raw(w, "}");
     } else {
-        cJSON_AddNullToObject(o, "reading");
+        jw_raw(w, "null");
     }
-    cJSON_AddItemToArray(arr, o);
 }
 
-char *ctrl_state_json(void)
+void ctrl_write_state(jw_t *w)
 {
     int64_t now = esp_timer_get_time();
     char ip[16];
@@ -455,63 +515,88 @@ char *ctrl_state_json(void)
     char ts[40];
     bool synced = time_iso8601(ts, sizeof(ts));
 
-    cJSON *root = cJSON_CreateObject();
-    cJSON_AddStringToObject(root, "fw", esp_app_get_description()->version);
-    cJSON_AddStringToObject(root, "hostname", CONFIG_EMU_HOSTNAME);
-    cJSON_AddNumberToObject(root, "uptime_s", (double)(now / 1000000LL));
-    cJSON_AddNumberToObject(root, "free_heap", esp_get_free_heap_size());
-    cJSON_AddNumberToObject(root, "min_free_heap", esp_get_minimum_free_heap_size());
+    jw_raw(w, "{\"fw\":");
+    jw_str(w, esp_app_get_description()->version);
+    jw_key(w, false, "hostname");
+    jw_str(w, CONFIG_EMU_HOSTNAME);
+    jw_key(w, false, "uptime_s");
+    jw_num(w, (double)(now / 1000000LL));
+    jw_key(w, false, "free_heap");
+    jw_num(w, esp_get_free_heap_size());
+    jw_key(w, false, "min_free_heap");
+    jw_num(w, esp_get_minimum_free_heap_size());
 
-    cJSON *wifi = cJSON_AddObjectToObject(root, "wifi");
-    cJSON_AddBoolToObject(wifi, "connected", wifi_is_connected());
-    cJSON_AddStringToObject(wifi, "ssid", CONFIG_EMU_WIFI_SSID);
-    cJSON_AddStringToObject(wifi, "ip", ip);
-    cJSON_AddNumberToObject(wifi, "rssi", wifi_get_rssi());
-    cJSON_AddNumberToObject(wifi, "reconnects", wifi_reconnect_count());
+    jw_raw(w, ",\"wifi\":{\"connected\":");
+    jw_raw(w, jbool(wifi_is_connected()));
+    jw_key(w, false, "ssid");
+    jw_str(w, CONFIG_EMU_WIFI_SSID);
+    jw_key(w, false, "ip");
+    jw_str(w, ip);
+    jw_key(w, false, "rssi");
+    jw_num(w, wifi_get_rssi());
+    jw_key(w, false, "reconnects");
+    jw_num(w, wifi_reconnect_count());
 
-    cJSON *mqtt = cJSON_AddObjectToObject(root, "mqtt");
     char uri[96];
     mqtt_broker_uri(uri, sizeof(uri));
-    cJSON_AddStringToObject(mqtt, "broker", uri);
-    cJSON_AddBoolToObject(mqtt, "reconfiguring", mqtt_reconfiguring());
-    cJSON_AddBoolToObject(mqtt, "emulator_connected", s_connected);
+    jw_raw(w, "},\"mqtt\":{\"broker\":");
+    jw_str(w, uri);
+    jw_key(w, false, "reconfiguring");
+    jw_raw(w, jbool(mqtt_reconfiguring()));
+    jw_key(w, false, "emulator_connected");
+    jw_raw(w, jbool(s_connected));
 
-    cJSON *clock = cJSON_AddObjectToObject(root, "time");
-    cJSON_AddBoolToObject(clock, "synced", synced);
+    jw_raw(w, "},\"time\":{\"synced\":");
+    jw_raw(w, jbool(synced));
+    jw_key(w, false, "now");
     if (synced) {
-        cJSON_AddStringToObject(clock, "now", ts);
+        jw_str(w, ts);
     } else {
-        cJSON_AddNullToObject(clock, "now");
+        jw_raw(w, "null");
     }
-    cJSON_AddNumberToObject(clock, "local_hour", time_local_hour());
+    jw_key(w, false, "local_hour");
+    jw_num(w, time_local_hour());
 
-    cJSON_AddNumberToObject(root, "publish_interval_s", app_config_publish_interval_ms() / 1000.0);
-    cJSON_AddNumberToObject(root, "sim_speed", CONFIG_EMU_SIM_SPEED);
-    cJSON_AddBoolToObject(root, "config_saved", app_config_saved());
+    jw_raw(w, "},\"publish_interval_s\":");
+    jw_num(w, app_config_publish_interval_ms() / 1000.0);
+    jw_key(w, false, "sim_speed");
+    jw_num(w, CONFIG_EMU_SIM_SPEED);
+    jw_key(w, false, "config_saved");
+    jw_raw(w, jbool(app_config_saved()));
 
-    cJSON *arr = cJSON_AddArrayToObject(root, "nodes");
-    nodes_lock();
+    jw_raw(w, ",\"nodes\":[");
     for (int i = 0; i < NODE_COUNT; i++) {
-        add_node_state(arr, &g_nodes[i], now);
+        node_copy_t c;  // ~170 bytes
+        nodes_lock();
+        copy_node(&c, &g_nodes[i]);
+        nodes_unlock();
+        jw_raw(w, i ? ",{" : "{");
+        write_node(w, &c, now);
+        jw_raw(w, "}");
     }
-    nodes_unlock();
+    jw_raw(w, "]");
 
+    last_cmd_t last;
     xSemaphoreTake(s_cmd_lock, portMAX_DELAY);
-    if (s_last.valid) {
-        cJSON *lc = cJSON_AddObjectToObject(root, "last_cmd");
-        cJSON_AddBoolToObject(lc, "ok", s_last.ok);
-        cJSON_AddStringToObject(lc, "msg", s_last.msg);
-        cJSON_AddStringToObject(lc, "source", s_last.source);
-        cJSON_AddNumberToObject(lc, "age_s", (double)((now - s_last.at_us) / 1000000LL));
-    } else {
-        cJSON_AddNullToObject(root, "last_cmd");
-    }
+    last = s_last;
     xSemaphoreGive(s_cmd_lock);
-    demo_engine_add_state(root);
-
-    char *out = cJSON_PrintUnformatted(root);
-    cJSON_Delete(root);
-    return out;
+    jw_key(w, false, "last_cmd");
+    if (last.valid) {
+        jw_raw(w, "{\"ok\":");
+        jw_raw(w, jbool(last.ok));
+        jw_key(w, false, "msg");
+        jw_str(w, last.msg);
+        jw_key(w, false, "source");
+        jw_str(w, last.source);
+        jw_key(w, false, "age_s");
+        jw_num(w, (double)((now - last.at_us) / 1000000LL));
+        jw_raw(w, "}");
+    } else {
+        jw_raw(w, "null");
+    }
+    jw_key(w, false, "demo");
+    demo_engine_write_state(w);
+    jw_raw(w, "}");
 }
 
 char *ctrl_meta_json(void)
@@ -588,13 +673,31 @@ void ctrl_publish_state(bool force)
         return;
     }
     s_state_dirty = false;
-    char *json = ctrl_state_json();
-    if (json) {
-        size_t len = strlen(json);
-        if (esp_mqtt_client_publish(s_client, TOPIC_EMULATOR_STATE, json, (int)len, 0, 1) >= 0) {
-            event_log_route(ROUTE_STATE, TOPIC_EMULATOR_STATE, len);
+    // One bounded buffer per publish (the JSON is ~3 KB); it grows only if the state outgrows it.
+    static size_t cap = 4096;
+    for (;;) {
+        char *buf = malloc(cap);
+        if (!buf) {
+            ESP_LOGW(TAG, "no memory for the %u-byte state buffer", (unsigned)cap);
+            return;
         }
-        cJSON_free(json);
+        jw_t w;
+        jw_init(&w, buf, cap, NULL, NULL);
+        ctrl_write_state(&w);  // takes and releases its locks; none held from here on
+        if (!w.err) {
+            if (esp_mqtt_client_publish(s_client, TOPIC_EMULATOR_STATE, buf, (int)w.n, 0, 1) >= 0) {
+                event_log_route(ROUTE_STATE, TOPIC_EMULATOR_STATE, w.n);
+            }
+            free(buf);
+            return;
+        }
+        free(buf);
+        if (cap >= 16384) {
+            ESP_LOGE(TAG, "state JSON over %u bytes; not published", (unsigned)cap);
+            return;
+        }
+        cap *= 2;
+        ESP_LOGW(TAG, "state JSON outgrew its buffer; now %u bytes", (unsigned)cap);
     }
 }
 

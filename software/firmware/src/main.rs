@@ -18,7 +18,7 @@ use esp_hal::{
     time::Rate,
 };
 use esp_println::println;
-use intelli_things::{mqtt, sensors, wifi};
+use intelli_things::{led::Led, mqtt, sensors, wifi};
 
 #[panic_handler]
 fn panic(panic_info: &core::panic::PanicInfo) -> ! {
@@ -87,6 +87,21 @@ async fn main(spawner: Spawner) -> ! {
     
     // .expect() is now safe since it restarts the device
     spawner.spawn(mqtt::publish_task(stack).expect("Failed to prepare MQTT task"));
+    sensors::pms5003::start(
+        spawner,
+        peripherals.LP_UART,
+        peripherals.GPIO4,
+        peripherals.GPIO5,
+    );
+
+    sensors::ld2410c::start(
+        spawner,
+        peripherals.UART1,
+        peripherals.GPIO20,
+        peripherals.GPIO21,
+    );
+    
+    //let (_wifi_controller, _stack) = wifi::setup(spawner, peripherals.WIFI).await;
 
     // All I2C access stays sequential in this task. Release each temporary
     // borrow before calling a driver that uses a RefCellDevice handle.
@@ -108,6 +123,15 @@ async fn main(spawner: Spawner) -> ! {
         Ok(()) => scd41_started = true,
         Err(err) => println!("SCD41 start error: {}", err),
     }
+    
+    let mut led = match Led::new(peripherals.RMT, peripherals.GPIO10, 160) {
+        Ok(led) => Some(led),
+        Err(err) => {
+            println!("Failed to initialize LED strip");
+            panic!();
+        }
+    };
+    
 
     loop {
         Timer::after(Duration::from_secs(1)).await;

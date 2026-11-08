@@ -340,8 +340,8 @@ def test_demo():
         check("demo: press ignored during the hold", st == 400 and "locked" in r.get("msg", ""), r)
         d = wait_demo(lambda x: x["state"] == "idle", 6)
         check("demo: back to idle after the hold", d["state"] == "idle", d["state"])
+        seq = demo_state()["seq"]  # before: the first step comes within one 200 ms demo tick
         st, r = cmd({"action": "demo", "op": "loop", "on": True, "interval_s": 10, "source": "presets"})
-        seq = demo_state()["seq"]
         d = wait_demo(lambda x: x["seq"] >= seq + 2, 14)
         check("demo: loop steps through presets", d["state"] == "looping" and d["seq"] >= seq + 2, d)
         st, h = get("/api/demo/history")

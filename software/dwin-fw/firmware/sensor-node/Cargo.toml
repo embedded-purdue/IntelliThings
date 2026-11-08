@@ -1,0 +1,31 @@
+[package]
+edition      = "2024"
+name         = "sensor-node"
+rust-version = "1.95"
+version      = "0.1.0"
+description  = "IntelliThings sensor node: reads the SHT41, SGP40, SCD41, BH1750 and VL53L0X on an ESP32-C6-DevKitC-1 (I2C SDA GPIO6, SCL GPIO7) and prints them every second"
+
+[[bin]]
+name = "sensor-node"
+path = "./src/bin/main.rs"
+
+[dependencies]
+sensors = { path = "../sensors" }
+
+# esp hal crates
+esp-hal = { version = "~1.2.2", features = ["esp32c6", "unstable"] }
+esp-rtos = { version = "0.4.0", features = ["embassy", "esp-alloc", "esp32c6"] }
+esp-bootloader-esp-idf = { version = "0.6.0", features = ["esp32c6"] }
+esp-alloc = { version = "0.11.0", features = ["esp32c6"] }
+esp-println = { version = "0.18.0", features = ["esp32c6"] }
+embassy-executor = { version = "0.10.0", features = [] }
+embassy-time = "0.5.0"
+
+[profile.dev]
+opt-level = "s"
+
+[profile.release]
+codegen-units = 1
+debug         = 2
+lto           = 'fat'
+opt-level     = 's'

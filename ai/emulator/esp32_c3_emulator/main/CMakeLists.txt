@@ -11,6 +11,7 @@ idf_component_register(
         "ai_message.c"
         "emulator_ctrl.c"
         "web_server.c"
+        "json_writer.c"
         "app_config.c"
         "event_log.c"
         "history.c"
