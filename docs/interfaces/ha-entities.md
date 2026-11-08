@@ -1,5 +1,7 @@
 # Home Assistant entities and MCP tools
 
+> Demo planning update: use [the demo device inventory](../../ai/docs/demo-device-inventory.md) for the current room payload scope. The planned-device section below is an older proposal; the existing HA entity and MCP details remain useful.
+
 > **Status: draft.** This lists what is **built and running on the project HA instance as of
 > Oct 18**, as the starting point for the contract. To be agreed with the AI lead
 > (@ProgrammingJohn); node entity names also need the Software lead (@LukeTuthill).
