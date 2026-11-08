@@ -11,7 +11,7 @@ use rust_mqtt::{
         event::Event,
         options::{ConnectOptions, DisconnectOptions, PublicationOptions, TopicReference},
     },
-    types::{MqttString, TopicName},
+    types::{MqttBinary, MqttString, TopicName},
 };
 
 const BROKER: Ipv4Address = Ipv4Address::new(192, 168, 1, 2);
@@ -37,6 +37,15 @@ pub async fn publish_task(stack: Stack<'static>) {
 }
 
 async fn publish_once(stack: Stack<'static>) -> Result<(), &'static str> {
+    let options = ConnectOptions::new().clean_start();
+    let options = match (option_env!("MQTT_USER"), option_env!("MQTT_PASSWORD")) {
+        (Some(user), Some(password)) => options
+            .user_name(MqttString::from_str(user).map_err(|_| "Invalid MQTT_USER")?)
+            .password(MqttBinary::try_from(password).map_err(|_| "Invalid MQTT_PASSWORD")?),
+        (None, None) => options,
+        _ => return Err("Set both MQTT_USER and MQTT_PASSWORD in .cargo/esp-config.toml"),
+    };
+
     let mut rx = [0; 1024];
     let mut tx = [0; 1024];
     let mut socket = TcpSocket::new(stack, &mut rx, &mut tx);
@@ -54,9 +63,9 @@ async fn publish_once(stack: Stack<'static>) -> Result<(), &'static str> {
     let mut client = Client::<'_, '_, _, _, 1, 1, 1, 0, 1, 0, 0>::new(&mut buffer);
     // Let the broker assign a unique client ID for this short-lived test.
     client
-        .connect(socket, &ConnectOptions::new().clean_start(), None)
+        .connect(socket, &options, None)
         .await
-        .map_err(|_| "MQTT CONNECT failed (requires an MQTT 5 broker)")?;
+        .map_err(|_| "MQTT CONNECT failed (check credentials and MQTT 5 broker support)")?;
 
     let topic = TopicName::new(MqttString::from_str(TOPIC)
         .map_err(|_| "Topic name error")?).ok_or("Topic name error")?;
