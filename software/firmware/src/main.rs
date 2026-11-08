@@ -20,7 +20,7 @@ use esp_hal::{
 };
 use esp_println::println;
 use intelli_things::display::{self, Readings};
-use intelli_things::sensors;
+use intelli_things::{sensors, sntp};
 
 #[panic_handler]
 fn panic(panic_info: &core::panic::PanicInfo) -> ! {
@@ -83,7 +83,9 @@ async fn main(spawner: Spawner) -> ! {
     let timg0 = TimerGroup::new(peripherals.TIMG0);
     esp_rtos::start(timg0.timer0, peripherals.FROM_CPU_INTR0);
 
-    //let (_wifi_controller, _stack) = wifi::setup(spawner, peripherals.WIFI).await;
+    // Wi-Fi, then the display clock from SNTP. Its own task, so the sensors and display
+    // keep running if Wi-Fi isn't configured or doesn't connect.
+    spawner.spawn(sntp::task(spawner, peripherals.WIFI).expect("SNTP task"));
 
     // DWIN panel on UART1, 115200 8N1 (the default config): node TX (GPIO16) -> panel RX2.
     // GPIO16/17 are also wired to the DevKit's USB-UART bridge, so use the "USB" port for

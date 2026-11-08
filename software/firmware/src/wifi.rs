@@ -10,8 +10,8 @@ use esp_radio::wifi::{
 };
 use static_cell::StaticCell;
 
-// DHCP keeps one socket occupied; the ping test needs a second socket.
-static NET_RESOURCES: StaticCell<StackResources<2>> = StaticCell::new();
+// DHCP and DNS each keep a socket occupied; the ping test, then SNTP, need a third.
+static NET_RESOURCES: StaticCell<StackResources<3>> = StaticCell::new();
 static ICMP_RX_META: StaticCell<[PacketMetadata; 1]> = StaticCell::new();
 static ICMP_TX_META: StaticCell<[PacketMetadata; 1]> = StaticCell::new();
 static ICMP_RX_BUFFER: StaticCell<[u8; 256]> = StaticCell::new();

@@ -23,6 +23,8 @@ const FRAME_MS: u64 = 50;
 
 /// Latest sensor block from the main loop. A newer one replaces one the display hasn't taken yet.
 static SENSOR_WORDS: Signal<CriticalSectionRawMutex, [u16; 10]> = Signal::new();
+/// Latest clock from SNTP: Unix time (high word, low word) and the UTC offset in minutes.
+static CLOCK_WORDS: Signal<CriticalSectionRawMutex, [u16; 3]> = Signal::new();
 
 // Too big for a task's stack: the UI keeps a copy of the panel's drawing memory
 static UI: ConstStaticCell<Ui> = ConstStaticCell::new(Ui::new());
@@ -78,6 +80,12 @@ pub fn publish(readings: &Readings) {
     SENSOR_WORDS.signal(readings.to_words());
 }
 
+/// Sets the display clock. The display keeps counting from here, so call it once per sync.
+/// `utc_offset_min` is local time minus UTC, e.g. -300 for EST.
+pub fn set_clock(unix_seconds: u32, utc_offset_min: i16) {
+    CLOCK_WORDS.signal([(unix_seconds >> 16) as u16, unix_seconds as u16, utc_offset_min as u16]);
+}
+
 /// Draws the screens on the panel. `tx` is a UART at 115200 8N1 wired to the panel's RX2.
 #[embassy_executor::task]
 pub async fn task(tx: UartTx<'static, Async>) {
@@ -93,6 +101,12 @@ pub async fn task(tx: UartTx<'static, Async>) {
             && let Err(err) = inputs.write(vp_map::TEMPERATURE, &words, now)
         {
             println!("Display refused the sensor block: {:?}", err);
+        }
+        // unix_time (2 words) and utc_offset are consecutive, so one write covers all three
+        if let Some(words) = CLOCK_WORDS.try_take()
+            && let Err(err) = inputs.write(vp_map::UNIX_TIME, &words, now)
+        {
+            println!("Display refused the clock: {:?}", err);
         }
 
         inputs.apply(&mut model, &mut director.settings, now);
