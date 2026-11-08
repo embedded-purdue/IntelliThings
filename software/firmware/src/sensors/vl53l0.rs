@@ -1,11 +1,22 @@
 use core::{cell::RefCell, fmt};
 use embedded_hal_bus::i2c::RefCellDevice;
-use esp_hal::{Async, i2c::master::I2c};
+use esp_hal::{
+    Async,
+    i2c::master::{Error as I2cError, I2c},
+};
 use vl53l0x::VL53L0x;
 
 const BUDGET_MICRO_SECONDS: u32 = 33_000;
 // Zero selects back-to-back mode, avoiding the library's timed-period byte-order bug.
 const PERIOD_MILLISECONDS: u32 = 0;
+
+#[derive(Debug)]
+pub enum VL53L0StartError {
+    Initialize(vl53l0x::Error<I2cError>),
+    SetTimingBudget(I2cError),
+    TimingBudgetRejected(u32),
+    StartContinuous(I2cError),
+}
 
 pub struct VL53L0<'bus, 'hw> {
     sensor: VL53L0x<RefCellDevice<'bus, I2c<'hw, Async>>>,
@@ -16,20 +27,20 @@ impl<'bus, 'hw> VL53L0<'bus, 'hw> {
     /// Initializes once and starts back-to-back measurements.
     /// The sensor task polls for a result roughly once per second.
     /// Access this bus only sequentially from the same task.
-    pub fn new(bus: &'bus RefCell<I2c<'hw, Async>>) -> Result<Self, &'static str> {
+    pub fn new(bus: &'bus RefCell<I2c<'hw, Async>>) -> Result<Self, VL53L0StartError> {
         let mut sensor =
-            VL53L0x::new(RefCellDevice::new(bus)).map_err(|_| "VL53L0 initialization failed")?;
+            VL53L0x::new(RefCellDevice::new(bus)).map_err(VL53L0StartError::Initialize)?;
 
         let accepted = sensor
             .set_measurement_timing_budget(BUDGET_MICRO_SECONDS)
-            .map_err(|_| "I2C communication failed")?;
+            .map_err(VL53L0StartError::SetTimingBudget)?;
         if !accepted {
-            return Err("VL53L0 timing budget rejected");
+            return Err(VL53L0StartError::TimingBudgetRejected(BUDGET_MICRO_SECONDS));
         }
 
         sensor
             .start_continuous(PERIOD_MILLISECONDS)
-            .map_err(|_| "VL53L0 start failed")?;
+            .map_err(VL53L0StartError::StartContinuous)?;
 
         Ok(Self {
             sensor,

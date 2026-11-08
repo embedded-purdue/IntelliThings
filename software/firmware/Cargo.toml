@@ -35,6 +35,7 @@ embassy-net = { version = "0.9.1", features = [
 scd4x = { version = "0.5", features = ["embedded-hal-async", "scd41"] }
 embedded-io = "0.7.1"
 embedded-io-async = "0.7.0"
+rust-mqtt = "0.6.0"
 esp-alloc = { version = "0.11.0", features = ["esp32c6"] }
 # for more networking protocol support see https://crates.io/crates/edge-net
 embassy-executor = { version = "0.10.0", features = [] }

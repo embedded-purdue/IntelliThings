@@ -18,12 +18,14 @@ use esp_hal::{
     time::Rate,
 };
 use esp_println::println;
-use intelli_things::{led::Led, sensors, wifi};
+use intelli_things::{led::Led, mqtt, sensors, wifi};
 
 #[panic_handler]
 fn panic(panic_info: &core::panic::PanicInfo) -> ! {
     println!("Panic! {}", panic_info);
-    loop {}
+    println!("Restarting ESP32 in 1 second");
+    esp_hal::delay::Delay::new().delay_millis(1_000);
+    esp_hal::system::software_reset()
 }
 
 extern crate alloc;
@@ -81,6 +83,10 @@ async fn main(spawner: Spawner) -> ! {
     let timg0 = TimerGroup::new(peripherals.TIMG0);
     esp_rtos::start(timg0.timer0, peripherals.FROM_CPU_INTR0);
 
+    let (_wifi_controller, stack) = wifi::setup(spawner, peripherals.WIFI).await;
+    
+    // .expect() is now safe since it restarts the device
+    spawner.spawn(mqtt::publish_task(stack).expect("Failed to prepare MQTT task"));
     sensors::pms5003::start(
         spawner,
         peripherals.LP_UART,
@@ -100,13 +106,7 @@ async fn main(spawner: Spawner) -> ! {
     // All I2C access stays sequential in this task. Release each temporary
     // borrow before calling a driver that uses a RefCellDevice handle.
     let bus = RefCell::new(i2c);
-    let mut vl53l0 = match sensors::VL53L0::new(&bus) {
-        Ok(sensor) => Some(sensor),
-        Err(err) => {
-            println!("VL53L0 start error: {}", err);
-            panic!();
-        }
-    };
+    let mut vl53l0 = sensors::VL53L0::new(&bus).expect("Failed to start VL53L0");
 
     let mut sht41 = sensors::SHT41::new();
     let mut bh1750 = sensors::BH1750::new();
@@ -187,12 +187,10 @@ async fn main(spawner: Spawner) -> ! {
         }
 
         println!("VL53L0:");
-        if let Some(sensor) = vl53l0.as_mut() {
-            match sensor.read() {
-                Ok(true) => println!("{}", sensor),
-                Ok(false) => println!("Measurement still running"), // The next measurement is still running.
-                Err(err) => println!("VL53L0 error: {}", err),
-            }
+        match vl53l0.read() {
+            Ok(true) => println!("{}", vl53l0),
+            Ok(false) => println!("Measurement still running"),
+            Err(err) => println!("VL53L0 error: {}", err),
         }
 
         Timer::after(Duration::from_secs(1)).await;
