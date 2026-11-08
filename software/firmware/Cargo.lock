@@ -111,6 +111,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0b396d1f76d455557e1218ec8066ae14bba60b4b36ecd55577ba979f5db7ecaa"
 
 [[package]]
+name = "const_fn"
+version = "0.4.12"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "413d67b29ef1021b4d60f4aa1e925ca031751e213832b4b1d588fae623c05c60"
+
+[[package]]
 name = "cordyceps"
 version = "0.3.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1239,6 +1245,7 @@ dependencies = [
  "esp-rtos",
  "gas-index-algorithm",
  "nb 0.1.3",
+ "rust-mqtt",
  "scd4x",
  "smoltcp 0.14.0",
  "static_cell",
@@ -1602,6 +1609,17 @@ dependencies = [
  "const-default",
  "libc",
  "rustversion",
+]
+
+[[package]]
+name = "rust-mqtt"
+version = "0.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9345427199453b4961a0a275edbca86d0472942d731c6d79a23517c1db8f7ca3"
+dependencies = [
+ "const_fn",
+ "embedded-io-async 0.7.0",
+ "heapless 0.9.3",
 ]
 
 [[package]]

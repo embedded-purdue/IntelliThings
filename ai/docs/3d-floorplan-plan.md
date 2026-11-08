@@ -125,6 +125,51 @@ From each project's README (not tested yet):
   but each render takes ~20–25 min and there's no real 3D or animation.
 - **`ha-floorplan`:** a 2D SVG floor plan.
 
+**Update (Nov 1): tool direction is Zircon3D**, not one of the three above — it wasn't in the
+original spike list. See §3c for what that changes about how we build the layout.
+
+---
+
+## 3c. Building the layout in Zircon3D
+
+Zircon3D ([docs](https://zircon3d.com/docs)) has **no layout config file** — nothing to write as
+YAML/JSON. Rooms are built by dragging shapes into its web Designer (Rectangle / L-Shape / Bevel
+Room, Gable Roof), and sensors are placed by dragging them from a "Monitored" entity list onto a
+room in the viewport. There's no x/y/z coordinate field to fill in by hand.
+
+So "write the room layout" this week means **a spec to build from**, not a config file — so
+whoever opens the Designer is following a checklist, not improvising:
+
+**1. Room/floor list to build** (match `ha-entities.md`'s reconciled areas, which already follow
+`demo_home.json`): Kitchen, Living room, Master bedroom, Second bedroom, Garage, Patio, Entry
+(the `home` area), Garden, Outside. Note shape per room if it's not a plain rectangle; note shared
+walls so Designer's auto-attach lines them up correctly.
+
+**2. Sensor-to-room assignment.** Zircon3D's own docs are explicit: *"sensors must belong to the
+room, not simply appear inside its boundaries"* — placement alone isn't enough, each sensor has
+to be mounted into its room in the Monitored tab. Use `ha-entities.md`'s entity table as the
+assignment list; do this for the "build this week" entities first (real sensors, presence,
+light_on, window_open, door_open, car, front_door_locked), skip the stretch appliances for now.
+
+**3. Heatmap layers.** Zircon3D ships Temperature and Humidity layers by default — matches our
+real data directly. Add custom layers for VOC, CO₂ and PM2.5 the same way: Layers → Add Heatmap
+Layer → a Match Rule on Entity ID (e.g. "Contains `voc_index`"), pick a colour gradient and value
+range. Isoline interval and distance-decay exponent are just rendering knobs, default them first
+and tune after something's on screen.
+
+**4. Room Box View for presence.** This is a near-exact fit for our `presence` boolean: Color
+Rules with Match = Equals, value `0` → Gray "Vacant", value `1` → Green "Occupied" (same pattern
+as Zircon3D's own documented example). One Room Box View per room, mapped to that room's presence
+entity.
+
+**5. Data Cards for controllable entities.** Floating cards in the viewer for Light, Switch,
+Cover, Climate, Lock, Fan domains — bind one per entity from `ha-entities.md`'s tables. Start with
+`light_on` (works today); add covers/climate/lock/fan cards as their harness support lands.
+
+**Build order for this week:** 1 → 2 (build-this-week entities only) → 3 (temperature/humidity
+first, they're already live) → 4 → 5 (lights only). That's a demoable dashboard without touching
+any of the stretch appliance work.
+
 ---
 
 ## 3b. Showing *who* made each change (person, automation or AI)

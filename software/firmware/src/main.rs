@@ -20,7 +20,7 @@ use esp_hal::{
 };
 use esp_println::println;
 use intelli_things::display::{self, Readings};
-use intelli_things::{sensors, sntp};
+use intelli_things::{led::Led, sensors, wifi, sntp};
 
 #[panic_handler]
 fn panic(panic_info: &core::panic::PanicInfo) -> ! {
@@ -95,6 +95,21 @@ async fn main(spawner: Spawner) -> ! {
         .with_tx(peripherals.GPIO16)
         .into_async();
     spawner.spawn(display::task(display_tx).expect("display task"));
+    sensors::pms5003::start(
+        spawner,
+        peripherals.LP_UART,
+        peripherals.GPIO4,
+        peripherals.GPIO5,
+    );
+
+    sensors::ld2410c::start(
+        spawner,
+        peripherals.UART1,
+        peripherals.GPIO20,
+        peripherals.GPIO21,
+    );
+    
+    //let (_wifi_controller, _stack) = wifi::setup(spawner, peripherals.WIFI).await;
 
     // All I2C access stays sequential in this task. Release each temporary
     // borrow before calling a driver that uses a RefCellDevice handle.
@@ -103,7 +118,7 @@ async fn main(spawner: Spawner) -> ! {
         Ok(sensor) => Some(sensor),
         Err(err) => {
             println!("VL53L0 start error: {}", err);
-            None
+            panic!();
         }
     };
 
@@ -124,8 +139,19 @@ async fn main(spawner: Spawner) -> ! {
         Ok(()) => scd41_started = true,
         Err(err) => println!("SCD41 start error: {}", err),
     }
+    
+    let mut led = match Led::new(peripherals.RMT, peripherals.GPIO10, 160) {
+        Ok(led) => Some(led),
+        Err(err) => {
+            println!("Failed to initialize LED strip");
+            panic!();
+        }
+    };
+    
 
     loop {
+        Timer::after(Duration::from_secs(1)).await;
+        continue;
         let result = {
             let mut i2c = bus.borrow_mut();
             sht41.read(&mut i2c).await
