@@ -18,7 +18,7 @@ use esp_hal::{
     time::Rate,
 };
 use esp_println::println;
-use intelli_things::sensors;
+use intelli_things::{led::Led, sensors, wifi};
 
 #[panic_handler]
 fn panic(panic_info: &core::panic::PanicInfo) -> ! {
@@ -104,7 +104,7 @@ async fn main(spawner: Spawner) -> ! {
         Ok(sensor) => Some(sensor),
         Err(err) => {
             println!("VL53L0 start error: {}", err);
-            None
+            panic!();
         }
     };
 
@@ -123,6 +123,15 @@ async fn main(spawner: Spawner) -> ! {
         Ok(()) => scd41_started = true,
         Err(err) => println!("SCD41 start error: {}", err),
     }
+    
+    let mut led = match Led::new(peripherals.RMT, peripherals.GPIO10, 160) {
+        Ok(led) => Some(led),
+        Err(err) => {
+            println!("Failed to initialize LED strip");
+            panic!();
+        }
+    };
+    
 
     loop {
         Timer::after(Duration::from_secs(1)).await;

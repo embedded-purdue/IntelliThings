@@ -4,8 +4,8 @@ Owner: @spicybutter · last updated 2026-10-18
 
 ## v2.1.0 progress
 
-Plan: [`PLAN-v2.1.0.md`](PLAN-v2.1.0.md) · branch `ai/emulator-v2` · the board runs the latest
-`2.1.0-dev` build. The rest of this file below is the v0.1.0 log; its frozen copy is in
+Plan: [`PLAN-v2.1.0.md`](PLAN-v2.1.0.md) · branch `ai/emulator-v2` · the board runs `2.1.1`
+(the latest build). The rest of this file below is the v0.1.0 log; its frozen copy is in
 [`releases/v0.1.0/`](releases/v0.1.0/README.md).
 
 ### Phase 0: freeze v0.1.0 (Oct 18)
@@ -165,11 +165,105 @@ Tested (Oct 19, Pi still off):
 - [ ] For @ProgrammingJohn: stale "emulator needs an extra subscription" lines in
   `ai/docs/inference.md` and `ai/deployment/home_assistant/README.md` (listed in the PR)
 
-### Phase 6: soak and release (next, needs the Pi)
+### Phase 6: soak and release
 
-- [ ] Broker-up checks from phases 1–4 (above)
-- [ ] 2-hour soak: two browsers + `api_check.py` polling, a broker change mid-run, demo loop on
-- [ ] `PROJECT_VER` → `2.1.0`; merged image + SHA-256 to the team Drive; tag `emulator-v2.1.0`
+**Broker-up tests, Oct 25 (team session; Pi, HA and the 5-min agent running).** Build:
+`2.1.0-dev` from phase 4 (the board ran it all week). New: `tests/mqtt_check.py` (MQTT-level
+checks, standard library only, login read from `sdkconfig.local`) and `tests/soak.py`.
+
+- [x] `mqtt_check.py`: 21/21 basics.
+  - The three rooms and the control connection are retained `online`.
+  - Snapshots arrive every 2.5–3.5 s with the contract's fields, ranges and `ts`.
+  - The retained emulator state is there.
+  - A command over MQTT shows in the state in 0.24–0.48 s.
+  - A test AI message makes the round trip; the room's previous retained message was put back
+    afterwards.
+  - The agent's summary, thinking state and the three room messages show on the board.
+- [x] **Demo topics:** `state`, `home` (9 areas, 61 values) and the three node topics are published
+  and retained for a new subscriber; turning publishing off announces `"publish":false`. 3 runs,
+  27/27.
+  - An apparent loss in the first run was the test checking before the burst had finished
+    (fixed in the test).
+- [x] **Broker switch away and back:** all 4 statuses go `offline` on the broker (the goodbye),
+  then all 4 are back `online` 0.6–7.7 s after switching back. No reboot.
+- [x] **Last Will:** board held in reset 35 s. All 4 statuses went `offline` after 22.8 s, and
+  back `online` 1.8 s after release.
+- [x] **`api_check.py --demo --broker-test`:** 91/91, including the display round trip that
+  couldn't run with the Pi off. The test sends a non-retained message to the bedroom, which HA's
+  bedroom AI sensor shows until the next agent run. The retained message was re-published after
+  the test.
+- [x] **Panel with real traffic:**
+  - The AI boxes show the agent's messages and the summary.
+  - The route view shows the room, state and agent traffic (63 snapshots/min).
+  - The **whole loop worked**: the MQTT-check's PM2.5 spike in the kitchen led the agent to
+    "Elevated particles; ventilate" on the kitchen box.
+  - An agent run lasts ~2 s (start → 3 room messages + summary → stop), so "thinking…" shows
+    for one or two panel refreshes.
+- [x] **Heap, lowest point:** **41.5 KB** in the first minutes of the session (several panels
+  plus the test burst), under the 50 KB target. Free heap stays ~73–75 KB.
+  - **Steady state:** three simulated panels polling for a minute give a 53.6 KB low point, with
+    0 failed requests.
+  - **Cause:** transient — the state JSON is built as a cJSON tree (~10–16 KB) by the sim task
+    every 3 s *and* by every panel poll.
+  - **Fix to do:** stream the state JSON (like `/api/poll`'s other parts) instead of building a
+    tree.
+  - **Done Oct 25 (streaming writer, `json_writer.c`):** the state goes straight into the HTTP
+    response (`/api/state`, `/api/poll`) and, for MQTT, into one 4 KB buffer per publish (the
+    JSON is ~2.3 KB). Locks are released before any write. Numbers and strings print like cJSON.
+    Old and new documents have the same 129 members, key order and types (`/api/state`, the poll's
+    `state`, the retained MQTT state).
+  - **Checks on the new build:** `mqtt_check.py --demo` 30/30. `api_check.py --demo` 86/86 twice.
+    The first run was 85/86: "loop steps through presets" saw one step in 14 s, not two. That's a
+    timing race in the test; the state it printed was correct.
+  - **After, three panels from boot (60 s, 117 polls, 0 failed):** lowest **55.1 KB** (before:
+    53.6 KB). Free heap 71–75 KB. The lowest was already 61.5 KB 29 s after boot.
+  - **After `api_check.py --demo` ×3 + `mqtt_check.py --demo`:** lowest **50.6 KB** (before:
+    41.5 KB with the test burst).
+  - **Still close to 50 KB after that.** The tree was only part of the dip; the rest was RAM-placed
+    Wi-Fi code and per-connection network buffers.
+  - **Tuned in `sdkconfig.defaults` (Oct 25), one change at a time.** Each row: rebuild, flash, then
+    three panels from boot for 60 s (117 polls, 0 failed, slowest poll 145–187 ms in every row).
+
+    | Change | Static RAM freed | Lowest free heap |
+    |---|---|---|
+    | Streaming state only (baseline, run twice) | – | 55.1 / 55.4 KB |
+    | Wi-Fi code in flash (`ESP_WIFI_IRAM_OPT`, `ESP_WIFI_RX_IRAM_OPT` off) | 19.7 KB | 65.2 KB |
+    | + TCP send buffer and window 5760 → 2880 | – | 72.7 KB |
+    | + dynamic Wi-Fi TX/RX buffers 32 → 16 | – | **76.7 KB** |
+
+    - Steady free heap is now ~94–95 KB (was ~74 KB).
+    - After all the checks below (`api_check.py --demo` ×4 incl. `--broker-test`,
+      `mqtt_check.py --demo`), the lowest point is **71.0 KB** (was 41.5 KB with the test burst).
+    - Not changed: static Wi-Fi RX buffers (10) and AMPDU. Shrinking them trades robustness for
+      headroom we no longer need.
+    - The biggest RAM user is still the app's own `.bss` (73 KB: history tiers, event log, AI
+      messages). That's by design.
+  - **Checks on the tuned build:** `mqtt_check.py --demo` 30/30; `api_check.py --demo` 86/86 ×3;
+    `--demo --broker-test` 91/91.
+    - The "loop steps through presets" failure was a race in the test: loop-on takes its first step
+      within one 200 ms demo tick, sometimes before the test read the starting `seq`. Fixed by
+      reading `seq` before turning the loop on.
+- [ ] Cosmetic: long topic labels in the route view overlap the rooms box
+- [ ] 2-hour soak (`soak.py`): started Oct 25 14:32 local (one simulated panel + the browser
+  pane, demo loop on with presets + rolls, broker switch at 60 min). **Stopped at 31 min** on
+  @spicybutter's request, to flash the streaming-writer build. Up to then (old build, uptime 39
+  min): no reboot, Wi-Fi reconnects 0, all 4 MQTT connections up, free heap 73.7 KB, lowest
+  47.7 KB.
+  - **On the tuned build:** a 2-hour rerun started 15:48 was stopped after ~3 min on
+    @spicybutter's request, in favour of a 10-minute run.
+  - **10-minute soak, Oct 25 15:52 (`soak.py --minutes 10`, broker switch at 5 min): no
+    problems.**
+    - No reboot (uptime 758 → 1341 s); Wi-Fi reconnects 0.
+    - Each room reconnected once, for the broker switch; all rooms back 4.9 s after switching back.
+    - 383 panel polls, 0 failed.
+    - 200 snapshots per room of ~205 expected (the switch costs a few); 9 demo home updates.
+    - Free heap 91.9–95.4 KB; lowest since boot 71.0 KB (set earlier by the test runs, not the
+      soak).
+    - Demo and broker settings were back to idle/unsaved defaults afterwards.
+  - The full 2-hour soak on this build is still open.
+- [x] `PROJECT_VER` → `2.1.1` (Oct 25, on @spicybutter's request; `2.1.0` was never built as a
+  release)
+- [ ] Merged image + SHA-256 to the team Drive; tag `emulator-v2.1.1`
 
 ---
 

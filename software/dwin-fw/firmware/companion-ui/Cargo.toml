@@ -1,0 +1,12 @@
+[package]
+name         = "companion-ui"
+version      = "0.1.0"
+edition      = "2024"
+rust-version = "1.95"
+description  = "IntelliThings companion display: DWIN DGUS II driver, screen model and light-bar patterns"
+license      = "MIT"
+
+[dependencies]
+embedded-io-async = "0.7"
+heapless          = "0.9"
+libm              = "0.2"

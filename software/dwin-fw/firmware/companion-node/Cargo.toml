@@ -1,0 +1,45 @@
+[package]
+edition      = "2024"
+name         = "companion-node"
+rust-version = "1.95"
+version      = "0.1.0"
+description  = "Bench firmware for the IntelliThings companion: drives the DWIN panel and the light bar from an ESP32-C6"
+
+[[bin]]
+name = "companion-node"
+path = "./src/bin/main.rs"
+
+[[bin]]
+name = "paneltest"
+path = "./src/bin/paneltest.rs"
+
+[dependencies]
+companion-ui = { path = "../companion-ui" }
+
+# esp hal crates
+esp-hal = { version = "~1.2.2", features = ["esp32c6", "unstable"] }
+esp-rtos = { version = "0.4.0", features = ["embassy", "esp-alloc", "esp32c6"] }
+esp-bootloader-esp-idf = { version = "0.6.0", features = ["esp32c6"] }
+esp-alloc = { version = "0.11.0", features = ["esp32c6"] }
+# log usb only
+esp-println = { version = "0.18.0", default-features = false, features = ["esp32c6", "jtag-serial", "critical-section"] }
+embassy-executor = { version = "0.10.0", features = [] }
+embassy-time = "0.5.0"
+embassy-sync = "0.7"
+embedded-io-async = "0.7.0"
+critical-section = "1.2.0"
+static_cell = "2.1.1"
+# status screen driver
+mipidsi = "0.10"
+embedded-graphics = "0.8"
+embedded-hal-bus = "0.3"
+heapless = "0.9"
+
+[profile.dev]
+opt-level = "s"
+
+[profile.release]
+codegen-units = 1
+debug         = 2
+lto           = 'fat'
+opt-level     = 's'
