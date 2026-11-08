@@ -1,7 +1,6 @@
 mod bh1750;
 pub mod ld2410c;
 pub mod pms5003;
-pub mod pms5003_uart;
 mod scd41;
 mod sgp40;
 mod sht41;

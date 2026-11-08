@@ -1,15 +1,13 @@
 //! Network time: asks Google's SNTP server for the time and hands it to the display clock.
 //! A minimal SNTPv4 client (RFC 4330): one 48-byte UDP request, the server's transmit time back.
 
-use embassy_executor::Spawner;
 use embassy_net::dns::DnsQueryType;
 use embassy_net::udp::{PacketMetadata, UdpSocket};
 use embassy_net::{IpEndpoint, Stack};
 use embassy_time::{Duration, Instant, Timer, with_timeout};
-use esp_hal::peripherals::WIFI;
 use esp_println::println;
 
-use crate::{display, wifi};
+use crate::display;
 
 const SERVER: &str = "time.google.com";
 const PORT: u16 = 123;
@@ -25,13 +23,9 @@ const UTC_OFFSET_MIN: i16 = -300;
 const RESYNC_EVERY: Duration = Duration::from_secs(60 * 60);
 const RETRY_AFTER: Duration = Duration::from_secs(30);
 
-/// Connects to Wi-Fi, then keeps the display clock set from SNTP.
-/// Runs as its own task so the sensors and display keep working without Wi-Fi.
+/// Keeps the display clock set from SNTP. Waits for the network to be up before each query.
 #[embassy_executor::task]
-pub async fn task(spawner: Spawner, wifi: WIFI<'static>) {
-    // The controller must stay alive for the connection to stay up
-    let (_wifi_controller, stack) = wifi::setup(spawner, wifi).await;
-
+pub async fn task(stack: Stack<'static>) {
     loop {
         stack.wait_config_up().await;
         match query(stack).await {

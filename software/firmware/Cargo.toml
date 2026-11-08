@@ -5,13 +5,23 @@ default-run  = "intelli_things"
 rust-version = "1.95"
 version      = "0.1.0"
 
-[features]
-# Select the LP_UART PMS5003 diagnostic driver instead of UART0.
-pms5003-lp-uart = []
+# The bare-metal target has no `test` crate, so a test build of any target fails, even one with
+# no tests. Turning off the harness keeps `cargo test`/`--all-targets` (and rust-analyzer) from trying.
+[lib]
+test  = false
+bench = false
 
 [[bin]]
-name = "intelli_things"
-path = "./src/main.rs"
+name  = "intelli_things"
+path  = "./src/main.rs"
+test  = false
+bench = false
+
+[[bin]]
+name  = "led_strip_test"
+path  = "./src/bin/led_strip_test.rs"
+test  = false
+bench = false
 
 [dependencies]
 esp-hal = { version = "~1.2.2", features = ["esp32c6", "unstable"] }
@@ -66,13 +76,12 @@ embassy-sync = "0.7"
 
 critical-section = "1.2.0"
 static_cell      = "2.1.1"
-# UART0 is occupied by the PMS5003 comparison driver; log over native USB.
+# Log over native USB: UART0 drives the display, UART1 the LD2410C, LP_UART the PMS5003.
 esp-println = { version = "0.18.0", default-features = false, features = ["esp32c6", "jtag-serial", "colors", "critical-section"] }
 gas-index-algorithm = "0.1.3"
 vl53l0x = "1.0.1"
 embedded-hal-bus = "0.3.0"
 nb = "0.1.3"
-rust-mqtt = "0.6.0"
 
 
 # For fine tuning these settings, please refer to https://doc.rust-lang.org/cargo/reference/profiles.html
