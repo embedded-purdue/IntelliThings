@@ -53,6 +53,10 @@ smoltcp = { version = "0.14.0", default-features = false, features = [
   "socket-udp",
 ] }
 
+# Display UI: draws the screens on the DWIN panel (software/dwin-fw)
+companion-ui = { path = "../dwin-fw/firmware/companion-ui" }
+embassy-sync = "0.7"
+
 critical-section = "1.2.0"
 static_cell      = "2.1.1"
 esp-println = { version = "0.18.0", features = ["esp32c6"] }

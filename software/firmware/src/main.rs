@@ -16,8 +16,10 @@ use esp_hal::timer::timg::TimerGroup;
 use esp_hal::{
     i2c::master::{Config as I2cConfig, I2c},
     time::Rate,
+    uart::{Config as UartConfig, UartTx},
 };
 use esp_println::println;
+use intelli_things::display::{self, Readings};
 use intelli_things::sensors;
 
 #[panic_handler]
@@ -41,7 +43,7 @@ esp_bootloader_esp_idf::esp_app_desc!();
     reason = "all bus users run sequentially in this task; each borrow ends before the next sensor call"
 )]
 #[esp_rtos::main]
-async fn main(_spawner: Spawner) -> ! {
+async fn main(spawner: Spawner) -> ! {
     // generator version: 1.4.0
     // generator parameters: -o esp32c6 -o esp32c6-wroom-1 -o unstable-hal -o alloc -o embassy -o wifi -o zed
 
@@ -83,6 +85,15 @@ async fn main(_spawner: Spawner) -> ! {
 
     //let (_wifi_controller, _stack) = wifi::setup(spawner, peripherals.WIFI).await;
 
+    // DWIN panel on UART1, 115200 8N1 (the default config): node TX (GPIO16) -> panel RX2.
+    // GPIO16/17 are also wired to the DevKit's USB-UART bridge, so use the "USB" port for
+    // flashing and logs. UART1 rather than UART0 keeps esp-println's UART0 fallback off this pin.
+    let display_tx = UartTx::new(peripherals.UART1, UartConfig::default())
+        .expect("Failed to initialize display UART")
+        .with_tx(peripherals.GPIO16)
+        .into_async();
+    spawner.spawn(display::task(display_tx).expect("display task"));
+
     // All I2C access stays sequential in this task. Release each temporary
     // borrow before calling a driver that uses a RefCellDevice handle.
     let bus = RefCell::new(i2c);
@@ -100,6 +111,8 @@ async fn main(_spawner: Spawner) -> ! {
     let mut scd41 = sensors::SCD41::new();
 
     let mut scd41_started = false;
+    // Every field starts as "no reading" until its sensor succeeds
+    let mut readings = Readings::default();
 
     let start_result = {
         let mut i2c = bus.borrow_mut();
@@ -116,8 +129,16 @@ async fn main(_spawner: Spawner) -> ! {
             sht41.read(&mut i2c).await
         };
         match result {
-            Ok(()) => println!("{}", sht41),
-            Err(err) => println!("SHT41 error: {}", err),
+            Ok(()) => {
+                println!("{}", sht41);
+                readings.temperature_c = Some(sht41.temperature_c);
+                readings.humidity_percent = Some(sht41.humidity_percent);
+            }
+            Err(err) => {
+                println!("SHT41 error: {}", err);
+                readings.temperature_c = None;
+                readings.humidity_percent = None;
+            }
         }
 
         let result = {
@@ -128,6 +149,7 @@ async fn main(_spawner: Spawner) -> ! {
             Ok(()) => println!("{}", bh1750),
             Err(err) => println!("BH1750 error: {}", err),
         }
+        readings.lux = bh1750.lux();
 
         let result = {
             let mut i2c = bus.borrow_mut();
@@ -136,8 +158,14 @@ async fn main(_spawner: Spawner) -> ! {
                 .await
         };
         match result {
-            Ok(()) => println!("{}", sgp40),
-            Err(err) => println!("SGP40 error: {}", err),
+            Ok(()) => {
+                println!("{}", sgp40);
+                readings.voc_index = Some(sgp40.voc_index);
+            }
+            Err(err) => {
+                println!("SGP40 error: {}", err);
+                readings.voc_index = None;
+            }
         }
 
         if scd41_started {
@@ -146,9 +174,15 @@ async fn main(_spawner: Spawner) -> ! {
                 scd41.read(&mut i2c).await
             };
             match result {
-                Ok(true) => println!("New SCD41 data: {}", scd41),
+                Ok(true) => {
+                    println!("New SCD41 data: {}", scd41);
+                    readings.co2_ppm = Some(scd41.co2_ppm());
+                }
                 Ok(false) => println!("Old SCD41 data: {}", scd41), // no new reading yet, which is normal
-                Err(err) => println!("SCD41 error: {}", err),
+                Err(err) => {
+                    println!("SCD41 error: {}", err);
+                    readings.co2_ppm = None;
+                }
             }
         } else {
             let start_result = {
@@ -164,11 +198,20 @@ async fn main(_spawner: Spawner) -> ! {
         println!("VL53L0:");
         if let Some(sensor) = vl53l0.as_mut() {
             match sensor.read() {
-                Ok(true) => println!("{}", sensor),
+                Ok(true) => {
+                    println!("{}", sensor);
+                    readings.distance_mm = sensor.distance_mm();
+                }
                 Ok(false) => println!("Measurement still running"), // The next measurement is still running.
-                Err(err) => println!("VL53L0 error: {}", err),
+                Err(err) => {
+                    println!("VL53L0 error: {}", err);
+                    readings.distance_mm = None;
+                }
             }
         }
+
+        // PMS5003 and LD2410C aren't on this branch, so pm*/presence stay "no reading"
+        display::publish(&readings);
 
         Timer::after(Duration::from_secs(1)).await;
     }
