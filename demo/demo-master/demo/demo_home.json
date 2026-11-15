@@ -1,0 +1,191 @@
+{
+  "format": 2,
+  "about": "Demo home for the ECE SPARK demo master, following the AI team's demo device inventory (ai/docs/demo-device-inventory.md, Nov 8): one MQTT topic per area, device states first, then sensor readings. time_of_day is internal: it drives the fill rules and shows on the demo page, but isn't published. The built-in scenarios are adapted from the emulator's draft. tools/gen_demo.py turns this into C at build time; the admin page can edit the library and limits on the board. Caps and normal ranges are still a draft.",
+
+  "fill_rules": {
+    "normal": "numbers: random inside the normal range; bools: true with probability normal_p; enums: a random normal option",
+    "presence": "nobody home -> empty; at night only bedrooms are occupied; otherwise normal_p",
+    "light": "off in an empty room; at night off in a bedroom (asleep), on elsewhere; on in the evening; 50 % in the morning, 20 % in the afternoon",
+    "blinds": "night 0; evening 0-30; morning and afternoon 50-100 (steps of 10)",
+    "lock": "locked when nobody is home or at night, otherwise 50 %",
+    "car": "away when nobody is home, otherwise parked (80 %) or away",
+    "off": "false / the first option (devices stay off unless a scenario or a roll turns them on)"
+  },
+  "derive_rules": {
+    "pm1": "0.65 x PM2.5 of the same room",
+    "pm10": "1.4 x PM2.5 of the same room",
+    "lux": "lights on 250-600; off: morning 100-500, afternoon 200-800, evening 5-60, night 0-3",
+    "distance": "someone present 300-900 mm, empty 1000-1200 mm"
+  },
+
+  "templates": {
+    "room_sensors": [
+      {"field": "temperature_c", "label": "Temperature", "kind": "sensor", "type": "number", "unit": "°C", "dec": 1, "caps": [15.6, 37.8], "normal": [20, 24]},
+      {"field": "humidity_pct", "label": "Humidity", "kind": "sensor", "type": "number", "unit": "%", "dec": 1, "caps": [15, 85], "normal": [35, 55]},
+      {"field": "voc_index", "label": "VOC index", "kind": "sensor", "type": "number", "unit": "", "dec": 0, "caps": [1, 500], "normal": [80, 150]},
+      {"field": "co2_ppm", "label": "CO₂", "kind": "sensor", "type": "number", "unit": "ppm", "dec": 0, "caps": [400, 3000], "normal": [450, 900]},
+      {"field": "lux", "label": "Light level", "kind": "sensor", "type": "number", "unit": "lux", "dec": 1, "caps": [0, 1500], "derive": "lux"},
+      {"field": "distance_mm", "label": "Distance", "kind": "sensor", "type": "number", "unit": "mm", "dec": 0, "caps": [30, 1200], "derive": "distance"},
+      {"field": "pm1_0_ugm3", "label": "PM1.0", "kind": "sensor", "type": "number", "unit": "µg/m³", "dec": 0, "caps": [0, 300], "derive": "pm1"},
+      {"field": "pm2_5_ugm3", "label": "PM2.5", "kind": "sensor", "type": "number", "unit": "µg/m³", "dec": 0, "caps": [0, 300], "normal": [2, 12]},
+      {"field": "pm10_ugm3", "label": "PM10", "kind": "sensor", "type": "number", "unit": "µg/m³", "dec": 0, "caps": [0, 450], "derive": "pm10"},
+      {"field": "presence", "label": "Presence", "kind": "sensor", "type": "bool", "labels": ["empty", "present"], "normal_p": 0.6, "fill": "presence"}
+    ]
+  },
+
+  "areas": [
+    {"key": "home", "label": "Home", "entities": [
+      {"field": "time_of_day", "label": "Time of day", "kind": "context", "internal": true, "type": "enum", "options": ["morning", "afternoon", "evening", "night"]},
+      {"field": "light_on", "label": "Hall light", "type": "bool", "labels": ["off", "on"], "normal_p": 0.2},
+      {"field": "fan_on", "label": "Fan", "type": "bool", "labels": ["off", "on"], "fill": "off"},
+      {"field": "front_door_locked", "label": "Front door", "type": "bool", "labels": ["unlocked", "locked"], "fill": "lock"},
+      {"field": "anyone_home", "label": "Anyone home", "type": "bool", "labels": ["no", "yes"], "normal_p": 0.75},
+      {"field": "front_door_light_on", "label": "Porch light", "type": "bool", "labels": ["off", "on"], "fill": "off"},
+      {"field": "doorbell_motion", "label": "Doorbell motion", "type": "bool", "labels": ["none", "detected"], "fill": "off"}
+    ]},
+    {"key": "master_bedroom", "label": "Master bedroom", "node_room": "bedroom", "sleep_area": true, "template": "room_sensors",
+     "override": {"temperature_c": {"normal": [19, 23]}},
+     "entities": [
+      {"field": "light_on", "label": "Light", "type": "bool", "labels": ["off", "on"], "fill": "light"},
+      {"field": "fan_on", "label": "Fan", "type": "bool", "labels": ["off", "on"], "fill": "off"},
+      {"field": "ac_mode", "label": "AC", "type": "enum", "options": ["off", "cool"], "fill": "off"},
+      {"field": "ac_target_temperature_c", "label": "AC target", "type": "number", "unit": "°C", "dec": 1, "caps": [16, 30], "normal": [21, 24]},
+      {"field": "blinds_position_pct", "label": "Blinds", "type": "number", "unit": "%", "dec": 0, "caps": [0, 100], "normal": [0, 100], "fill": "blinds"},
+      {"field": "humidifier_on", "label": "Humidifier", "type": "bool", "labels": ["off", "on"], "fill": "off"},
+      {"field": "humidifier_target_humidity_pct", "label": "Humidifier target", "type": "number", "unit": "%", "dec": 1, "caps": [30, 60], "normal": [40, 50]},
+      {"field": "window_open", "label": "Window", "type": "bool", "labels": ["closed", "open"], "normal_p": 0.1}
+    ]},
+    {"key": "second_bedroom", "label": "Second bedroom", "sleep_area": true, "template": "room_sensors",
+     "override": {"temperature_c": {"normal": [19, 23]}, "presence": {"normal_p": 0.4}},
+     "entities": [
+      {"field": "light_on", "label": "Light", "type": "bool", "labels": ["off", "on"], "fill": "light"},
+      {"field": "fan_on", "label": "Fan", "type": "bool", "labels": ["off", "on"], "fill": "off"},
+      {"field": "ac_mode", "label": "AC", "type": "enum", "options": ["off", "cool"], "fill": "off"},
+      {"field": "ac_target_temperature_c", "label": "AC target", "type": "number", "unit": "°C", "dec": 1, "caps": [16, 30], "normal": [21, 24]},
+      {"field": "window_open", "label": "Window", "type": "bool", "labels": ["closed", "open"], "normal_p": 0.1}
+    ]},
+    {"key": "kitchen", "label": "Kitchen", "node_room": "kitchen", "template": "room_sensors",
+     "override": {"temperature_c": {"normal": [20, 25]}},
+     "entities": [
+      {"field": "light_on", "label": "Light", "type": "bool", "labels": ["off", "on"], "fill": "light"},
+      {"field": "fan_on", "label": "Fan", "type": "bool", "labels": ["off", "on"], "fill": "off"},
+      {"field": "blinds_position_pct", "label": "Blinds", "type": "number", "unit": "%", "dec": 0, "caps": [0, 100], "normal": [0, 100], "fill": "blinds"},
+      {"field": "purifier_on", "label": "Purifier", "type": "bool", "labels": ["off", "on"], "fill": "off"},
+      {"field": "window_open", "label": "Window", "type": "bool", "labels": ["closed", "open"], "normal_p": 0.1},
+      {"field": "oven_on", "label": "Oven", "type": "bool", "labels": ["off", "on"], "fill": "off"},
+      {"field": "microwave_on", "label": "Microwave", "type": "bool", "labels": ["off", "on"], "fill": "off"}
+    ]},
+    {"key": "living_room", "label": "Living room", "node_room": "living-room", "template": "room_sensors",
+     "entities": [
+      {"field": "light_on", "label": "Light", "type": "bool", "labels": ["off", "on"], "fill": "light"},
+      {"field": "fan_on", "label": "Fan", "type": "bool", "labels": ["off", "on"], "fill": "off"},
+      {"field": "ac_mode", "label": "AC", "type": "enum", "options": ["off", "cool"], "fill": "off"},
+      {"field": "ac_target_temperature_c", "label": "AC target", "type": "number", "unit": "°C", "dec": 1, "caps": [16, 30], "normal": [21, 24]},
+      {"field": "tv_on", "label": "TV", "type": "bool", "labels": ["off", "on"], "fill": "off"},
+      {"field": "blinds_position_pct", "label": "Blinds", "type": "number", "unit": "%", "dec": 0, "caps": [0, 100], "normal": [0, 100], "fill": "blinds"},
+      {"field": "vacuum_state", "label": "Vacuum", "type": "enum", "options": ["docked", "cleaning", "returning"], "fill": "off"},
+      {"field": "window_open", "label": "Window", "type": "bool", "labels": ["closed", "open"], "normal_p": 0.1}
+    ]},
+    {"key": "bathroom", "label": "Bathroom", "template": "room_sensors",
+     "override": {"temperature_c": {"normal": [21, 25]}, "humidity_pct": {"normal": [40, 65]}, "presence": {"normal_p": 0.2}},
+     "entities": [
+      {"field": "light_on", "label": "Light", "type": "bool", "labels": ["off", "on"], "fill": "light"},
+      {"field": "exhaust_fan_on", "label": "Exhaust fan", "type": "bool", "labels": ["off", "on"], "fill": "off"}
+    ]},
+    {"key": "garage", "label": "Garage", "template": "room_sensors",
+     "override": {"temperature_c": {"caps": [-10, 45], "normal": [8, 25]}, "humidity_pct": {"caps": [15, 90], "normal": [30, 70]}, "presence": {"normal_p": 0.1}},
+     "entities": [
+      {"field": "light_on", "label": "Light", "type": "bool", "labels": ["off", "on"], "fill": "light"},
+      {"field": "fan_on", "label": "Fan", "type": "bool", "labels": ["off", "on"], "fill": "off"},
+      {"field": "door_open", "label": "Garage door", "type": "bool", "labels": ["closed", "open"], "fill": "off"},
+      {"field": "car", "label": "Car", "type": "enum", "options": ["away", "parked", "running"], "normal": ["away", "parked"], "fill": "car"}
+    ]},
+    {"key": "office", "label": "Office", "template": "room_sensors",
+     "override": {"presence": {"normal_p": 0.4}},
+     "entities": [
+      {"field": "light_on", "label": "Light", "type": "bool", "labels": ["off", "on"], "fill": "light"},
+      {"field": "fan_on", "label": "Fan", "type": "bool", "labels": ["off", "on"], "fill": "off"}
+    ]},
+    {"key": "laundry", "label": "Laundry", "template": "room_sensors",
+     "override": {"humidity_pct": {"normal": [35, 60]}, "presence": {"normal_p": 0.15}},
+     "entities": [
+      {"field": "light_on", "label": "Light", "type": "bool", "labels": ["off", "on"], "fill": "light"},
+      {"field": "fan_on", "label": "Fan", "type": "bool", "labels": ["off", "on"], "fill": "off"},
+      {"field": "washer_on", "label": "Washer", "type": "bool", "labels": ["off", "on"], "fill": "off"},
+      {"field": "dryer_on", "label": "Dryer", "type": "bool", "labels": ["off", "on"], "fill": "off"}
+    ]}
+  ],
+
+  "groups": [
+    {"key": "normal", "label": "Normal"},
+    {"key": "air", "label": "Air quality"},
+    {"key": "heat_cold", "label": "Heat & cold"},
+    {"key": "security", "label": "Security"},
+    {"key": "energy", "label": "Energy waste"},
+    {"key": "hazard", "label": "Hazard"}
+  ],
+
+  "presets": [
+    {"name": "Quiet weekday morning", "expect": "Nothing needs doing: a calm, normal morning.", "group": "normal", "set": {"home.time_of_day": "morning", "home.anyone_home": true, "kitchen.presence": true, "kitchen.light_on": true, "kitchen.blinds_position_pct": 80, "master_bedroom.presence": false, "bathroom.presence": true}},
+    {"name": "Everyone at work", "expect": "Nothing needs doing: the house is empty and locked.", "group": "normal", "set": {"home.time_of_day": "afternoon", "home.anyone_home": false, "home.front_door_locked": true, "garage.car": "away", "living_room.blinds_position_pct": 40}},
+    {"name": "Family dinner", "expect": "Normal cooking. At most, turn on the kitchen fan or purifier.", "group": "normal", "set": {"home.time_of_day": "evening", "home.anyone_home": true, "kitchen.presence": true, "living_room.presence": true, "kitchen.temperature_c": 23.5, "kitchen.co2_ppm": 850, "kitchen.voc_index": 160, "kitchen.pm2_5_ugm3": 14, "kitchen.oven_on": true}},
+    {"name": "Movie night", "expect": "Nothing needs doing. Don't turn the living-room light on.", "group": "normal", "set": {"home.time_of_day": "evening", "home.anyone_home": true, "living_room.presence": true, "living_room.light_on": false, "living_room.tv_on": true, "living_room.blinds_position_pct": 0, "living_room.co2_ppm": 880, "kitchen.presence": false}},
+    {"name": "Everyone asleep", "expect": "Nothing needs doing: keep the bedrooms quiet and dark.", "group": "normal", "set": {"home.time_of_day": "night", "home.anyone_home": true, "master_bedroom.presence": true, "second_bedroom.presence": true, "home.front_door_locked": true, "master_bedroom.co2_ppm": 820, "master_bedroom.ac_mode": "cool", "master_bedroom.ac_target_temperature_c": 21}},
+    {"name": "Weekend chores", "expect": "Nothing needs doing.", "group": "normal", "set": {"home.time_of_day": "afternoon", "home.anyone_home": true, "laundry.presence": true, "laundry.light_on": true, "laundry.washer_on": true, "living_room.presence": false, "living_room.vacuum_state": "cleaning"}},
+    {"name": "Rainy afternoon reading", "expect": "Nothing needs doing.", "group": "normal", "set": {"home.time_of_day": "afternoon", "home.anyone_home": true, "living_room.presence": true, "living_room.light_on": true, "living_room.window_open": false, "living_room.humidity_pct": 54}},
+    {"name": "Working from home", "expect": "Nothing needs doing. Maybe the office fan if CO₂ climbs.", "group": "normal", "set": {"home.time_of_day": "afternoon", "home.anyone_home": true, "office.presence": true, "office.light_on": true, "office.co2_ppm": 760, "living_room.presence": false, "kitchen.presence": false}},
+    {"name": "Sunny Saturday, windows open", "expect": "Nothing needs doing: fresh air with the windows open.", "group": "normal", "set": {"home.time_of_day": "afternoon", "home.anyone_home": true, "living_room.window_open": true, "living_room.presence": true, "living_room.temperature_c": 23.5, "living_room.co2_ppm": 470, "living_room.blinds_position_pct": 100}},
+    {"name": "Cooking breakfast", "expect": "Normal cooking. At most, turn on the kitchen fan.", "group": "normal", "set": {"home.time_of_day": "morning", "home.anyone_home": true, "kitchen.presence": true, "kitchen.light_on": true, "kitchen.microwave_on": true, "kitchen.voc_index": 145, "kitchen.pm2_5_ugm3": 11, "kitchen.co2_ppm": 780, "kitchen.humidity_pct": 52}},
+    {"name": "Late-night snack", "expect": "Nothing needs doing.", "group": "normal", "set": {"home.time_of_day": "night", "home.anyone_home": true, "kitchen.presence": true, "kitchen.light_on": true, "kitchen.microwave_on": true, "master_bedroom.presence": true}},
+    {"name": "Kids home from school", "expect": "Nothing needs doing. Maybe remind them to lock the front door.", "group": "normal", "set": {"home.time_of_day": "afternoon", "home.anyone_home": true, "home.front_door_locked": false, "living_room.presence": true, "living_room.tv_on": true, "second_bedroom.presence": true}},
+    {"name": "Guests over", "expect": "Nothing needs doing. Maybe the living-room fan if it gets stuffy.", "group": "normal", "set": {"home.time_of_day": "evening", "home.anyone_home": true, "home.front_door_light_on": true, "living_room.presence": true, "kitchen.presence": true, "living_room.co2_ppm": 890, "living_room.temperature_c": 23.8}},
+    {"name": "Early workout", "expect": "Nothing needs doing.", "group": "normal", "set": {"home.time_of_day": "morning", "home.anyone_home": true, "master_bedroom.presence": true, "master_bedroom.light_on": true, "master_bedroom.fan_on": true, "master_bedroom.temperature_c": 22.5, "master_bedroom.humidity_pct": 54}},
+    {"name": "Cool autumn evening", "expect": "Nothing needs doing.", "group": "normal", "set": {"home.time_of_day": "evening", "home.anyone_home": true, "home.front_door_light_on": true, "living_room.presence": true, "living_room.temperature_c": 21, "living_room.window_open": false}},
+    {"name": "Dry winter morning", "expect": "Humidity is a bit low: keep the bedroom humidifier on.", "group": "normal", "set": {"home.time_of_day": "morning", "home.anyone_home": true, "garage.car": "parked", "garage.temperature_c": 6, "kitchen.presence": true, "master_bedroom.humidifier_on": true, "master_bedroom.humidifier_target_humidity_pct": 45, "master_bedroom.humidity_pct": 36}},
+    {"name": "Quiet Sunday afternoon", "expect": "Nothing needs doing.", "group": "normal", "set": {"home.time_of_day": "afternoon", "home.anyone_home": true, "living_room.presence": true, "office.presence": false}},
+    {"name": "Laundry day", "expect": "Nothing needs doing. Maybe the laundry fan.", "group": "normal", "set": {"home.time_of_day": "afternoon", "home.anyone_home": true, "laundry.presence": true, "laundry.light_on": true, "laundry.washer_on": true, "laundry.humidity_pct": 58}},
+    {"name": "Reading in bed", "expect": "Nothing needs doing.", "group": "normal", "set": {"home.time_of_day": "night", "home.anyone_home": true, "master_bedroom.presence": true, "master_bedroom.light_on": true, "living_room.presence": false}},
+    {"name": "Arriving home", "expect": "Nothing urgent. Close the garage door once the car is in.", "group": "normal", "set": {"home.time_of_day": "evening", "home.anyone_home": true, "home.front_door_locked": false, "home.front_door_light_on": true, "garage.door_open": true, "garage.car": "parked", "garage.presence": true, "garage.light_on": true}},
+    {"name": "Vacuum running while everyone is out", "expect": "Nothing needs doing.", "group": "normal", "set": {"home.time_of_day": "afternoon", "home.anyone_home": false, "home.front_door_locked": true, "living_room.vacuum_state": "cleaning"}},
+
+    {"name": "Burnt toast", "expect": "Turn on the kitchen purifier and fan; suggest opening a window.", "group": "air", "set": {"home.time_of_day": "morning", "home.anyone_home": true, "kitchen.presence": true, "kitchen.light_on": true, "kitchen.pm2_5_ugm3": 160, "kitchen.voc_index": 420, "kitchen.co2_ppm": 1100, "kitchen.temperature_c": 25, "kitchen.purifier_on": false, "kitchen.fan_on": false}},
+    {"name": "Stuffy bedroom overnight", "expect": "Ventilate the master bedroom: its fan on, or suggest opening the window.", "group": "air", "set": {"home.time_of_day": "night", "home.anyone_home": true, "master_bedroom.presence": true, "master_bedroom.window_open": false, "master_bedroom.co2_ppm": 1850, "master_bedroom.temperature_c": 24}},
+    {"name": "Cleaning spray", "expect": "Ventilate the living room: fan on, suggest opening a window.", "group": "air", "set": {"home.time_of_day": "afternoon", "home.anyone_home": true, "living_room.presence": true, "living_room.voc_index": 430, "living_room.pm2_5_ugm3": 20}},
+    {"name": "Wildfire smoke, windows open", "expect": "Close the kitchen and living-room windows; turn on the kitchen purifier.", "group": "air", "set": {"home.time_of_day": "afternoon", "home.anyone_home": true, "kitchen.window_open": true, "living_room.window_open": true, "living_room.presence": true, "living_room.pm2_5_ugm3": 95, "kitchen.pm2_5_ugm3": 80, "kitchen.purifier_on": false}},
+    {"name": "Candles in the living room", "expect": "Ventilate the living room (fan); suggest putting the candles out.", "group": "air", "set": {"home.time_of_day": "evening", "home.anyone_home": true, "living_room.presence": true, "living_room.light_on": false, "living_room.voc_index": 320, "living_room.pm2_5_ugm3": 45}},
+    {"name": "Crowded living room", "expect": "Living-room AC or fan on; suggest opening a window for the CO₂.", "group": "air", "set": {"home.time_of_day": "evening", "home.anyone_home": true, "living_room.presence": true, "living_room.co2_ppm": 2200, "living_room.temperature_c": 26, "living_room.window_open": false, "living_room.ac_mode": "off"}},
+    {"name": "Fresh paint in the bedroom", "expect": "Ventilate the master bedroom: open its window or turn on its fan.", "group": "air", "set": {"home.time_of_day": "afternoon", "home.anyone_home": true, "master_bedroom.presence": false, "master_bedroom.window_open": false, "master_bedroom.voc_index": 480}},
+    {"name": "Dusty after vacuuming", "expect": "Turn on a fan or purifier to clear the living-room dust.", "group": "air", "set": {"home.time_of_day": "afternoon", "home.anyone_home": true, "living_room.presence": true, "living_room.pm2_5_ugm3": 70, "living_room.vacuum_state": "returning"}},
+    {"name": "Steamy shower, exhaust fan off", "expect": "Turn on the bathroom exhaust fan.", "group": "air", "set": {"home.time_of_day": "morning", "home.anyone_home": true, "bathroom.presence": true, "bathroom.light_on": true, "bathroom.humidity_pct": 84, "bathroom.temperature_c": 26, "bathroom.exhaust_fan_on": false}},
+
+    {"name": "Hot empty living room", "expect": "Close the living-room blinds; pre-cool with the AC before people return.", "group": "heat_cold", "set": {"home.time_of_day": "afternoon", "home.anyone_home": false, "living_room.presence": false, "living_room.temperature_c": 33, "living_room.blinds_position_pct": 100, "living_room.ac_mode": "off"}},
+    {"name": "Cold snap, bedroom window open", "expect": "Suggest closing the master-bedroom window; keep the AC off.", "group": "heat_cold", "set": {"home.time_of_day": "night", "home.anyone_home": true, "master_bedroom.window_open": true, "master_bedroom.temperature_c": 16.2, "master_bedroom.presence": true}},
+    {"name": "Heat wave, nobody home", "expect": "Close the blinds and start the AC so the house is cool when people return.", "group": "heat_cold", "set": {"home.time_of_day": "afternoon", "home.anyone_home": false, "kitchen.temperature_c": 31, "living_room.temperature_c": 34, "master_bedroom.temperature_c": 32, "living_room.ac_mode": "off", "living_room.blinds_position_pct": 100}},
+    {"name": "Overheated bedroom while asleep", "expect": "Turn on the master-bedroom AC (cool) or its fan.", "group": "heat_cold", "set": {"home.time_of_day": "night", "home.anyone_home": true, "master_bedroom.presence": true, "master_bedroom.temperature_c": 29.5, "master_bedroom.humidity_pct": 65, "master_bedroom.ac_mode": "off"}},
+    {"name": "Freezing garage, door open", "expect": "Close the garage door.", "group": "heat_cold", "set": {"home.time_of_day": "night", "home.anyone_home": true, "garage.temperature_c": -8, "garage.door_open": true}},
+    {"name": "Humid summer evening", "expect": "Turn on the living-room fan or AC.", "group": "heat_cold", "set": {"home.time_of_day": "evening", "home.anyone_home": true, "living_room.presence": true, "living_room.humidity_pct": 75, "living_room.temperature_c": 28, "living_room.fan_on": false}},
+
+    {"name": "Garage door open at night", "expect": "Close the garage door.", "group": "security", "set": {"home.time_of_day": "night", "home.anyone_home": true, "master_bedroom.presence": true, "garage.door_open": true, "garage.car": "parked"}},
+    {"name": "Front door unlocked while away", "expect": "Lock the front door.", "group": "security", "set": {"home.time_of_day": "afternoon", "home.anyone_home": false, "home.front_door_locked": false}},
+    {"name": "Motion at the front door at 3 am", "expect": "Turn on the porch light; warn about motion at the front door.", "group": "security", "set": {"home.time_of_day": "night", "home.anyone_home": true, "master_bedroom.presence": true, "home.doorbell_motion": true, "home.front_door_light_on": false}},
+    {"name": "Window open while nobody is home", "expect": "Warn that the living-room window is open while nobody is home.", "group": "security", "set": {"home.time_of_day": "afternoon", "home.anyone_home": false, "living_room.window_open": true, "living_room.presence": false}},
+    {"name": "Someone in the kitchen while away", "expect": "Alert: someone is in the kitchen while nobody should be home.", "group": "security", "set": {"home.time_of_day": "afternoon", "home.anyone_home": false, "home.front_door_locked": true, "kitchen.presence": true, "kitchen.light_on": false}},
+    {"name": "Package at the door", "expect": "Tell the owner a package or visitor is at the door.", "group": "security", "doorbell": true, "set": {"home.time_of_day": "afternoon", "home.anyone_home": false, "home.doorbell_motion": true}},
+    {"name": "Doorbell at night", "expect": "Turn on the porch light; tell the owner someone rang.", "group": "security", "doorbell": true, "set": {"home.time_of_day": "night", "home.anyone_home": true, "master_bedroom.presence": true, "home.doorbell_motion": true, "home.front_door_light_on": false}},
+
+    {"name": "Lights on in empty rooms", "expect": "Turn off the living-room and kitchen lights.", "group": "energy", "set": {"home.time_of_day": "afternoon", "home.anyone_home": false, "living_room.presence": false, "living_room.light_on": true, "kitchen.presence": false, "kitchen.light_on": true}},
+    {"name": "TV on in an empty living room", "expect": "Turn off the living-room TV.", "group": "energy", "set": {"home.time_of_day": "evening", "home.anyone_home": true, "living_room.presence": false, "living_room.tv_on": true, "master_bedroom.presence": true}},
+    {"name": "Window open, AC cooling", "expect": "Close the living-room window, or turn the AC off.", "group": "energy", "set": {"home.time_of_day": "afternoon", "home.anyone_home": true, "living_room.presence": true, "living_room.window_open": true, "living_room.ac_mode": "cool", "living_room.ac_target_temperature_c": 20}},
+    {"name": "All lights on at noon", "expect": "Turn off the lights in the empty kitchen and master bedroom.", "group": "energy", "set": {"home.time_of_day": "afternoon", "home.anyone_home": true, "living_room.presence": true, "living_room.light_on": true, "living_room.blinds_position_pct": 100, "kitchen.presence": false, "kitchen.light_on": true, "master_bedroom.presence": false, "master_bedroom.light_on": true}},
+    {"name": "Garage light left on overnight", "expect": "Turn off the garage light.", "group": "energy", "set": {"home.time_of_day": "night", "home.anyone_home": true, "master_bedroom.presence": true, "garage.presence": false, "garage.light_on": true}},
+    {"name": "Office left on overnight", "expect": "Turn off the office light and fan.", "group": "energy", "set": {"home.time_of_day": "night", "home.anyone_home": true, "master_bedroom.presence": true, "office.presence": false, "office.light_on": true, "office.fan_on": true}},
+
+    {"name": "Kitchen fire hazard", "expect": "Urgent: turn off the oven, run the purifier and fan, alert everyone.", "group": "hazard", "set": {"home.time_of_day": "evening", "home.anyone_home": true, "kitchen.presence": false, "kitchen.oven_on": true, "kitchen.temperature_c": 37, "kitchen.pm2_5_ugm3": 280, "kitchen.voc_index": 490, "kitchen.co2_ppm": 2600, "living_room.presence": true}},
+    {"name": "Car running in a closed garage", "expect": "Urgent: open the garage door, run the garage fan, alert about exhaust.", "group": "hazard", "set": {"home.time_of_day": "morning", "home.anyone_home": true, "garage.car": "running", "garage.door_open": false, "garage.presence": true, "garage.light_on": true, "garage.co2_ppm": 2400}},
+    {"name": "Mould risk in the bedroom", "expect": "Turn off the bedroom humidifier; ventilate the room.", "group": "hazard", "set": {"home.time_of_day": "morning", "home.anyone_home": true, "master_bedroom.humidity_pct": 82, "master_bedroom.window_open": false, "master_bedroom.temperature_c": 22, "master_bedroom.humidifier_on": true}},
+    {"name": "Smoke in the bedroom at night", "expect": "Urgent: alert and wake people; run a purifier; check for fire.", "group": "hazard", "set": {"home.time_of_day": "night", "home.anyone_home": true, "master_bedroom.presence": true, "master_bedroom.pm2_5_ugm3": 240, "master_bedroom.voc_index": 450}},
+    {"name": "CO₂ building up in a closed bedroom", "expect": "Ventilate the second bedroom: fan on, suggest opening the window.", "group": "hazard", "set": {"home.time_of_day": "night", "home.anyone_home": true, "second_bedroom.presence": true, "second_bedroom.window_open": false, "second_bedroom.co2_ppm": 2900}},
+    {"name": "Oven left on, nobody home", "expect": "Turn off the oven and alert the owner.", "group": "hazard", "set": {"home.time_of_day": "afternoon", "home.anyone_home": false, "kitchen.presence": false, "kitchen.oven_on": true, "kitchen.temperature_c": 30}},
+    {"name": "Dryer running, nobody home", "expect": "Alert that the dryer is running with nobody home.", "group": "hazard", "set": {"home.time_of_day": "afternoon", "home.anyone_home": false, "laundry.dryer_on": true, "laundry.temperature_c": 31, "laundry.humidity_pct": 62}}
+  ]
+}

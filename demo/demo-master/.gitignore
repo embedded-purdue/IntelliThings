@@ -1,0 +1,8 @@
+# Local build output and settings: never commit (credentials end up in sdkconfig)
+build/
+sdkconfig
+sdkconfig.old
+sdkconfig.local
+managed_components/
+dependencies.lock
+.vscode/

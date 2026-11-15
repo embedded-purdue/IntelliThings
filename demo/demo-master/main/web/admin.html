@@ -1,0 +1,570 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Demo master admin</title>
+<style>
+:root{
+  --bg:#0b0f14;--surface:#141a22;--surface2:#1b232d;--line:#26303c;--text:#eef2f6;--muted:#93a0b0;--faint:#5c6878;
+  --accent:#5eead4;--warn:#fbbf24;--bad:#f87171;--good:#4ade80;--red:#e11d2e;--onaccent:#062a25;
+}
+[data-theme=light]{
+  --bg:#f3f5f8;--surface:#fff;--surface2:#f6f8fb;--line:#dde3ea;--text:#111821;--muted:#5d6b7c;--faint:#9aa6b4;
+  --accent:#0f9f8a;--warn:#b7791f;--bad:#c53030;--good:#2f855a;--onaccent:#fff;
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--text);font:15px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+.num{font-variant-numeric:tabular-nums}
+a{color:var(--accent)}
+header{position:sticky;top:0;z-index:5;background:color-mix(in srgb,var(--bg) 92%,transparent);backdrop-filter:blur(6px);border-bottom:1px solid var(--line)}
+.top{display:flex;align-items:center;gap:14px;padding:12px 20px;max-width:1200px;margin:0 auto}
+.top b{font-size:17px}
+.spacer{flex:1}
+nav{display:flex;gap:4px;padding:0 16px 8px;max-width:1200px;margin:0 auto;overflow-x:auto}
+nav button{background:none;border:0;color:var(--muted);font:inherit;font-weight:600;padding:8px 14px;border-radius:10px;cursor:pointer;white-space:nowrap}
+nav button.on{background:var(--surface);color:var(--text);box-shadow:inset 0 0 0 1px var(--line)}
+main{max-width:1200px;margin:0 auto;padding:18px 20px 60px}
+section{display:none}section.on{display:block}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:16px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:16px}
+.card h3{margin:0 0 10px;font-size:15px;display:flex;align-items:center;gap:8px}
+dl{display:grid;grid-template-columns:auto 1fr;gap:6px 14px;margin:0}
+dt{color:var(--muted)}dd{margin:0;text-align:right;font-weight:600;overflow-wrap:anywhere}
+.big{font-size:34px;font-weight:700;line-height:1.1}
+.muted{color:var(--muted)}.faint{color:var(--faint)}
+.dot{display:inline-block;width:9px;height:9px;border-radius:50%;background:var(--faint);vertical-align:middle}
+.dot.on{background:var(--good)}.dot.off{background:var(--bad)}
+button.btn,.btn{display:inline-flex;align-items:center;gap:6px;font:inherit;font-weight:600;padding:8px 14px;border-radius:10px;border:1px solid var(--line);background:var(--surface2);color:var(--text);cursor:pointer;text-decoration:none}
+.btn:hover{border-color:var(--muted)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--onaccent)}
+.btn.danger{color:var(--bad);border-color:color-mix(in srgb,var(--bad) 50%,transparent)}
+.btn.red{background:var(--red);border-color:var(--red);color:#fff}
+.btn.sm{padding:4px 10px;font-size:13px;border-radius:8px}
+.btn:disabled{opacity:.45;cursor:default}
+.actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+label.f{display:flex;flex-direction:column;gap:4px;font-size:13px;color:var(--muted)}
+input,select{font:inherit;color:var(--text);background:var(--surface2);border:1px solid var(--line);border-radius:9px;padding:7px 10px;min-width:0}
+input:focus,select:focus{outline:2px solid color-mix(in srgb,var(--accent) 50%,transparent);outline-offset:1px}
+.form{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:12px}
+.switch{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:8px 0;border-top:1px solid var(--line)}
+.switch:first-child{border-top:0}
+.tog{position:relative;width:44px;height:26px;flex:none}
+.tog input{opacity:0;width:0;height:0}
+.tog span{position:absolute;inset:0;border-radius:999px;background:var(--line);transition:.2s;cursor:pointer}
+.tog span::after{content:"";position:absolute;left:3px;top:3px;width:20px;height:20px;border-radius:50%;background:#fff;transition:.2s}
+.tog input:checked+span{background:var(--accent)}
+.tog input:checked+span::after{transform:translateX(18px)}
+table{width:100%;border-collapse:collapse}
+th,td{text-align:left;padding:7px 8px;border-top:1px solid var(--line);vertical-align:middle}
+th{font-size:12px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.4px;border-top:0}
+td input{width:100%;max-width:110px}
+tr.area td{background:var(--surface2);font-weight:700;color:var(--muted);font-size:13px}
+.tag{display:inline-block;font-size:11px;font-weight:700;padding:2px 8px;border-radius:999px;background:var(--surface2);border:1px solid var(--line);color:var(--muted);white-space:nowrap}
+.tag.mod{color:var(--warn);border-color:color-mix(in srgb,var(--warn) 45%,transparent)}
+.events{max-height:340px;overflow:auto;font-size:13px}
+.events div{padding:5px 0;border-top:1px solid var(--line);display:flex;gap:10px}
+.events div span:first-child{color:var(--faint);min-width:64px}
+.now{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+.now h4{margin:0 0 6px;font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px}
+.expect{font-size:17px;font-weight:600;line-height:1.35}
+.checks{list-style:none;margin:0;padding:0}
+.checks li{display:flex;gap:8px;align-items:baseline;padding:4px 0;border-top:1px solid var(--line);font-size:14px}
+.checks li:first-child{border-top:0}
+.lvl{font-size:11px;font-weight:700;padding:1px 7px;border-radius:999px;text-transform:uppercase;white-space:nowrap}
+.lvl.urgent{background:color-mix(in srgb,var(--bad) 20%,transparent);color:var(--bad)}
+.lvl.act{background:color-mix(in srgb,var(--warn) 20%,transparent);color:var(--warn)}
+.lvl.ok{background:color-mix(in srgb,var(--good) 20%,transparent);color:var(--good)}
+.said{border-top:1px solid var(--line);padding:6px 0;font-size:14px}
+.said:first-of-type{border-top:0}
+.said .when{font-size:12px;color:var(--faint)}
+.said .when.old{color:var(--warn)}
+@media (max-width:760px){.now{grid-template-columns:1fr}}
+.toolbar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:12px}
+.scroll{overflow-x:auto}
+#gate{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:var(--bg);z-index:20}
+#gate .card{width:min(340px,92vw);text-align:center}
+#gate input{width:100%;text-align:center;font-size:24px;letter-spacing:8px;margin:12px 0}
+#toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%) translateY(120px);background:var(--surface);border:1px solid var(--line);padding:10px 16px;border-radius:12px;box-shadow:0 10px 30px rgba(0,0,0,.35);transition:transform .25s;z-index:30;max-width:92vw}
+#toast.show{transform:translateX(-50%)}
+#toast.err{border-color:var(--bad);color:var(--bad)}
+dialog{border:1px solid var(--line);background:var(--surface);color:var(--text);border-radius:16px;padding:0;width:min(860px,96vw);max-height:92vh}
+dialog::backdrop{background:rgba(0,0,0,.55)}
+.dlg-h{display:flex;gap:10px;align-items:center;padding:14px 18px;border-bottom:1px solid var(--line);position:sticky;top:0;background:var(--surface);z-index:1}
+.dlg-b{padding:14px 18px;overflow:auto;max-height:calc(92vh - 130px)}
+.dlg-f{display:flex;gap:8px;justify-content:flex-end;padding:12px 18px;border-top:1px solid var(--line)}
+.ent{display:grid;grid-template-columns:24px 1fr 170px 120px;gap:8px;align-items:center;padding:5px 0;border-top:1px solid var(--line)}
+.ent input[type=number],.ent select{width:100%}
+.ent .hint{font-size:12px;color:var(--faint)}
+.ent.off .ctl{opacity:.35}
+@media (max-width:640px){.ent{grid-template-columns:24px 1fr 120px}.ent .hint{display:none}main{padding:14px 12px 60px}}
+</style>
+</head>
+<body>
+<div id="gate">
+  <form class="card" id="gateForm">
+    <h3 style="justify-content:center">Demo master admin</h3>
+    <div class="muted">Enter the admin PIN</div>
+    <input id="pin" type="password" inputmode="numeric" autocomplete="off" autofocus>
+    <button class="btn primary" style="width:100%;justify-content:center">Unlock</button>
+    <p class="faint" style="font-size:12px;margin:12px 0 0"><a href="/">Back to the demo page</a></p>
+  </form>
+</div>
+
+<header>
+  <div class="top">
+    <b>Demo master</b><span id="hdr" class="muted"></span>
+    <span class="spacer"></span>
+    <a class="btn sm" href="/" target="_blank">Open demo page ↗</a>
+    <button class="btn sm" id="lockBtn">Lock</button>
+  </div>
+  <nav id="tabs">
+    <button data-t="overview" class="on">Overview</button>
+    <button data-t="control">Demo control</button>
+    <button data-t="scenarios">Scenarios</button>
+    <button data-t="limits">Random limits</button>
+    <button data-t="settings">Settings</button>
+  </nav>
+</header>
+
+<main>
+<section id="overview" class="on">
+  <div class="card" style="margin-bottom:16px"><h3>Now playing <span id="nowGroup" class="tag"></span><span class="spacer"></span><span id="nowAge" class="muted num" style="font-weight:500;font-size:13px"></span></h3>
+    <div style="font-size:24px;font-weight:700;margin-bottom:12px" id="nowName">–</div>
+    <div class="now">
+      <div>
+        <h4>Expected AI response</h4>
+        <div class="expect" id="nowExpect">–</div>
+        <h4 style="margin-top:14px">Checklist from the current values</h4>
+        <ul class="checks" id="nowChecks"></ul>
+      </div>
+      <div>
+        <h4>What the AI said <span id="nowThinking" class="tag" style="margin-left:6px"></span></h4>
+        <div id="nowSaid"></div>
+        <p class="faint" style="font-size:12px;margin:8px 0 0">Read from intellithings/ai/summary, …/inference_status and each node's …/display. Amber times are from before this scenario started.</p>
+      </div>
+    </div>
+  </div>
+  <div class="grid">
+    <div class="card"><h3>Demo</h3>
+      <div class="big" id="ovState">–</div>
+      <div class="muted" id="ovScenario" style="margin:4px 0 12px">–</div>
+      <dl>
+        <dt>Loop</dt><dd id="ovLoop">–</dd>
+        <dt>Publishing</dt><dd id="ovPub">–</dd>
+        <dt>Next step</dt><dd id="ovNext" class="num">–</dd>
+        <dt>Scenarios played / rolls</dt><dd id="ovSteps" class="num">–</dd>
+        <dt>Doorbell rings</dt><dd id="ovBell" class="num">–</dd>
+        <dt>Library</dt><dd id="ovLib">–</dd>
+      </dl>
+      <div class="actions"><button class="btn red" data-cmd="roll">Roll now</button><button class="btn" data-cmd="next">Next step</button><button class="btn" data-cmd="doorbell">Ring doorbell</button></div>
+    </div>
+    <div class="card"><h3>Buzzer</h3>
+      <div class="big num" id="ovPresses">–</div>
+      <div class="muted" style="margin:4px 0 12px">presses in total (kept across reboots)</div>
+      <dl>
+        <dt>Since boot: buzzer</dt><dd id="ovPbuz" class="num">–</dd>
+        <dt>Web button</dt><dd id="ovPweb" class="num">–</dd>
+        <dt>Space key</dt><dd id="ovPkey" class="num">–</dd>
+        <dt>Ignored (rolling / locked)</dt><dd id="ovPign" class="num">–</dd>
+        <dt>Input</dt><dd id="ovGpio">–</dd>
+      </dl>
+      <div class="actions"><button class="btn danger" data-cmd="reset_counts" data-confirm="Reset all press counters to 0?">Reset counters</button></div>
+    </div>
+    <div class="card"><h3>MQTT</h3>
+      <dl>
+        <dt>Broker</dt><dd id="ovMq">–</dd>
+        <dt>Topics</dt><dd id="ovPrefix">–</dd>
+        <dt>Area topics</dt><dd id="ovNodes">–</dd>
+        <dt>Messages sent</dt><dd id="ovSent" class="num">–</dd>
+        <dt>Reconnects</dt><dd id="ovMqRe" class="num">–</dd>
+      </dl>
+      <div class="actions"><button class="btn" data-cmd="republish">Republish now</button></div>
+    </div>
+    <div class="card"><h3>Device</h3>
+      <dl>
+        <dt>Firmware</dt><dd id="ovFw">–</dd>
+        <dt>Uptime</dt><dd id="ovUp" class="num">–</dd>
+        <dt>Wi-Fi</dt><dd id="ovWifi">–</dd>
+        <dt>Free memory (lowest)</dt><dd id="ovHeap" class="num">–</dd>
+        <dt>Clock</dt><dd id="ovTime" class="num">–</dd>
+      </dl>
+    </div>
+    <div class="card" style="grid-column:1/-1"><h3>Recent events</h3><div class="events num" id="events"></div></div>
+  </div>
+</section>
+
+<section id="control">
+  <div class="grid">
+    <div class="card"><h3>Scenario loop</h3>
+      <div class="switch"><div><b>Publish to MQTT</b><div class="muted">Send every area of the demo home to Home Assistant</div></div><label class="tog"><input type="checkbox" id="cPub"><span></span></label></div>
+      <div class="switch"><div><b>Loop through scenarios</b><div class="muted">Off: the current home stays until a roll</div></div><label class="tog"><input type="checkbox" id="cLoop"><span></span></label></div>
+      <div class="form" style="margin-top:10px">
+        <label class="f">Interval (s)<input type="number" id="cInt" min="10" max="3600"></label>
+        <label class="f">Loop source<select id="cSrc"><option value="presets">Scenarios</option><option value="random">Random rolls</option><option value="mix">Mix</option></select></label>
+        <label class="f">Rolls in the mix (%)<input type="number" id="cMix" min="0" max="100"></label>
+      </div>
+      <div class="actions"><button class="btn primary" id="cLoopSave">Apply</button></div>
+    </div>
+    <div class="card"><h3>Roll the house</h3>
+      <div class="form">
+        <label class="f">Roll animation (s)<input type="number" id="cRoll" min="1" max="15"></label>
+        <label class="f">Hold after a roll (s)<input type="number" id="cHold" min="0" max="3600"></label>
+        <label class="f">Spread<select id="cSpread"><option value="normal">Mostly normal</option><option value="uniform">Anywhere within the caps</option></select></label>
+        <label class="f">Abnormal values (%)<input type="number" id="cAbn" min="0" max="100"></label>
+      </div>
+      <p class="muted" style="font-size:13px">During the hold the buzzer is locked, so the AI has time to react. "Mostly normal" keeps each value normal except for the abnormal share.</p>
+      <div class="actions"><button class="btn primary" id="cRollSave">Apply</button><button class="btn red" data-cmd="roll">Roll now</button></div>
+    </div>
+  </div>
+</section>
+
+<section id="scenarios">
+  <div class="toolbar">
+    <input id="sSearch" placeholder="Search scenarios" style="flex:1;min-width:160px">
+    <select id="sGroup"><option value="">All groups</option></select>
+    <span id="sCount" class="tag"></span>
+    <button class="btn primary" id="sNew">New scenario</button>
+    <button class="btn danger" id="sReset">Reset library</button>
+  </div>
+  <div class="card scroll"><table id="sTable"><thead><tr><th>#</th><th>Name</th><th>Group</th><th>Values</th><th></th></tr></thead><tbody></tbody></table></div>
+</section>
+
+<section id="limits">
+  <div class="toolbar">
+    <span class="muted" style="flex:1">The randomizer never goes outside the caps. Normal ranges are what a calm home looks like; values outside them show amber on the demo page. Temperatures are °C (MQTT units).</span>
+    <button class="btn danger" id="lReset">Reset all limits</button>
+  </div>
+  <div class="card scroll"><table id="lTable"><thead><tr><th>Entity</th><th>Cap low</th><th>Cap high</th><th>Normal low</th><th>Normal high</th><th></th></tr></thead><tbody></tbody></table></div>
+</section>
+
+<section id="settings">
+  <div class="grid">
+    <div class="card"><h3>Demo page</h3>
+      <div class="switch"><div><b>Light theme</b><div class="muted">Off = dark</div></div><label class="tog"><input type="checkbox" id="gLight"><span></span></label></div>
+      <div class="switch"><div><b>Animations</b><div class="muted">Rolling numbers and highlights</div></div><label class="tog"><input type="checkbox" id="gAnim"><span></span></label></div>
+      <div class="switch"><div><b>Temperatures in °F</b><div class="muted">MQTT always carries °C</div></div><label class="tog"><input type="checkbox" id="gF"><span></span></label></div>
+    </div>
+    <div class="card"><h3>MQTT</h3>
+      <div class="form">
+        <label class="f">Broker host<input id="mHost"></label>
+        <label class="f">Port<input type="number" id="mPort" min="1" max="65535"></label>
+        <label class="f">Username<input id="mUser" autocomplete="off"></label>
+        <label class="f">Password<input type="password" id="mPass" placeholder="unchanged" autocomplete="new-password"></label>
+        <label class="f">Keepalive (s)<input type="number" id="mKeep" min="5" max="120"></label>
+        <label class="f" style="grid-column:1/-1">Topic prefix<input id="mPrefix"></label>
+      </div>
+      <p class="muted" style="font-size:13px">Publishes &lt;prefix&gt;/status, one retained topic per area (&lt;prefix&gt;/kitchen, /home, …) and the &lt;prefix&gt;/home/doorbell event, as in the AI team's demo device inventory. Saving reconnects.</p>
+      <div class="actions"><button class="btn primary" id="mSave">Save and reconnect</button></div>
+    </div>
+    <div class="card"><h3>Admin PIN</h3>
+      <div class="form"><label class="f">New PIN<input id="pNew" type="password" maxlength="8" autocomplete="new-password"></label></div>
+      <p class="muted" style="font-size:13px">Keeps visitors out of this page. It isn't real security: anyone on the network could still reach the API.</p>
+      <div class="actions"><button class="btn primary" id="pSave">Change PIN</button></div>
+    </div>
+    <div class="card"><h3>Device</h3>
+      <div class="actions"><button class="btn" id="dReboot">Reboot</button><button class="btn danger" id="dReset">Reset settings to defaults</button></div>
+      <p class="muted" style="font-size:13px">Resetting settings keeps the scenario library and the limits (reset those on their tabs).</p>
+    </div>
+  </div>
+</section>
+</main>
+
+<dialog id="dlg">
+  <div class="dlg-h"><b id="dTitle">Scenario</b><span class="spacer"></span><span id="dCount" class="tag"></span></div>
+  <div class="dlg-b">
+    <div class="form" style="grid-template-columns:2fr 1fr">
+      <label class="f">Name<input id="dName" maxlength="47"></label>
+      <label class="f">Group<select id="dGroup"></select></label>
+    </div>
+    <label class="f" style="margin-top:10px">Expected AI response (shown on the admin page only, never published)<input id="dExpect" maxlength="119" placeholder="e.g. Turn on the kitchen purifier and fan; suggest opening a window."></label>
+    <label class="switch" style="border:0;justify-content:flex-start;gap:10px"><input type="checkbox" id="dBell"> <span>Ring the doorbell when this scenario starts</span></label>
+    <p class="muted" style="font-size:13px">Tick the values this scenario sets. The rest follow the fill rules (a normal home for the time of day). Up to <span id="dMax"></span> values.</p>
+    <div id="dEnts"></div>
+  </div>
+  <div class="dlg-f"><button class="btn" id="dCancel">Cancel</button><button class="btn" id="dSavePlay">Save and play</button><button class="btn primary" id="dSave">Save</button></div>
+</dialog>
+<div id="toast"></div>
+
+<script>
+"use strict";
+const $=id=>document.getElementById(id);
+let PIN=sessionStorage.getItem("dmPin")||"";
+let meta=null,status=null,state=null,lastEvent=0,events=[],tab="overview",editId=null;
+
+function toast(msg,err){const t=$("toast");t.textContent=msg;t.className=(err?"err ":"")+"show";clearTimeout(t._h);t._h=setTimeout(()=>t.className=err?"err":"",3200)}
+async function api(path,body,method){
+  const opt={method:method||(body!==undefined?"POST":"GET"),headers:{"X-Admin-Pin":PIN}};
+  if(body!==undefined){opt.headers["Content-Type"]="application/json";opt.body=JSON.stringify(body)}
+  const r=await fetch(path,opt);
+  if(r.status===401){lock();throw new Error("wrong PIN")}
+  const j=await r.json().catch(()=>({ok:false,msg:"bad reply"}));
+  if(j.ok===false)throw new Error(j.msg||"failed");
+  return j;
+}
+async function act(path,body,okMsg){
+  try{const j=await api(path,body);toast(okMsg||j.msg||"done");return j}catch(e){toast(e.message,true);return null}
+}
+function lock(){PIN="";sessionStorage.removeItem("dmPin");$("gate").style.display="flex";$("pin").value="";$("pin").focus()}
+$("lockBtn").onclick=lock;
+$("gateForm").onsubmit=async e=>{
+  e.preventDefault();PIN=$("pin").value;
+  try{await api("/api/admin/login",{});sessionStorage.setItem("dmPin",PIN);$("gate").style.display="none";start()}
+  catch(err){toast("Wrong PIN",true);$("pin").select()}
+};
+
+// ---- tabs
+$("tabs").onclick=e=>{
+  const t=e.target.dataset.t;if(!t)return;tab=t;
+  document.querySelectorAll("nav button").forEach(b=>b.classList.toggle("on",b.dataset.t===t));
+  document.querySelectorAll("main section").forEach(s=>s.classList.toggle("on",s.id===t));
+  if(t==="scenarios")renderScenarios();if(t==="limits")renderLimits();if(t==="settings"||t==="control")fillForms();
+};
+
+// ---- formatting
+const fmtUp=s=>{const d=Math.floor(s/86400),h=Math.floor(s/3600)%24,m=Math.floor(s/60)%60;return(d?d+"d ":"")+(d||h?h+"h ":"")+m+"m"};
+const mmss=s=>Math.floor(s/60)+":"+String(s%60).padStart(2,"0");
+const kb=b=>(b/1024).toFixed(1)+" KB";
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const groupLabel=k=>{const g=meta&&meta.groups.find(g=>g.key===k);return g?g.label:k};
+
+// ---- overview
+async function refresh(){
+  try{
+    const [s,st]=await Promise.all([api("/api/admin/status?after="+lastEvent),fetch("/api/state?since=0").then(r=>r.json())]);
+    status=s;state=st;
+    document.documentElement.dataset.theme=s.settings.theme;
+    if(!meta||st.lib!==meta.lib)await loadMeta();
+    s.events.forEach(ev=>{events.unshift(ev);lastEvent=Math.max(lastEvent,ev.id)});events=events.slice(0,80);
+    renderOverview();
+  }catch(e){}
+}
+// Rule-based expectations from the values themselves, so random rolls get a checklist too.
+// A guide for testers, not a contract: the scenario's own text is the reference when there is one.
+function checklist(v){
+  const out=[],idx={};meta.entities.forEach((d,i)=>idx[d.key]=i);
+  const g=k=>idx[k]===undefined?undefined:v[idx[k]];
+  const night=g("home.time_of_day")===3,away=g("home.anyone_home")===0;
+  const add=(lvl,t)=>out.push([lvl,t]);
+  for(const a of meta.areas){
+    if(a.key==="home")continue;
+    const k=f=>a.key+"."+f,has=f=>idx[k(f)]!==undefined,val=f=>g(k(f));
+    const lim=f=>meta.entities[idx[k(f)]].limits;
+    const hi=f=>has(f)&&val(f)>lim(f)[3],lo=f=>has(f)&&val(f)<lim(f)[2];
+    const R=a.label,win=has("window_open")&&val("window_open");
+    if(hi("co2_ppm"))add(val("co2_ppm")>2000?"urgent":"act",R+": CO₂ "+val("co2_ppm")+" ppm → ventilate (fan on"+(has("window_open")&&!win?", open a window":"")+")");
+    if(hi("pm2_5_ugm3"))add(val("pm2_5_ugm3")>55?"urgent":"act",R+": PM2.5 "+val("pm2_5_ugm3")+" µg/m³ → "+(has("purifier_on")?"purifier on":"fan / purifier on")+(win?", close the window":""));
+    if(hi("voc_index"))add(val("voc_index")>400?"urgent":"act",R+": VOC index "+val("voc_index")+" → ventilate");
+    if(hi("temperature_c"))add(val("temperature_c")>32?"urgent":"act",R+": hot, "+val("temperature_c")+" °C → "+[has("ac_mode")?"AC cool":"",has("fan_on")?"fan on":"",has("blinds_position_pct")&&val("blinds_position_pct")>30?"close the blinds":""].filter(Boolean).join(" / "));
+    if(lo("temperature_c"))add("act",R+": cold, "+val("temperature_c")+" °C"+(win?" → close the window":(has("door_open")&&val("door_open")?" → close the garage door":"")));
+    if(hi("humidity_pct"))add("act",R+": humid, "+val("humidity_pct")+" % → "+(has("exhaust_fan_on")?"exhaust fan on":has("humidifier_on")&&val("humidifier_on")?"humidifier off":"fan on / ventilate"));
+    if(lo("humidity_pct"))add("act",R+": dry, "+val("humidity_pct")+" %"+(has("humidifier_on")&&!val("humidifier_on")?" → humidifier on":""));
+    const empty=has("presence")&&!val("presence");
+    if(has("light_on")&&val("light_on")&&empty)add("act",R+": light on in an empty room → turn it off");
+    if(has("tv_on")&&val("tv_on")&&empty)add("act",R+": TV on in an empty room → turn it off");
+    if(has("oven_on")&&val("oven_on")&&(empty||away))add("urgent",R+": oven on with nobody there → turn it off");
+    if(has("dryer_on")&&val("dryer_on")&&away)add("urgent",R+": dryer running with nobody home → alert");
+    if(has("car")&&val("car")===2&&!val("door_open"))add("urgent",R+": car running with the door closed → open the garage door, alert");
+    if(has("door_open")&&val("door_open")&&(night||away))add("act",R+": garage door open "+(night?"at night":"while away")+" → close it");
+    if(win&&away)add("act",R+": window open while nobody is home → warn");
+    if(win&&has("ac_mode")&&val("ac_mode")===1)add("act",R+": AC cooling with the window open → close the window or AC off");
+    if(has("presence")&&val("presence")&&away)add("urgent",R+": someone detected while nobody is home → alert");
+  }
+  if(g("home.front_door_locked")===0&&(away||night))add("act","Front door unlocked "+(away?"while away":"at night")+" → lock it");
+  if(g("home.doorbell_motion"))add("act","Motion at the front door → "+(night?"porch light on, ":"")+"tell the owner");
+  if(!out.length)add("ok","Nothing stands out: a calm home. The AI should stay quiet or just reassure.");
+  const order={urgent:0,act:1,ok:2};return out.sort((a,b)=>order[a[0]]-order[b[0]]);
+}
+// Age from the message's own ts when it parses: retained messages arrive again after every
+// reconnect, so their arrival time says nothing about when the AI wrote them.
+function sinceStart(m,startedAgo){
+  const t=Date.parse(m.ts),age=isNaN(t)?m.age_s:Math.max(0,Math.round((Date.now()-t)/1000));
+  const d=startedAgo-age;  // seconds after the scenario started (negative = before)
+  if(d<0)return'<span class="when old">'+fmtAgo(age)+" ago · before this scenario</span>";
+  return'<span class="when">'+fmtAgo(age)+" ago · "+d+" s after it started</span>";
+}
+const fmtAgo=s=>s<60?s+" s":s<3600?Math.floor(s/60)+" min":Math.floor(s/3600)+" h";
+function renderNow(){
+  const s=status,st=state,e=s.engine,ai=s.ai;
+  const started=e.changed_ago_s;
+  $("nowName").textContent=(st.scenario_id?"#"+st.scenario_id+" ":"")+st.scenario;
+  $("nowGroup").textContent=st.group_label;
+  $("nowAge").textContent=st.state==="rolling"?"rolling…":"started "+fmtAgo(started)+" ago";
+  $("nowExpect").textContent=e.expect||(st.roll?"Random roll: no written expectation. Use the checklist below.":"No expectation written for this scenario. Add one in Scenarios → Edit.");
+  $("nowChecks").innerHTML=st.v?checklist(st.v).map(([l,t])=>'<li><span class="lvl '+l+'">'+(l==="ok"?"calm":l)+"</span><span>"+esc(t)+"</span></li>").join(""):"";
+  const th=ai.thinking;
+  $("nowThinking").textContent=th?(th.state==="start thinking"?"thinking…":"idle"):"no status yet";
+  let h="";
+  if(ai.summary)h+='<div class="said"><b>Summary</b> '+sinceStart(ai.summary,started)+"<div>"+esc(ai.summary.text)+"</div></div>";
+  ai.rooms.forEach(r=>h+='<div class="said"><b>'+esc(r.node)+"</b> "+sinceStart(r,started)+"<div>"+esc(r.text)+"</div></div>");
+  $("nowSaid").innerHTML=h||'<div class="faint">Nothing from the AI yet (no summary or room messages on the broker).</div>';
+}
+function renderOverview(){
+  renderNow();
+  const s=status,st=state,e=s.engine;
+  $("hdr").textContent=" · "+s.wifi.hostname+" · "+(s.wifi.ip||"no IP");
+  const names={looping:"Looping",rolling:"Rolling",hold:"Holding after a roll",idle:"Paused"};
+  $("ovState").textContent=names[st.state]||st.state;
+  $("ovScenario").textContent=(st.scenario_id?"#"+st.scenario_id+" ":"")+st.scenario+" · "+st.group_label;
+  $("ovLoop").textContent=st.loop?"on, every "+st.interval_s+" s ("+e.source+")":"off";
+  $("ovPub").innerHTML=st.publish?'<span class="dot on"></span> on':'<span class="dot"></span> off';
+  $("cPub").checked=st.publish;$("cLoop").checked=st.loop;
+  $("ovNext").textContent=st.step_left_s==null?"–":mmss(st.step_left_s)+(st.lock_left_s?" · buzzer locked "+mmss(st.lock_left_s):"");
+  $("ovSteps").textContent=e.steps+" / "+e.rolls;
+  $("ovLib").innerHTML=meta?meta.scenarios.length+" scenarios "+(meta.factory?'<span class="tag">built-in</span>':'<span class="tag mod">edited</span>'):"–";
+  $("ovPresses").textContent=e.presses_total;
+  $("ovPbuz").textContent=e.presses.buzzer;$("ovPweb").textContent=e.presses.web;$("ovPkey").textContent=e.presses.key;$("ovPign").textContent=e.ignored;
+  $("ovGpio").textContent="GPIO"+s.button.gpio+" · "+(s.button.held?"held "+(s.button.held_ms/1000).toFixed(1)+" s":"released")+(s.button.rejected?" · "+s.button.rejected+" too short":"");
+  $("ovMq").innerHTML='<span class="dot '+(s.mqtt.connected?"on":"off")+'"></span> '+esc(s.mqtt.uri)+(s.mqtt.error?'<div style="color:var(--bad);font-weight:500">'+esc(s.mqtt.error)+"</div>":"");
+  $("ovPrefix").textContent=s.settings.prefix+"/#";
+  $("ovNodes").textContent=s.settings.topics.join(", ")+", home/doorbell";
+  $("ovBell").textContent=e.doorbells;
+  $("ovSent").textContent=s.mqtt.sent;$("ovMqRe").textContent=s.mqtt.reconnects;
+  $("ovFw").textContent=s.fw+" (IDF "+s.idf+")";
+  $("ovUp").textContent=fmtUp(s.uptime_s);
+  $("ovWifi").textContent=s.wifi.connected?s.wifi.ip+" · "+s.wifi.rssi+" dBm · "+s.wifi.reconnects+" reconnects":"disconnected";
+  $("ovHeap").textContent=kb(s.heap_free)+" ("+kb(s.heap_min)+")";
+  $("ovTime").textContent=s.time?s.time.replace("T"," ").slice(0,19):"not synced";
+  $("events").innerHTML=events.map(ev=>"<div><span>"+fmtUp(ev.t)+"</span><span>"+esc(ev.text)+"</span></div>").join("")||'<div class="faint">No events yet</div>';
+}
+document.addEventListener("click",async e=>{
+  const b=e.target.closest("[data-cmd]");if(!b)return;
+  if(b.dataset.confirm&&!confirm(b.dataset.confirm))return;
+  await act("/api/admin/cmd",{op:b.dataset.cmd});refresh();
+});
+
+// ---- control
+function fillForms(){
+  if(!status||!state)return;
+  const e=status.engine,s=status.settings;
+  $("cPub").checked=state.publish;$("cLoop").checked=state.loop;$("cInt").value=state.interval_s;
+  $("cSrc").value=e.source;$("cMix").value=e.mix_pct;
+  $("cRoll").value=Math.round(state.roll_ms/1000);$("cHold").value=state.hold_s;$("cSpread").value=e.spread;$("cAbn").value=e.abnormal_pct;
+  $("gLight").checked=s.theme==="light";$("gAnim").checked=s.animation;$("gF").checked=s.fahrenheit;
+  $("mHost").value=s.host;$("mPort").value=s.port;$("mUser").value=s.username;$("mPass").value="";
+  $("mPass").placeholder=s.has_password?"unchanged":"none";$("mKeep").value=s.keepalive_s;$("mPrefix").value=s.prefix;
+}
+$("cPub").onchange=async e=>{await act("/api/admin/cmd",{op:"publish",on:e.target.checked});refresh()};
+$("cLoop").onchange=async e=>{await act("/api/admin/cmd",{op:"loop",on:e.target.checked});refresh()};
+$("cLoopSave").onclick=async()=>{await act("/api/admin/cmd",{op:"loop",interval_s:+$("cInt").value,source:$("cSrc").value,mix_pct:+$("cMix").value});refresh()};
+$("cRollSave").onclick=async()=>{await act("/api/admin/cmd",{op:"settings",roll_s:+$("cRoll").value,hold_s:+$("cHold").value,spread:$("cSpread").value,abnormal_pct:+$("cAbn").value});refresh()};
+
+// ---- settings
+async function saveLook(){await act("/api/admin/settings",{theme:$("gLight").checked?"light":"dark",animation:$("gAnim").checked,fahrenheit:$("gF").checked},"Saved: the demo page follows within a second");refresh()}
+$("gLight").onchange=saveLook;$("gAnim").onchange=saveLook;$("gF").onchange=saveLook;
+$("mSave").onclick=async()=>{
+  const body={host:$("mHost").value.trim(),port:+$("mPort").value,username:$("mUser").value.trim(),keepalive_s:+$("mKeep").value,prefix:$("mPrefix").value.trim()};
+  if($("mPass").value)body.password=$("mPass").value;
+  if(!confirm("Save and reconnect to "+body.host+" with topics under "+body.prefix+"/ ?"))return;
+  await act("/api/admin/settings",body);setTimeout(refresh,1500);
+};
+$("pSave").onclick=async()=>{
+  const p=$("pNew").value.trim();if(!p)return toast("Type a new PIN first",true);
+  if(await act("/api/admin/settings",{pin:p},"PIN changed")){PIN=p;sessionStorage.setItem("dmPin",p);$("pNew").value=""}
+};
+$("dReboot").onclick=async()=>{if(confirm("Reboot the demo master?"))await act("/api/admin/reboot",{})};
+$("dReset").onclick=async()=>{if(confirm("Reset broker, topics, look, PIN and timing to the defaults?")){await act("/api/admin/settings/reset",{});setTimeout(refresh,1500)}};
+
+// ---- meta, scenarios
+async function loadMeta(){
+  meta=await fetch("/api/meta").then(r=>r.json());
+  const opts=meta.groups.map(g=>'<option value="'+g.key+'">'+esc(g.label)+"</option>").join("");
+  const keep=$("sGroup").value;$("sGroup").innerHTML='<option value="">All groups</option>'+opts;$("sGroup").value=keep;
+  $("dGroup").innerHTML=opts;$("dMax").textContent=meta.max_sets;
+  if(tab==="scenarios")renderScenarios();if(tab==="limits")renderLimits();
+}
+function renderScenarios(){
+  if(!meta)return;
+  const q=$("sSearch").value.toLowerCase(),g=$("sGroup").value;
+  const rows=meta.scenarios.map((s,i)=>({...s,id:i+1})).filter(s=>(!g||meta.groups[s.group].key===g)&&(!q||s.name.toLowerCase().includes(q)));
+  $("sCount").textContent=meta.scenarios.length+" / "+meta.max_scenarios+(meta.factory?" · built-in":" · edited");
+  $("sTable").tBodies[0].innerHTML=rows.map(s=>'<tr><td class="num faint">'+s.id+"</td><td><b>"+esc(s.name)+"</b>"+(s.doorbell?' <span class="tag" title="Rings the doorbell">🔔</span>':"")+'</td><td><span class="tag">'+esc(meta.groups[s.group].label)+'</span></td><td class="num">'+s.n+
+    '</td><td style="text-align:right;white-space:nowrap"><button class="btn sm" data-play="'+s.id+'">Play</button> <button class="btn sm" data-edit="'+s.id+'">Edit</button> <button class="btn sm danger" data-del="'+s.id+'">Delete</button></td></tr>').join("")||'<tr><td colspan="5" class="faint">No scenarios match</td></tr>';
+}
+$("sSearch").oninput=renderScenarios;$("sGroup").onchange=renderScenarios;
+$("sTable").onclick=async e=>{
+  const t=e.target;
+  if(t.dataset.play){await act("/api/admin/cmd",{op:"play",id:+t.dataset.play});refresh()}
+  if(t.dataset.edit)openEditor(+t.dataset.edit);
+  if(t.dataset.del){const s=meta.scenarios[t.dataset.del-1];if(confirm('Delete "'+s.name+'"?')&&await act("/api/admin/scenario/delete",{id:+t.dataset.del}))await loadMeta()}
+};
+$("sNew").onclick=()=>openEditor(null);
+$("sReset").onclick=async()=>{if(confirm("Bring back the built-in library and limits? Every edit and new scenario is lost."))if(await act("/api/admin/library/reset",{}))await loadMeta()};
+
+// ---- scenario editor
+function control(d,e,val){
+  if(d.type==="number"){const step=d.dec?Math.pow(10,-d.dec):1;return '<input type="number" data-e="'+e+'" step="'+step+'" min="'+d.limits[0]+'" max="'+d.limits[1]+'" value="'+(val??d.limits[2])+'">'}
+  const opts=d.options.map((o,i)=>'<option value="'+i+'"'+(i===val?" selected":"")+">"+esc(o)+"</option>").join("");
+  return '<select data-e="'+e+'">'+opts+"</select>";
+}
+async function openEditor(id){
+  editId=id;let sc={name:"",group:meta.groups[0].key,expect:"",set:{}};
+  if(id){try{sc=await api("/api/admin/scenario?id="+id)}catch(e){return toast(e.message,true)}sc.group=meta.groups[sc.group].key}
+  $("dTitle").textContent=id?"Edit scenario #"+id:"New scenario";
+  $("dName").value=sc.name;$("dGroup").value=sc.group;$("dBell").checked=!!sc.doorbell;$("dExpect").value=sc.expect||"";
+  let html="",last=-1;
+  meta.entities.forEach((d,e)=>{
+    if(d.area!==last){last=d.area;html+='<div class="muted" style="margin-top:12px;font-weight:700">'+esc(meta.areas[d.area].label)+"</div>"}
+    let v=sc.set[d.key];const on=v!==undefined;
+    if(d.type==="bool"&&on)v=v?1:0;if(d.type==="enum"&&on)v=d.options.indexOf(v);
+    const hint=d.type==="number"?d.limits[0]+"–"+d.limits[1]+" "+d.unit:d.type==="bool"?d.options.join(" / "):"";
+    html+='<div class="ent'+(on?"":" off")+'"><input type="checkbox" data-on="'+e+'"'+(on?" checked":"")+'><span>'+esc(d.label)+(d.derived?' <span class="faint">(derived)</span>':"")+'</span><span class="ctl">'+control(d,e,on?v:(d.type==="number"?null:0))+'</span><span class="hint">'+esc(hint)+"</span></div>";
+  });
+  $("dEnts").innerHTML=html;countSets();$("dlg").showModal();
+}
+function countSets(){const n=document.querySelectorAll("#dEnts [data-on]:checked").length;$("dCount").textContent=n+" / "+meta.max_sets+" values";$("dCount").classList.toggle("mod",n>meta.max_sets)}
+$("dEnts").onchange=e=>{const t=e.target;if(t.dataset.on!==undefined){t.parentElement.classList.toggle("off",!t.checked);countSets()}};
+$("dEnts").oninput=e=>{const t=e.target;if(t.dataset.e!==undefined){const box=t.closest(".ent").querySelector("[data-on]");if(!box.checked){box.checked=true;box.parentElement.classList.remove("off");countSets()}}};
+$("dCancel").onclick=()=>$("dlg").close();
+async function saveScenario(play){
+  const set={};
+  document.querySelectorAll("#dEnts [data-on]:checked").forEach(b=>{
+    const e=+b.dataset.on,d=meta.entities[e],c=document.querySelector('#dEnts [data-e="'+e+'"]');
+    set[d.key]=d.type==="number"?+c.value:d.type==="bool"?c.value==="1":d.options[+c.value];
+  });
+  const body={id:editId,name:$("dName").value.trim(),group:$("dGroup").value,doorbell:$("dBell").checked,expect:$("dExpect").value.trim(),set};
+  const j=await act("/api/admin/scenario",body);
+  if(!j)return;
+  $("dlg").close();await loadMeta();
+  if(play){const id=editId||meta.scenarios.findIndex(s=>s.name===body.name)+1;await act("/api/admin/cmd",{op:"play",id});refresh()}
+}
+$("dSave").onclick=()=>saveScenario(false);$("dSavePlay").onclick=()=>saveScenario(true);
+
+// ---- limits
+function renderLimits(){
+  if(!meta)return;
+  let html="",last=-1;
+  meta.entities.forEach((d,e)=>{
+    if(d.type==="enum")return;
+    if(d.area!==last){last=d.area;html+='<tr class="area"><td colspan="6">'+esc(meta.areas[d.area].label)+"</td></tr>"}
+    const L=d.limits,D=d.default,mod=L.some((x,i)=>x!==D[i]);
+    const inp=(i,dis)=>'<input type="number" data-l="'+e+'" data-i="'+i+'" value="'+L[i]+'" step="'+(d.type==="bool"?0.05:(d.dec?Math.pow(10,-d.dec):1))+'"'+(dis?" disabled":"")+">";
+    if(d.type==="bool"&&d.fill!=="normal"&&d.fill!=="presence"){
+      html+="<tr><td>"+esc(d.label)+'</td><td colspan="2" class="faint">'+esc(d.options.join(" / "))+'</td><td colspan="3" class="faint">follows the "'+esc(d.fill)+'" rule (time of day, who\'s home)</td></tr>';
+    }else if(d.type==="bool"){
+      html+="<tr><td>"+esc(d.label)+' <span class="faint">chance of "'+esc(d.options[1])+'"</span></td><td colspan="2" class="faint">'+esc(d.options.join(" / "))+'</td><td colspan="2">'+inp(2)+'</td><td style="text-align:right">'+(mod?'<span class="tag mod">edited</span> ':"")+'<button class="btn sm" data-save="'+e+'">Save</button></td></tr>';
+    }else{
+      html+="<tr><td>"+esc(d.label)+' <span class="faint">'+esc(d.unit)+(d.derived?" · derived":"")+"</span></td><td>"+inp(0)+"</td><td>"+inp(1)+"</td><td>"+inp(2,d.derived)+"</td><td>"+inp(3,d.derived)+'</td><td style="text-align:right;white-space:nowrap">'+(mod?'<span class="tag mod">edited</span> ':"")+'<button class="btn sm" data-save="'+e+'">Save</button></td></tr>';
+    }
+  });
+  $("lTable").tBodies[0].innerHTML=html;
+}
+$("lTable").onclick=async e=>{
+  const e2=e.target.dataset.save;if(e2===undefined)return;
+  const d=meta.entities[+e2],v=i=>{const el=document.querySelector('[data-l="'+e2+'"][data-i="'+i+'"]');return el?+el.value:undefined};
+  const body={key:d.key};
+  if(d.type==="bool")body.nmin=v(2);else{body.min=v(0);body.max=v(1);if(!d.derived){body.nmin=v(2);body.nmax=v(3)}}
+  if(await act("/api/admin/limit",body))await loadMeta();
+};
+$("lReset").onclick=async()=>{if(confirm("Put every limit back to the built-in values?"))if(await act("/api/admin/limits/reset",{}))await loadMeta()};
+
+// ---- start
+let timer=null;
+async function start(){await loadMeta();await refresh();fillForms();clearInterval(timer);timer=setInterval(refresh,2000)}
+(async()=>{
+  if(PIN){try{await api("/api/admin/login",{});$("gate").style.display="none";start();return}catch(e){}}
+  lock();
+})();
+</script>
+</body>
+</html>

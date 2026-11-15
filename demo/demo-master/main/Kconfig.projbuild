@@ -1,0 +1,118 @@
+menu "IntelliThings Demo Master"
+
+    menu "Wi-Fi"
+        config DM_WIFI_SSID
+            string "Wi-Fi SSID"
+            default ""
+            help
+                Network the demo master joins (2.4 GHz). Set in sdkconfig.local or here;
+                never in a tracked file.
+
+        config DM_WIFI_PASSWORD
+            string "Wi-Fi password"
+            default ""
+    endmenu
+
+    menu "MQTT broker"
+        config DM_MQTT_HOST
+            string "Broker host"
+            default "192.168.1.2"
+            help
+                Mosquitto broker on the HA Pi. Default only: the admin page can change it at
+                runtime (saved in NVS).
+
+        config DM_MQTT_PORT
+            int "Broker port"
+            default 1883
+            range 1 65535
+
+        config DM_MQTT_USERNAME
+            string "Broker username (empty = anonymous)"
+            default ""
+
+        config DM_MQTT_PASSWORD
+            string "Broker password"
+            default ""
+
+        config DM_MQTT_KEEPALIVE_S
+            int "Keepalive (s)"
+            default 15
+            range 5 120
+
+        config DM_TOPIC_PREFIX
+            string "Topic prefix"
+            default "intellithings/demo"
+            help
+                Every demo topic lives under this prefix: <prefix>/status, one topic per area
+                (<prefix>/kitchen, /home, ...) and <prefix>/home/doorbell. The admin page can
+                change it.
+    endmenu
+
+    menu "Buzzer and LED"
+        config DM_BUTTON_GPIO
+            int "Buzzer input GPIO"
+            default 3
+            range 0 21
+            help
+                The game buzzer's signal. Avoid the strapping pins (2, 8, 9), the onboard
+                LEDs (12, 13) and, on the native-USB board, the USB pins (18, 19).
+
+        config DM_BUTTON_ACTIVE_HIGH
+            bool "Pressed = high (internal pull-down)"
+            default y
+            help
+                Yes: a press pulls the pin to 3.3 V (bench: short 3V3 to the pin). No: a press
+                pulls it to GND (internal pull-up).
+
+        config DM_BUTTON_MIN_PRESS_MS
+            int "Minimum press (ms)"
+            default 2
+            range 1 50
+            help
+                A press counts once the input has been pressed for this long in total within
+                20 ms of the first edge (or when its signal pulses). Short enough for a quick
+                tap on the buzzer; a lone noise spike stays shorter. Raise it if wiring noise
+                starts rolls nobody pressed for.
+
+        config DM_BUTTON_RELEASE_MS
+            int "Release time (ms)"
+            default 200
+            range 50 2000
+            help
+                The input has to stay released, with no pulses, this long before the next press
+                can count. One press per touch, however long it's held.
+
+        config DM_LED_GPIO
+            int "Status LED GPIO (-1 = none)"
+            default 12
+            range -1 21
+            help
+                LuatOS ESP32-C3 Core: D4 = GPIO12, D5 = GPIO13 (active high). Blinks while the
+                house is rolling.
+    endmenu
+
+    config DM_ADMIN_PIN
+        string "Default admin PIN"
+        default "1234"
+        help
+            The admin page asks for it. Only a speed bump for visitors at the booth, not
+            security: the page and its API are on the open LAN. The admin page can change it.
+
+    config DM_TIMEZONE
+        string "POSIX timezone"
+        default "EST5EDT,M3.2.0,M11.1.0"
+
+    config DM_NTP_SERVER
+        string "NTP server"
+        default "pool.ntp.org"
+
+    config DM_FALLBACK_START_HOUR
+        int "Hour of day to assume until NTP syncs"
+        default 12
+        range 0 23
+
+    config DM_HOSTNAME
+        string "Hostname"
+        default "intellithings-demo"
+
+endmenu
