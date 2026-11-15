@@ -1,5 +1,7 @@
 # MQTT topics and payloads
 
+> Demo planning update: [the demo device inventory](../../ai/docs/demo-device-inventory.md) proposes separate room topics. The proposed demo section below predates that handoff and still needs synchronization; existing node and emulator contracts are unchanged.
+
 > **Status: agreed (Oct 4).** This file is **the single list of every MQTT topic** used in
 > IntelliThings. Add a topic here before anyone publishes to it. Changes need review from the
 > Software lead (@LukeTuthill) and the AI lead (@ProgrammingJohn).

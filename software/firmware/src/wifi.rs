@@ -8,7 +8,7 @@ use esp_hal::peripherals::WIFI;
 use esp_println::println;
 use esp_radio::wifi::{
     AuthenticationMethodConfig, Config as WifiConfig, ConnectionError, Interface, WifiController,
-    sta::StationConfig,
+    scan::ScanConfig, sta::StationConfig,
 };
 use static_cell::StaticCell;
 
@@ -16,7 +16,9 @@ const RETRY_DELAY: Duration = Duration::from_secs(5);
 const CONNECT_TIMEOUT: Duration = Duration::from_secs(20);
 
 // Network resources for DHCP, diagnostics, and MQTT TCP.
-static NET_RESOURCES: StaticCell<StackResources<3>> = StaticCell::new();
+// DHCP and DNS each keep a socket occupied; the ping test, then SNTP, need a third, MQTT needs a fourth.
+static NET_RESOURCES: StaticCell<StackResources<4>> = StaticCell::new(); 
+
 static ICMP_RX_META: StaticCell<[PacketMetadata; 1]> = StaticCell::new();
 static ICMP_TX_META: StaticCell<[PacketMetadata; 1]> = StaticCell::new();
 static ICMP_RX_BUFFER: StaticCell<[u8; 256]> = StaticCell::new();
@@ -72,6 +74,20 @@ pub async fn network_call(stack: Stack<'static>) {
     }
 }
 
+/// Logs the networks the radio can hear, to tell a wrong SSID or band from a weak signal.
+async fn log_visible_networks(controller: &mut WifiController<'_>) {
+    match controller.scan_async(&ScanConfig::default().with_max(20)).await {
+        Ok(networks) if networks.is_empty() => println!("Wi-Fi scan: no networks found"),
+        Ok(networks) => {
+            println!("Wi-Fi scan: {} networks visible (2.4 GHz only):", networks.len());
+            for ap in networks {
+                println!("  {:?} ch {} rssi {} dBm", ap.ssid, ap.channel, ap.signal_strength);
+            }
+        }
+        Err(error) => println!("Wi-Fi scan failed: {:?}", error),
+    }
+}
+
 async fn reboot_for_wifi_retry() -> ! {
     println!("Restarting ESP32 to retry Wi-Fi in 5 seconds");
     Timer::after(RETRY_DELAY).await;
@@ -112,6 +128,7 @@ pub async fn setup<'d>(spawner: Spawner, wifi: WIFI<'d>) -> (WifiController<'d>,
         reboot_for_wifi_retry().await;
     }
 
+    let mut scanned = false;
     loop {
         println!("Connecting to Wi-Fi...");
         match with_timeout(CONNECT_TIMEOUT, wifi_controller.connect_async()).await {
@@ -121,6 +138,10 @@ pub async fn setup<'d>(spawner: Spawner, wifi: WIFI<'d>) -> (WifiController<'d>,
                     "Wi-Fi connection failed: {:?}. Retrying in 5 seconds",
                     info.reason
                 );
+                if !scanned {
+                    scanned = true;
+                    log_visible_networks(&mut wifi_controller).await;
+                }
                 Timer::after(RETRY_DELAY).await;
             }
             Ok(Err(error)) => {

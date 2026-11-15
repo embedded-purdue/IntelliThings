@@ -5,11 +5,40 @@
 //!
 //! TEMP FILE, AI generated to test sensor
 
+use core::cell::Cell;
+
 use embassy_executor::Spawner;
+use embassy_sync::blocking_mutex::{Mutex, raw::CriticalSectionRawMutex};
 use embassy_time::{Duration, Instant, Timer};
 use esp_hal::peripherals::{GPIO4, GPIO5, LP_UART};
 use esp_hal::uart::lp_uart::{Config as UartConfig, LpUart};
 use esp_println::println;
+
+/// Mass concentrations in µg/m³ (the "atmospheric environment" values).
+#[derive(Debug, Clone, Copy)]
+pub struct Pm {
+    pub pm1_0: u16,
+    pub pm2_5: u16,
+    pub pm10: u16,
+}
+
+/// The fan needs about 30 s after wake before readings are stable.
+const WARM_UP: Duration = Duration::from_secs(30);
+/// Active mode sends a frame every 0.2–2.3 s, so a reading older than this means the
+/// sensor stopped talking (unplugged, asleep or faulted).
+const STALE_AFTER: Duration = Duration::from_secs(10);
+
+/// Newest valid frame and when it arrived. Written by the reader task.
+static LATEST: Mutex<CriticalSectionRawMutex, Cell<Option<(Pm, Instant)>>> =
+    Mutex::new(Cell::new(None));
+
+/// The newest reading, or `None` while warming up or if no frame arrived recently.
+pub fn latest() -> Option<Pm> {
+    LATEST
+        .lock(Cell::get)
+        .filter(|(_, at)| at.elapsed() < STALE_AFTER)
+        .map(|(pm, _)| pm)
+}
 
 /// Configure LP_UART at 9600 8N1 and start continuous PMS5003 reception.
 /// Call once, after starting the RTOS. GPIO4/5 are its fixed RX/TX pins.
@@ -161,17 +190,23 @@ async fn run(mut uart: LpUart) {
                 let sum: u16 = frame[..30].iter().map(|&b| u16::from(b)).sum();
                 if sum == u16::from_be_bytes([frame[30], frame[31]]) {
                     frames += 1;
+                    let pm = Pm {
+                        pm1_0: u16::from_be_bytes([frame[10], frame[11]]),
+                        pm2_5: u16::from_be_bytes([frame[12], frame[13]]),
+                        pm10: u16::from_be_bytes([frame[14], frame[15]]),
+                    };
+                    let warming_up = started.elapsed() < WARM_UP;
                     println!(
                         "PMS5003 OK{}: PM1.0={} PM2.5={} PM10={} ug/m3",
-                        if started.elapsed() < Duration::from_secs(30) {
-                            " (warming up)"
-                        } else {
-                            ""
-                        },
-                        u16::from_be_bytes([frame[10], frame[11]]),
-                        u16::from_be_bytes([frame[12], frame[13]]),
-                        u16::from_be_bytes([frame[14], frame[15]])
+                        if warming_up { " (warming up)" } else { "" },
+                        pm.pm1_0,
+                        pm.pm2_5,
+                        pm.pm10
                     );
+                    // Keep warm-up values off the display; it shows "Waiting" meanwhile
+                    if !warming_up {
+                        LATEST.lock(|latest| latest.set(Some((pm, Instant::now()))));
+                    }
                     used = 0;
                     continue;
                 }

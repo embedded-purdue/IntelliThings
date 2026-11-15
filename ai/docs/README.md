@@ -2,6 +2,7 @@
 
 Start with [the AI README](../README.md) for setup and a map of the code.
 
+- [Demo device inventory](demo-device-inventory.md): current room-topic payload handoff.
 - [Inference and runtime outputs](inference.md): response schema, controls,
   publication, thinking status, and failure handling in the local agent.
 - [Roadmap and team plans](roadmap.md): planned deployment and team interfaces.

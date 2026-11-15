@@ -17,6 +17,11 @@ impl SCD41 {
         Self { co2_ppm: 0, temperature_c: 0.0, temperature_f: 0.0, humidity_percent: 0.0 }
     }
 
+    /// CO2 from the latest measurement. Only meaningful after `read` has returned `Ok(true)`.
+    pub fn co2_ppm(&self) -> u16 {
+        self.co2_ppm
+    }
+
     /// Call once at startup to begin periodic measurements (new reading every ~5 s)
     pub async fn start(&mut self, i2c: &mut I2c<'_, Async>) -> Result<(), &'static str> {
         let mut sensor = Scd4xAsync::new(&mut *i2c, Delay);

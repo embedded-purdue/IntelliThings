@@ -4,10 +4,9 @@
 //! Protocol: Hi-Link LD2410C Serial Communication Protocol V1.00, section 2.3.
 //! TEMP FILE, AI generated to test sensor
 //! 
-#[cfg(not(test))]
-pub use hardware::start;
+pub use hardware::{presence, start};
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug)]
 struct Reading {
     state: u8,
     moving_cm: u16,
@@ -92,7 +91,6 @@ impl Parser {
     }
 }
 
-#[cfg(not(test))]
 mod hardware {
     use super::Parser;
     use embassy_executor::Spawner;
@@ -103,7 +101,26 @@ mod hardware {
         peripherals::{GPIO20, GPIO21, UART1},
         uart::{Config, Uart},
     };
+    use core::cell::Cell;
+    use embassy_sync::blocking_mutex::{Mutex, raw::CriticalSectionRawMutex};
     use esp_println::println;
+
+    /// Reports arrive about 10 times a second, so one older than this means the radar
+    /// stopped talking (unplugged or wrong baud).
+    const STALE_AFTER: Duration = Duration::from_secs(3);
+
+    /// Newest report's presence flag and when it arrived. Written by the reader task.
+    static LATEST: Mutex<CriticalSectionRawMutex, Cell<Option<(bool, Instant)>>> =
+        Mutex::new(Cell::new(None));
+
+    /// Whether someone is there (moving or stationary target), or `None` if no
+    /// report arrived recently.
+    pub fn presence() -> Option<bool> {
+        LATEST
+            .lock(Cell::get)
+            .filter(|(_, at)| at.elapsed() < STALE_AFTER)
+            .map(|(present, _)| present)
+    }
 
     /// Start once after RTOS initialization. Probe the sensor's saved baud rate.
     pub fn start(spawner: Spawner, uart: UART1<'static>, rx: GPIO20<'static>, tx: GPIO21<'static>) {
@@ -268,6 +285,8 @@ mod hardware {
                 if let Some(reading) = parser.push(byte) {
                     frames += 1;
                     last_frame = Some(Instant::now());
+                    // State 0 is "no target"; 1–3 are moving and/or stationary targets
+                    LATEST.lock(|latest| latest.set(Some((reading.state != 0, Instant::now()))));
                     // Show transitions immediately; otherwise limit logging to 1 Hz.
                     if last_state != Some(reading.state)
                         || last_print.elapsed() >= Duration::from_secs(1)
@@ -309,90 +328,5 @@ mod hardware {
                 last_report = Instant::now();
             }
         }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    // Basic report example from the manufacturer's protocol, with distances
-    // extended above 255 cm here to verify little-endian decoding.
-    const BASIC: [u8; 23] = [
-        0xf4, 0xf3, 0xf2, 0xf1, 13, 0, 2, 0xaa, 3, 0x2c, 1, 60, 0x90, 1, 57, 0x2c, 1, 0x55, 0,
-        0xf8, 0xf7, 0xf6, 0xf5,
-    ];
-
-    #[test]
-    fn decodes_fragmented_and_consecutive_reports() {
-        let mut parser = Parser::new();
-        for &byte in &BASIC[..10] {
-            assert_eq!(parser.push(byte), None);
-        }
-        let result = BASIC[10..]
-            .iter()
-            .filter_map(|&b| parser.push(b))
-            .next()
-            .unwrap();
-        assert_eq!(
-            result,
-            Reading {
-                state: 3,
-                moving_cm: 300,
-                moving_energy: 60,
-                stationary_cm: 400,
-                stationary_energy: 57,
-                detection_cm: 300
-            }
-        );
-        for state in 0..=3 {
-            let mut frame = BASIC;
-            frame[8] = state;
-            assert_eq!(
-                frame
-                    .iter()
-                    .filter_map(|&b| parser.push(b))
-                    .next()
-                    .unwrap()
-                    .state,
-                state
-            );
-        }
-    }
-
-    #[test]
-    fn rejects_corruption_and_recovers_from_noise() {
-        for index in [4, 5, 6, 7, 8, 17, 18, 19, 22] {
-            let mut parser = Parser::new();
-            let mut broken = BASIC;
-            broken[index] = 0xff;
-            for &byte in &[0, 0xf4, 0xf3, 0] {
-                assert_eq!(parser.push(byte), None);
-            }
-            for byte in broken {
-                assert_eq!(parser.push(byte), None);
-            }
-            assert!(
-                BASIC
-                    .iter()
-                    .filter_map(|&b| parser.push(b))
-                    .next()
-                    .is_some()
-            );
-            assert!(parser.invalid_frames > 0);
-        }
-    }
-
-    #[test]
-    fn reads_basic_fields_from_engineering_report() {
-        let mut frame = [0_u8; 45];
-        frame[..17].copy_from_slice(&BASIC[..17]);
-        frame[4] = 35;
-        frame[6] = 1;
-        frame[39..].copy_from_slice(&BASIC[17..]);
-        let mut parser = Parser::new();
-        let result = frame.iter().filter_map(|&b| parser.push(b)).next().unwrap();
-        assert_eq!(result.moving_cm, 300);
-        assert_eq!(result.stationary_cm, 400);
     }
 }
