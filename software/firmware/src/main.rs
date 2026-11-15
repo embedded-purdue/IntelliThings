@@ -21,12 +21,10 @@ use esp_hal::{
 };
 use esp_println::println;
 use intelli_things::display::{self, Readings};
-use esp_hal::rmt::PulseCode;
 use intelli_things::{
-    led::{self, Led},
+    led::Led,
     light_bar, mqtt, sensors, sntp, wifi,
 };
-use static_cell::ConstStaticCell;
 
 #[panic_handler]
 fn panic(panic_info: &core::panic::PanicInfo) -> ! {
@@ -49,12 +47,6 @@ async fn network_task(spawner: Spawner, wifi: WIFI<'static>) {
     spawner.spawn(mqtt::publish_task(stack).expect("Failed to prepare MQTT task"));
     core::future::pending::<()>().await;
 }
-
-/// Pixels on the WS2812B strip.
-const LED_PIXELS: usize = 160;
-/// The strip's pulse frame (~15 KB), in its own static memory rather than the shared heap.
-static LED_FRAME: ConstStaticCell<[PulseCode; led::frame_len(LED_PIXELS)]> =
-    ConstStaticCell::new([led::BLANK; led::frame_len(LED_PIXELS)]);
 
 // This creates a default app-descriptor required by the esp-idf bootloader.
 // For more information see: <https://docs.espressif.com/projects/esp-idf/en/stable/esp32/api-reference/system/app_image_format.html#application-description>
@@ -170,7 +162,7 @@ async fn main(spawner: Spawner) -> ! {
     
     // Light bar on GPIO10. The display task picks its pattern from the same state as the screen.
     // A strip that fails to start only loses the light bar, so carry on without it.
-    match Led::new(peripherals.RMT, peripherals.GPIO10, LED_FRAME.take()) {
+    match Led::new(peripherals.RMT, peripherals.GPIO10) {
         Ok(led) => spawner.spawn(light_bar::task(led).expect("light bar task")),
         Err(err) => println!("LED strip start error: {:?}; continuing without it", err),
     }

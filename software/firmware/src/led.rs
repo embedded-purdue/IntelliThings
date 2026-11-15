@@ -1,7 +1,8 @@
 //! WS2812B strip driver for the ESP32-C6.
 //!
-//! The pulse frame is a caller-provided buffer (normally a `static`), not a heap
-//! allocation, so the strip never takes memory from Wi-Fi's heap.
+//! [`PIXELS`] is the one place the strip length is set; the light bar and the demo follow it.
+//! The pulse frame lives in a `static` here, not on the heap, so the strip never takes
+//! memory from Wi-Fi's heap.
 //!
 //! Frames go out with a blocking send while interrupts are off, the same way as
 //! `led_strip_test`. The RMT's hardware buffer holds only 96 pulses, so the driver has
@@ -19,6 +20,7 @@ use esp_hal::{
     rmt::{Channel, ConfigError, Error, PulseCode, Rmt, Tx, TxChannelConfig, TxChannelCreator},
     time::Rate,
 };
+use static_cell::ConstStaticCell;
 
 const BITS_PER_PIXEL: usize = 24;
 // At 80 MHz with a divider of 2, each tick is 25 ns.
@@ -26,8 +28,18 @@ const ZERO: PulseCode = PulseCode::new(Level::High, 16, Level::Low, 34);
 const ONE: PulseCode = PulseCode::new(Level::High, 32, Level::Low, 18);
 const RESET: PulseCode = PulseCode::new(Level::Low, 16_000, Level::Low, 16_000);
 
-/// Value to fill a new frame buffer with; `Led::new` overwrites it.
-pub const BLANK: PulseCode = ZERO;
+/// Addressable pixels on the strip (can differ from the LED count). Set this to the strip
+/// you wire up; a shorter value leaves the extra LEDs dark.
+///
+/// Each pixel costs 96 bytes of static RAM and ~30 µs per frame with interrupts off.
+pub const PIXELS: usize = 24;
+
+/// Pulses for one frame: 24 per pixel, plus reset and end marker.
+const FRAME_LEN: usize = PIXELS * BITS_PER_PIXEL + 2;
+
+/// The strip's pulse frame, in its own static memory rather than the shared heap:
+/// when it came from the heap, Wi-Fi scans silently dropped access points.
+static FRAME: ConstStaticCell<[PulseCode; FRAME_LEN]> = ConstStaticCell::new([ZERO; FRAME_LEN]);
 
 /// The 24 pulses for one pixel. WS2812B takes green first, most significant bit first.
 fn encode(color: Rgb) -> [PulseCode; BITS_PER_PIXEL] {
@@ -42,32 +54,19 @@ fn encode(color: Rgb) -> [PulseCode; BITS_PER_PIXEL] {
     pixel
 }
 
-/// Pulses a frame needs for `pixel_count` pixels: 24 per pixel, plus reset and end marker.
-pub const fn frame_len(pixel_count: usize) -> usize {
-    pixel_count * BITS_PER_PIXEL + 2
-}
-
-/// A WS2812B strip on one RMT channel.
+/// A WS2812B strip of [`PIXELS`] pixels on one RMT channel.
 pub struct Led<'d> {
     /// `None` after a send that never finished; the strip stays off from then on.
     channel: Option<Channel<'d, Blocking, Tx>>,
-    frame: &'d mut [PulseCode],
+    frame: &'static mut [PulseCode; FRAME_LEN],
 }
 
 impl<'d> Led<'d> {
     /// Initializes RMT channel 0 on the strip's data pin.
     ///
-    /// `frame` holds the pulses for every color update and sets the strip length:
-    /// make it `frame_len(pixel_count)` long, e.g. a `static` array filled with `BLANK`.
-    pub fn new(
-        rmt: RMT<'d>,
-        pin: impl PeripheralOutput<'d>,
-        frame: &'d mut [PulseCode],
-    ) -> Result<Self, ConfigError> {
-        assert!(
-            frame.len() >= 2 && (frame.len() - 2).is_multiple_of(BITS_PER_PIXEL),
-            "LED frame must be frame_len(pixel_count) long"
-        );
+    /// Call it once: it takes the static pulse frame, and a second call panics.
+    pub fn new(rmt: RMT<'d>, pin: impl PeripheralOutput<'d>) -> Result<Self, ConfigError> {
+        let frame = FRAME.take();
         let rmt = Rmt::new(rmt, Rate::from_mhz(80))?;
         let config = TxChannelConfig::default()
             .with_clk_divider(2)
@@ -85,11 +84,6 @@ impl<'d> Led<'d> {
             channel: Some(channel),
             frame,
         })
-    }
-
-    /// Number of pixels the frame buffer was sized for.
-    pub fn pixel_count(&self) -> usize {
-        (self.frame.len() - 2) / BITS_PER_PIXEL
     }
 
     /// Sets every pixel to the given RGB values (0–255).
@@ -128,8 +122,8 @@ impl<'d> Led<'d> {
         };
         // A frame takes 30 µs a pixel plus the latch; give up well after that
         // rather than hang with interrupts off.
-        let limit_us = (self.pixel_count() as u64 * 30 + 800) * 2 + 1_000;
-        let frame = &*self.frame;
+        let limit_us = (PIXELS as u64 * 30 + 800) * 2 + 1_000;
+        let frame = &self.frame[..];
         let (result, channel) = critical_section::with(|_| {
             let mut tx = match channel.transmit(frame) {
                 Ok(tx) => tx,

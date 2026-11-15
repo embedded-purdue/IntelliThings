@@ -10,18 +10,12 @@
 use companion_ui::lightbar::{self, Pattern, Rgb};
 use embassy_executor::Spawner;
 use embassy_time::{Duration, Timer};
-use esp_hal::{clock::CpuClock, rmt::PulseCode, timer::timg::TimerGroup};
+use esp_hal::{clock::CpuClock, timer::timg::TimerGroup};
 use esp_println::println;
 use intelli_things::{
     led::{self, Led},
     light_bar,
 };
-use static_cell::ConstStaticCell;
-
-/// Pixels on the strip; keep in step with `LED_PIXELS` in main.rs.
-const LED_PIXELS: usize = 160;
-static LED_FRAME: ConstStaticCell<[PulseCode; led::frame_len(LED_PIXELS)]> =
-    ConstStaticCell::new([led::BLANK; led::frame_len(LED_PIXELS)]);
 
 esp_bootloader_esp_idf::esp_app_desc!();
 
@@ -70,12 +64,11 @@ async fn main(spawner: Spawner) -> ! {
     let timg0 = TimerGroup::new(peripherals.TIMG0);
     esp_rtos::start(timg0.timer0, peripherals.FROM_CPU_INTR0);
 
-    let led = Led::new(peripherals.RMT, peripherals.GPIO10, LED_FRAME.take())
-        .expect("LED strip start");
+    let led = Led::new(peripherals.RMT, peripherals.GPIO10).expect("LED strip start");
     spawner.spawn(light_bar::task(led).expect("light bar task"));
     println!(
         "Light bar demo: {} pixels, brightness cap {}",
-        LED_PIXELS,
+        led::PIXELS,
         light_bar::BRIGHTNESS_CAP
     );
 
@@ -105,7 +98,7 @@ async fn show_all(patterns: &[(&str, Pattern, u64)]) {
 
 /// Rough peak strip current for a pattern over its run, from the engine's estimate.
 fn peak_ma(pattern: &Pattern, secs: u64) -> u32 {
-    let mut frame = [Rgb::default(); LED_PIXELS];
+    let mut frame = [Rgb::default(); led::PIXELS];
     (0..secs * 4)
         .map(|q| {
             lightbar::render(pattern, q as f32 / 4.0, light_bar::BRIGHTNESS_CAP, &mut frame);

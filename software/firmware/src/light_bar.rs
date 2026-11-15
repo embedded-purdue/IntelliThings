@@ -11,10 +11,7 @@ use embassy_sync::blocking_mutex::{Mutex, raw::CriticalSectionRawMutex};
 use embassy_time::{Duration, Instant, Timer};
 use esp_println::println;
 
-use crate::led::Led;
-
-/// Most pixels the render buffer holds. Longer strips light only this many.
-pub const MAX_PIXELS: usize = 160;
+use crate::led::{self, Led};
 
 /// Brightness ceiling, 0–1. Every pattern is scaled by this, which also limits the strip's
 /// current draw. The companion node uses 0.35 for its 24 LEDs.
@@ -45,14 +42,13 @@ pub fn current() -> Pattern {
 /// Renders the current pattern onto the strip forever.
 #[embassy_executor::task]
 pub async fn task(mut led: Led<'static>) {
-    let pixels = led.pixel_count().min(MAX_PIXELS);
-    let mut frame = [Rgb::default(); MAX_PIXELS];
+    let mut frame = [Rgb::default(); led::PIXELS];
     let mut reported = false;
     loop {
         let (pattern, start) = CURRENT.lock(|c| c.get());
         let t = Instant::now().as_millis().saturating_sub(start) as f32 / 1000.0;
-        lightbar::render(&pattern, t, BRIGHTNESS_CAP, &mut frame[..pixels]);
-        match led.show(&frame[..pixels]).await {
+        lightbar::render(&pattern, t, BRIGHTNESS_CAP, &mut frame);
+        match led.show(&frame).await {
             Ok(()) => reported = false,
             // Report a failure once, not 30 times a second
             Err(err) if !reported => {
