@@ -23,6 +23,12 @@ path  = "./src/bin/led_strip_test.rs"
 test  = false
 bench = false
 
+[[bin]]
+name  = "light_bar_demo"
+path  = "./src/bin/light_bar_demo.rs"
+test  = false
+bench = false
+
 [dependencies]
 esp-hal = { version = "~1.2.2", features = ["esp32c6", "unstable"] }
 

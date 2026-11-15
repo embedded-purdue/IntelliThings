@@ -2,6 +2,8 @@
 //! The main loop hands over sensor readings in the VP map's format (`docs/interfaces/display-vp-map.md`).
 //! The display task decodes them, picks the screen and draws it on the panel over UART.
 
+use core::mem::discriminant;
+
 use companion_ui::dgus::Link;
 use companion_ui::director::{Director, Settings};
 use companion_ui::model::Model;
@@ -94,6 +96,8 @@ pub async fn task(tx: UartTx<'static, Async>) {
     let inputs = INPUTS.take();
     let mut model = Model::default();
     let mut director = Director::new(Settings::default());
+    // Logged when the light bar switches to a different kind of pattern
+    let mut last_pattern = None;
 
     loop {
         let now = Instant::now().as_millis();
@@ -111,8 +115,14 @@ pub async fn task(tx: UartTx<'static, Async>) {
 
         inputs.apply(&mut model, &mut director.settings, now);
         // decide() also tracks presence and boot timing, so it runs every frame
-        let decided = director.decide(&model, now).screen;
-        let screen = inputs.screen().unwrap_or(decided);
+        let decision = director.decide(&model, now);
+        let screen = inputs.screen().unwrap_or(decision.screen);
+        // The light bar follows the same state: calm glow or air meter on Home, greeting, night...
+        crate::light_bar::set_pattern(decision.pattern, decision.pattern_t);
+        if last_pattern.is_none_or(|p| discriminant(&p) != discriminant(&decision.pattern)) {
+            println!("Light bar: {:?}", decision.pattern);
+            last_pattern = Some(decision.pattern);
+        }
 
         if let Err(err) = ui.frame(&mut link, screen, &model, now).await {
             println!("Display UART error: {:?}", err);

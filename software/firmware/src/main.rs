@@ -24,7 +24,7 @@ use intelli_things::display::{self, Readings};
 use esp_hal::rmt::PulseCode;
 use intelli_things::{
     led::{self, Led},
-    mqtt, sensors, sntp, wifi,
+    light_bar, mqtt, sensors, sntp, wifi,
 };
 use static_cell::ConstStaticCell;
 
@@ -168,14 +168,12 @@ async fn main(spawner: Spawner) -> ! {
         Err(err) => println!("SCD41 start error: {}", err),
     }
     
-    let mut led = match Led::new(peripherals.RMT, peripherals.GPIO10, LED_FRAME.take()) {
-        Ok(led) => Some(led),
-        Err(err) => {
-            println!("Failed to initialize LED strip");
-            panic!();
-        }
-    };
-    
+    // Light bar on GPIO10. The display task picks its pattern from the same state as the screen.
+    // A strip that fails to start only loses the light bar, so carry on without it.
+    match Led::new(peripherals.RMT, peripherals.GPIO10, LED_FRAME.take()) {
+        Ok(led) => spawner.spawn(light_bar::task(led).expect("light bar task")),
+        Err(err) => println!("LED strip start error: {:?}; continuing without it", err),
+    }
 
     loop {
         let result = {
