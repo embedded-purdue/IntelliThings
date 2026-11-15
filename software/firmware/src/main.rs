@@ -20,7 +20,8 @@ use esp_hal::{
     uart::{Config as UartConfig, UartTx},
 };
 use esp_println::println;
-use intelli_things::display::{self, Readings};
+use intelli_things::{display, readings::{self, Readings}};
+use esp_hal::rmt::PulseCode;
 use intelli_things::{
     led::Led,
     light_bar, mqtt, sensors, sntp, wifi,
@@ -262,6 +263,7 @@ async fn main(spawner: Spawner) -> ! {
         readings.pm10 = pm.map(|pm| pm.pm10);
         readings.presence = sensors::ld2410c::presence();
 
+        readings::publish(&readings);
         display::publish(&readings);
 
         Timer::after(Duration::from_secs(1)).await;

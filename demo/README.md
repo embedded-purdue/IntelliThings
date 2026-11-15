@@ -1,6 +1,6 @@
 # Demo mode (ECE SPARK booth)
 
-*Status: planned — agreed with the team on Oct 18. Details marked **TBD** are still open.*
+*Status: agreed with the team on Oct 18; the demo master firmware is built (v1.0.0, [`demo-master/`](demo-master/README.md)). Details marked **TBD** are still open.*
 
 ## Why a demo mode
 
@@ -87,6 +87,12 @@ map needs a field for it; @rakkicow), and whether its real readings still go to 
 
 ## MQTT (proposed)
 
+> **Update (Nov 15):** the demo master follows the AI team's
+> [demo device inventory](../ai/docs/demo-device-inventory.md) instead of the table below: one
+> retained topic per area (`intellithings/demo/kitchen`, `…/home`, …) plus the
+> `intellithings/demo/home/doorbell` event, and `intellithings/demo/status`. See
+> [`demo-master/README.md`](demo-master/README.md#mqtt). The table below is the earlier plan.
+
 All demo traffic lives under a new **reserved `intellithings/demo/#`** namespace, next to
 `intellithings/ai/#` and `intellithings/emulator/#`. **Proposed, not agreed:** it goes into
 [`docs/interfaces/mqtt.md`](../docs/interfaces/mqtt.md) once the Software and AI leads agree.
@@ -106,7 +112,7 @@ and `intellithings/ai/summary`.
 | Part | Where | Owner |
 |---|---|---|
 | Demo master firmware: scenario library, randomizer, buzzer, web interface, MQTT | [`demo/demo-master/`](demo-master/) | **@spicybutter (PM)** — C on ESP-IDF, LuatOS ESP32-C3 Core (like the emulator) |
-| Test stand-in until the demo master exists: demo home (61 entities, 50 presets), loop, *Roll the house*, on `intellithings/emulator/demo/#` | [`ai/emulator/`](../ai/emulator/README.md#demo-mode) (emulator v2.1.0, experimental) | @spicybutter (PM) |
+| Earlier test stand-in (before the demo master): demo home (61 entities, 50 presets), loop, *Roll the house*, on `intellithings/emulator/demo/#` | [`ai/emulator/`](../ai/emulator/README.md#demo-mode) (emulator v2.1.1, experimental) | @spicybutter (PM) |
 | Scenario library drafts (50–200 groups) | `demo/demo-master/` | @spicybutter; drafts to be generated later |
 | Demo mode in the node firmware: show demo data from `intellithings/demo/<node_id>/sensors`; the hybrid node | `software/firmware/` | Software (@LukeTuthill) |
 | Demo or hybrid fields on the DWIN UI, if needed | VP map ([`docs/interfaces/display-vp-map.md`](../docs/interfaces/display-vp-map.md)) | @rakkicow (PM) |
