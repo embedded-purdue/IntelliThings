@@ -6,12 +6,12 @@
 
 Team update, Nov 8: `zircon3d-proxy` is set up in Docker with the team's Zircon account. Container logs report a successful connection to Home Assistant. Entity visibility and live updates in the Zircon3D viewer still need verification.
 
-Nov 15: the Zircon3D viewer is embedded in the Intellithings Dashboard's Central Dashboard view (iframe to the proxy on port 11200) and renders the house. Its units are still set to Metric (temperature heatmap legend in °C, 10–30); HA shows temperatures in °F, so switch Zircon to imperial and set the heatmap range in °F to match.
+Nov 15: the Zircon3D viewer is embedded in the Central Dashboard view of the Intellithings Dashboard (iframe to the proxy on port 11200) and shows the house. Zircon is still set to Metric (temperature heatmap legend 10–30 °C), while HA shows °F. Switch Zircon to imperial and set the heatmap range in °F.
 
 ## Remaining work
 
 1. Verify an existing HA sensor appears in Zircon3D and its value updates when HA receives a new reading.
-2. ~~Create HA entities from the agreed demo room topics and assign them to the matching HA areas. Keep demo and real sensor context distinguishable.~~ Done Nov 15: 126 `intellithings_demo_*` entities, live, in 8 areas — see the [inventory's HA entity mapping](demo-device-inventory.md#ha-entity-mapping).
+2. Create HA entities from the agreed demo room topics and assign them to the matching HA areas. Keep demo and real sensor context distinguishable. Done (Nov 15): 126 `intellithings_demo_*` entities in 8 areas; see the [HA entity mapping](demo-device-inventory.md#ha-entity-mapping).
 3. Build the room layout in Zircon3D and bind each displayed value to its HA entity. Start with temperature, humidity, occupancy, and ceiling-light state.
 4. Add air-quality readings and the remaining device states from the inventory. Use simple labels/cards where an animation is unavailable; animations are optional.
 5. Show the overall AI summary and thinking status alongside the room view. Add HA history/logbook for observed changes; use the agent's action records to distinguish attempted commands from confirmed outcomes.
