@@ -1,9 +1,14 @@
-//! Periodic MQTT 5 publishing smoke test using the existing Embassy stack.
+//! Periodic MQTT 5 publishing of the latest sensor snapshot.
 
 extern crate alloc;
 
-use alloc::format;
-use embassy_net::{HardwareAddress, Ipv4Address, Stack, tcp::TcpSocket};
+use crate::{readings, sntp};
+use alloc::{
+    format,
+    string::{String, ToString},
+};
+use core::fmt::Write;
+use embassy_net::{EthernetAddress, HardwareAddress, Ipv4Address, Stack, tcp::TcpSocket};
 use embassy_time::{Duration, Timer, with_timeout};
 use esp_println::println;
 use rust_mqtt::{
@@ -19,26 +24,48 @@ use rust_mqtt::{
 
 const BROKER: Ipv4Address = Ipv4Address::new(192, 168, 1, 2);
 const PORT: u16 = 1883;
-const MESSAGE: &[u8] = b"Hello from IntelliThings ESP32-C6!";
 
-/// Publishes a fixed message at QoS 1 every five seconds.
+/// Publishes the latest readings at QoS 1 every five seconds.
 /// Reconnects after a failed connection or publish.
 #[embassy_executor::task]
 pub async fn publish_task(stack: Stack<'static>) {
     loop {
         stack.wait_config_up().await;
+        // Wait for a real wall-clock timestamp.
+        while sntp::unix_now().is_none() {
+            Timer::after(Duration::from_secs(1)).await;
+        }
         if let Err(error) = publish_session(stack).await {
-            println!("MQTT test failed: {}", error);
+            println!("MQTT publish failed: {}", error);
         }
         Timer::after(Duration::from_secs(5)).await;
     }
 }
 
+fn get_topic_path(mac: EthernetAddress) -> String {
+    let [a, b, c, d, e, f] = mac.0;
+    let mac_string = format!("{a:02X}:{b:02X}:{c:02X}:{d:02X}:{e:02X}:{f:02X}");
+    format!("intellithings/{mac_string}/sensors")
+}
+
+/// Reads the synchronized clock and formats the current UTC timestamp.
+fn get_timestamp() -> Result<heapless::String<32>, &'static str> {
+    let unix = sntp::unix_now().ok_or("Clock has not synchronized")?;
+    let time = companion_ui::clock::DateTime::from_unix(unix as i64, 0);
+    let mut timestamp = heapless::String::<32>::new();
+    write!(
+        timestamp,
+        "{:04}-{:02}-{:02}T{:02}:{:02}:{:02}Z",
+        time.year, time.month, time.day, time.hour, time.minute, time.second
+    )
+    .map_err(|_| "Timestamp buffer too small")?;
+    Ok(timestamp)
+}
+
 async fn publish_session(stack: Stack<'static>) -> Result<(), &'static str> {
     let HardwareAddress::Ethernet(mac) = stack.hardware_address();
-    let [a, b, c, d, e, f] = mac.0;
-    let topic_path =
-        format!("intellithings/{a:02X}:{b:02X}:{c:02X}:{d:02X}:{e:02X}:{f:02X}/sensors");
+    let topic_path = get_topic_path(mac);
+    let node_id = mac.to_string();
 
     let options = ConnectOptions::new().clean_start();
     let options = match (option_env!("MQTT_USER"), option_env!("MQTT_PASSWORD")) {
@@ -76,10 +103,16 @@ async fn publish_session(stack: Stack<'static>) -> Result<(), &'static str> {
     let topic = TopicName::new(MqttString::from_str(&topic_path).map_err(|_| "Topic name error")?)
         .ok_or("Topic name error")?;
     let options = PublicationOptions::new(TopicReference::Name(topic)).at_least_once();
+    let mut payload = [0u8; 512];
     loop {
+        let readings = readings::latest();
+        let timestamp = get_timestamp()?;
+        let len = readings
+            .to_json(&node_id, &timestamp, &mut payload)
+            .map_err(|_| "JSON serialization failed")?;
         with_timeout(Duration::from_secs(10), async {
             let packet_id = client
-                .publish(&options, Bytes::from(MESSAGE))
+                .publish(&options, Bytes::from(&payload[..len]))
                 .await
                 .map_err(|_| "PUBLISH failed")?
                 .ok_or("QoS 1 publish did not return a packet ID")?;
