@@ -5,6 +5,7 @@ mod scd41;
 mod sgp40;
 mod sht41;
 mod vl53l0;
+pub mod i2c_sensors;
 
 pub use bh1750::BH1750;
 pub use sgp40::SGP40;
