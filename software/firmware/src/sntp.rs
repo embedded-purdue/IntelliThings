@@ -9,6 +9,18 @@ use esp_println::println;
 
 use crate::display;
 
+use core::cell::Cell;
+use embassy_sync::blocking_mutex::{Mutex, raw::CriticalSectionRawMutex};
+
+static CLOCK: Mutex<CriticalSectionRawMutex, Cell<Option<(u32, Instant)>>> =
+    Mutex::new(Cell::new(None));
+
+/// Current UTC Unix time, available after the first successful SNTP sync.
+pub fn unix_now() -> Option<u64> {
+    let (unix, at) = CLOCK.lock(Cell::get)?;
+    Some(u64::from(unix) + (Instant::now() - at).as_secs())
+}
+
 const SERVER: &str = "time.google.com";
 const PORT: u16 = 123;
 /// Seconds from the NTP epoch (1900) to the Unix epoch (1970)
@@ -31,6 +43,7 @@ pub async fn task(stack: Stack<'static>) {
         match query(stack).await {
             Ok(unix) => {
                 println!("SNTP: {} gave Unix time {}", SERVER, unix);
+                CLOCK.lock(|clock| clock.set(Some((unix, Instant::now()))));
                 display::set_clock(unix, UTC_OFFSET_MIN);
                 Timer::after(RESYNC_EVERY).await;
             }

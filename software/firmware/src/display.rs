@@ -30,36 +30,26 @@ static CLOCK_WORDS: Signal<CriticalSectionRawMutex, [u16; 3]> = Signal::new();
 static UI: ConstStaticCell<Ui> = ConstStaticCell::new(Ui::new());
 static INPUTS: ConstStaticCell<Inputs> = ConstStaticCell::new(Inputs::new());
 
-/// One snapshot of this node's readings, in physical units. `None` means no reading.
-#[derive(Debug, Default, Clone, Copy)]
-pub struct Readings {
-    pub temperature_c: Option<f32>,
-    pub humidity_percent: Option<f32>,
-    pub voc_index: Option<i32>,
-    pub co2_ppm: Option<u16>,
-    pub lux: Option<f32>,
-    pub distance_mm: Option<u16>,
-    pub pm1_0: Option<u16>,
-    pub pm2_5: Option<u16>,
-    pub pm10: Option<u16>,
-    pub presence: Option<bool>,
-}
+use crate::readings::Readings;
 
 impl Readings {
     /// Encodes the readings as the 10 words at `vp_map::TEMPERATURE`, in map order.
     pub fn to_words(&self) -> [u16; 10] {
         [
             // °C × 10, signed
-            self.temperature_c.map_or(NO_READING, |t| round(t * 10.0) as i16 as u16),
+            self.temperature_c
+                .map_or(NO_READING, |t| round(t * 10.0) as i16 as u16),
             // %RH × 10
-            self.humidity_percent.map_or(NO_READING, |h| round(h.clamp(0.0, 100.0) * 10.0) as u16),
+            self.humidity_percent
+                .map_or(NO_READING, |h| round(h.clamp(0.0, 100.0) * 10.0) as u16),
             // The gas index algorithm reports 0 while it warms up, so only 1–500 counts as a reading
             self.voc_index
                 .filter(|v| (1..=500).contains(v))
                 .map_or(NO_READING, |v| v as u16),
             self.co2_ppm.map_or(NO_READING, |c| c.min(0x7FFF)),
             // Whole lux, clamped to 32767 so it can't collide with NO_READING
-            self.lux.map_or(NO_READING, |l| round(l.clamp(0.0, 32767.0)) as u16),
+            self.lux
+                .map_or(NO_READING, |l| round(l.clamp(0.0, 32767.0)) as u16),
             self.distance_mm.map_or(NO_READING, |d| d.min(0x7FFF)),
             self.pm1_0.map_or(NO_READING, |p| p.min(0x7FFF)),
             self.pm2_5.map_or(NO_READING, |p| p.min(0x7FFF)),
@@ -83,7 +73,11 @@ pub fn publish(readings: &Readings) {
 /// Sets the display clock. The display keeps counting from here, so call it once per sync.
 /// `utc_offset_min` is local time minus UTC, e.g. -300 for EST.
 pub fn set_clock(unix_seconds: u32, utc_offset_min: i16) {
-    CLOCK_WORDS.signal([(unix_seconds >> 16) as u16, unix_seconds as u16, utc_offset_min as u16]);
+    CLOCK_WORDS.signal([
+        (unix_seconds >> 16) as u16,
+        unix_seconds as u16,
+        utc_offset_min as u16,
+    ]);
 }
 
 /// Draws the screens on the panel. `tx` is a UART at 115200 8N1 wired to the panel's RX2.

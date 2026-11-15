@@ -7,3 +7,5 @@ pub mod wifi;
 pub mod sensors;
 pub mod display;
 pub mod sntp;
+
+pub mod readings;
