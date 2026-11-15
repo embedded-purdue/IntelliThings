@@ -8,7 +8,9 @@ import json
 from agent.integrations.openrouter import complete
 from agent.integrations.home_assistant import connect
 from agent.controls import Controller
-from agent.response import Recommendation, parse_response
+from agent.response import parse_response, response_schema
+from agent.rooms import discover_rooms
+from agent.integrations.mqtt import load_nodes
 from agent.storage import timestamp
 
 
@@ -24,6 +26,8 @@ async def infer(snapshot, output_dir, prompt_file, api_key, model, timeout, max_
         raise ValueError("Prompt file is empty")
     if not snapshot.get("context", "").strip():
         raise ValueError("Collected context is empty")
+    rooms = discover_rooms(snapshot["context"], load_nodes().values())
+    schema = response_schema(rooms)
     async with asyncio.timeout(timeout), AsyncExitStack() as stack:
         controller = None
         if mcp_url:
@@ -35,12 +39,13 @@ async def infer(snapshot, output_dir, prompt_file, api_key, model, timeout, max_
             {"role": "user", "content": json.dumps({
                 "fetched_at": snapshot["fetched_at"],
                 "context": snapshot["context"],
+                "room_inventory": rooms,
                 "actuator_inventory": controller.inventory if controller else {},
             }, ensure_ascii=False)},
         ]
         tools = controller.tools if controller else []
         result = await complete(api_key, model, messages, timeout, max_tokens,
-            response_schema=Recommendation.model_json_schema(), tools=tools)
+            response_schema=schema, tools=tools)
         requests = [{"response_id": result.get("response_id"), "usage": result.get("usage")}]
         if result.get("tool_calls"):
             calls = result["tool_calls"]
@@ -51,12 +56,13 @@ async def infer(snapshot, output_dir, prompt_file, api_key, model, timeout, max_
             messages.append({"role": "tool", "tool_call_id": calls[0]["id"],
                              "content": json.dumps(outcome)})
             result = await complete(api_key, model, messages, timeout, max_tokens,
-                response_schema=Recommendation.model_json_schema(), tools=tools, tool_choice="none")
+                response_schema=schema, tools=tools, tool_choice="none")
             requests.append({"response_id": result.get("response_id"), "usage": result.get("usage")})
-    recommendation = parse_response(result["content"])
+    recommendation = parse_response(result["content"], rooms)
     generated_at = timestamp()
     record = {
-        "schema_version": 5,
+        "schema_version": 6,
+        "room_inventory": rooms,
         "generated_at": generated_at,
         "input_fetched_at": snapshot["fetched_at"],
         "requested_model": model,

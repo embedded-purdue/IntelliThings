@@ -60,17 +60,36 @@ and parallel dashboard/MQTT publication; reinstall the unit and reload systemd a
 
 Install `ai/requirements.txt`; PyYAML parses the HA context inventory.
 
+Room discovery uses HA `areas`, not substrings of device names: Bedroom and Second
+Bedroom remain distinct. Entities with no area are still included in the overall
+context. All readings are preserved, including unavailable readings; the prompt
+asks for missing-data assessments and distinguishes target settings from measured
+conditions. The collector uses Assist-exposed MCP context, not every entity in the
+HA REST API. New sensors must be exposed to Assist and assigned to an HA area to
+receive a room-specific assessment. No HA exposure settings are changed by discovery.
+Area names that normalize to the same key fail the cycle rather than mixing rooms.
+Renaming/removing an HA area does not delete its old retained MQTT summary; consumers
+must use `ts` to check freshness. Publishing topics does not create HA sensor entities
+or dashboard cards automatically.
+
 ## Structured recommendations and Python loader
 
 The prompt requests JSON, and the API request enforces the JSON Schema generated
 from `ai/agent/response.py`. The pipeline validates the response before saving it.
-`inference.json` now has envelope `schema_version: 5`, retains the original JSON
+`inference.json` now has envelope `schema_version: 6`, retains the original JSON
 string in `content`, and exposes its parsed fields in `recommendation`:
 
 - `summary`: short overview, at most 255 characters.
-- `room_summaries`: required `kitchen`, `bedroom`, and `living_room` strings, each
-  nonempty and at most 60 characters. The prompt targets 3–6 words per room and
-  uses "Sensor data unavailable" when that room has no usable readings.
+- `room_summaries`: one required string for every area in the fresh HA context,
+  plus any configured display destinations. Keys are normalized HA area names
+  (for example `Second Bedroom` → `second_bedroom`), each nonempty and at most
+  60 characters. The response schema is rebuilt each cycle and rejects missing
+  or invented room keys. `room_inventory` in the saved envelope records names
+  and entity counts for auditing coverage. The prompt targets 3–6 words per room and
+  uses "Sensor data unavailable" when that room has no usable readings. Messages
+  interpret the available room sensors: highlight an issue and a useful suggestion,
+  or give a reassuring assessment when supported. They should not list raw readings
+  or automatically lead with temperature.
 
 The model returns only these two fields. Relevant missing data, unavailable
 controls, and failed tool calls are described briefly in the summaries. Executed
@@ -95,9 +114,8 @@ from agent.response import load_response
 
 recommendation = load_response('/home/intellithings/.local/state/intellithings/mcp/inference.json')
 print(recommendation.summary)
-print(recommendation.room_summaries.kitchen)
-print(recommendation.room_summaries.bedroom)
-print(recommendation.room_summaries.living_room)
+for room, summary in recommendation.room_summaries.items():
+    print(room, summary)
 ```
 
 The loader validates saved content; callers should still check
@@ -161,8 +179,14 @@ OpenRouter, alongside `advertised_tools`, the wider MCP server tool list.
 ## MQTT display summaries
 
 After successful inference, the pipeline publishes `recommendation.summary` to
-`intellithings/ai/summary`. Each room's short message goes to its own display
-topic, using the node-to-room mapping in [`display_nodes.json`](../config/display_nodes.json).
+`intellithings/ai/summary`. Every discovered room also gets a retained summary at
+`intellithings/ai/rooms/<room_key>/summary`, for example
+`intellithings/ai/rooms/second_bedroom/summary`. Subscribe to
+`intellithings/ai/rooms/+/summary` to receive all rooms. These publications use the
+same `{ "text": "...", "ts": "..." }` payload as display messages.
+
+Optional copies go to physical/emulated displays using the node-to-room mapping
+in [`display_nodes.json`](../config/display_nodes.json).
 This mapping is independent of Assist exposure and the actuator allowlist. The
 default display topics match the ESP32 emulator's existing subscriptions:
 
@@ -202,8 +226,11 @@ and inference failure skip summary publication and leave retained summaries unch
 successful cycle publishes a fresh summary; there are no application retries.
 
 To add or remove destinations, edit `display_nodes.json`; the next cycle reads it.
-The file maps node IDs to `kitchen`, `bedroom`, or `living_room`; use `{}` to
-disable device copies while still publishing the overall summary and status.
+The file maps node IDs to any room key (lowercase letters, digits, underscores),
+for example `"demo-second-bedroom": "second_bedroom"`. Use `{}` to disable
+device copies while still publishing all discovered room summaries, the overall
+summary, and status. A configured room absent from HA context remains in the
+inventory with zero entities and should receive "Sensor data unavailable".
 Removing a destination does not clear its previously retained message.
 
 Run `.venv/bin/python ai/main.py`, then inspect
