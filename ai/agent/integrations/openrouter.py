@@ -34,8 +34,15 @@ async def complete(api_key, model, messages, timeout, max_tokens, response_schem
                 # Do not include upstream bodies or credentials in logs.
                 raise RuntimeError(f"OpenRouter HTTP {response.status_code}")
             payload = response.json()
+    return parse_completion(payload, model, tools, tool_choice, "OpenRouter")
+
+
+def parse_completion(payload, model, tools, tool_choice, provider):
+    """Normalize the shared chat-completion envelope without exposing API bodies."""
+    if not isinstance(payload, dict):
+        raise ValueError(f"Malformed {provider} response")
     if payload.get("error"):
-        raise RuntimeError("OpenRouter returned an API error")
+        raise RuntimeError(f"{provider} returned an API error")
     try:
         choice = payload["choices"][0]
         message = choice["message"]
@@ -46,11 +53,11 @@ async def complete(api_key, model, messages, timeout, max_tokens, response_schem
                     "content": content, "message": message, "tool_calls": calls,
                     "usage": payload.get("usage")}
         if choice.get("finish_reason") != "stop" or calls:
-            raise ValueError("OpenRouter response did not finish normally")
+            raise ValueError(f"{provider} response did not finish normally")
         if not isinstance(content, str) or not content.strip():
-            raise ValueError("OpenRouter returned no assistant text")
-    except (KeyError, IndexError, TypeError) as exc:
-        raise ValueError("Malformed OpenRouter response") from exc
+            raise ValueError(f"{provider} returned no assistant text")
+    except (KeyError, IndexError, TypeError, AttributeError) as exc:
+        raise ValueError(f"Malformed {provider} response") from exc
     return {
         "response_id": payload.get("id"),
         "model": payload.get("model", model),

@@ -2,7 +2,8 @@
 
 ## Background pipeline
 
-`ai/main.py` collects fresh context, requests recommendations from OpenRouter,
+`ai/main.py` collects fresh context, requests recommendations from Purdue GenAI
+Studio with OpenRouter fallback,
 optionally executes one configured MCP turn-on action, and updates the dashboard
 summary, room-specific MQTT displays, and shared thinking status. The systemd user timer runs the full pipeline after user-manager startup
 and every five minutes. Each run opens fresh MCP connections and loads the root

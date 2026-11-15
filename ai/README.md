@@ -1,7 +1,7 @@
 # IntelliThings AI
 
 The local Python agent reads Home Assistant sensors, requests summaries from
-OpenRouter, optionally executes one allowed MCP turn-on action, and publishes
+Purdue GenAI Studio with OpenRouter fallback, optionally executes one allowed MCP turn-on action, and publishes
 room summaries, the overall summary, and thinking status through MQTT. It also
 updates the existing dashboard text helper. A systemd timer runs it every five minutes.
 
@@ -44,7 +44,7 @@ ai/
 │   ├── response.py            Response schema and saved-response loader
 │   ├── publishing.py          Summary and thinking-status delivery results
 │   ├── storage.py             Timestamps and atomic JSON writes
-│   └── integrations/          Home Assistant MCP, OpenRouter, MQTT, helper clients
+│   └── integrations/          Home Assistant MCP, GenAI, OpenRouter, MQTT, helper clients
 ├── config/                    Editable actuator allowlist and display mapping
 ├── prompts/                   Editable model prompt
 ├── deployment/                Home Assistant, Mosquitto, and systemd setup
@@ -74,11 +74,14 @@ python3 -m venv .venv
 test -e .env || cp .env.example .env
 ```
 
-Set `HA_BASE_URL`, `HA_LONG_LIVED_TOKEN`, `OPENROUTER_API_KEY`, and
-`OPENROUTER_MODEL` in `.env`. Exported environment variables take precedence.
-On the Pi, `HA_BASE_URL=http://127.0.0.1:8123`; the current model is
-`openai/gpt-5.4-mini`. Optional `HA_MCP_URL` overrides the MCP endpoint only.
-The agent uses `OPENROUTER_*`, not the root template's `LLM_*` variables; it uses
+Set `HA_BASE_URL`, `HA_LONG_LIVED_TOKEN`, `GENAI_API_KEY`, `OPENROUTER_API_KEY`,
+and `OPENROUTER_MODEL` in `.env`. `GENAI_MODEL` defaults to `gpt-oss:120b`.
+Purdue is tried first; model errors or invalid responses switch to OpenRouter.
+An empty Purdue key keeps OpenRouter-only operation. Exported environment
+variables take precedence. On the Pi, `HA_BASE_URL=http://127.0.0.1:8123`;
+the fallback model in the template is `openai/gpt-5.4-mini`.
+Optional `HA_MCP_URL` overrides the MCP endpoint only.
+The agent uses `GENAI_*` and `OPENROUTER_*`, not the root template's `LLM_*` variables; it uses
 HA's configured MQTT connection rather than reading broker credentials.
 
 In Home Assistant:

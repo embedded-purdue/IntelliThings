@@ -1,7 +1,8 @@
-# OpenRouter inference
+# Purdue GenAI inference with OpenRouter fallback
 
 `ai/main.py` collects fresh Home Assistant context, then sends `context` and
-`fetched_at` to OpenRouter. It does not send the duplicate raw MCP envelope.
+`fetched_at` to Purdue GenAI Studio first, falling back to OpenRouter on model
+errors. It does not send the duplicate raw MCP envelope.
 This stage can execute one targeted `intent__HassTurnOn` MCP call per cycle,
 then save a structured recommendation.
 
@@ -14,8 +15,23 @@ handles model/tool interaction and returns validated summaries;
 ## Configuration
 
 Complete [local pipeline setup](../README.md#current-local-python-pipeline) first.
-The model and credentials come from the root `.env` through `OPENROUTER_MODEL`
-and `OPENROUTER_API_KEY`. All commands below run from the repository root.
+The primary provider uses `GENAI_API_KEY` and `GENAI_MODEL` (default
+`gpt-oss:120b`) from the root `.env`. The fallback uses `OPENROUTER_MODEL`
+and `OPENROUTER_API_KEY`. Leave `GENAI_API_KEY` blank to use OpenRouter only.
+All commands below run from the repository root.
+
+Purdue's [hosted model documentation](https://docs.rcac.purdue.edu/services/genai/models/)
+recommends GPT-OSS 120B for general reasoning and documents automatic tool calling.
+It fits this text-only sensor interpretation and restricted control workflow.
+Purdue also lists Qwen for coding/agentic workflows and Gemma/Llama for image
+inputs. This choice is based on documented capabilities, not a smart-home
+benchmark. Confirm account-specific access through `GET /api/models` and test
+latency with a synthetic snapshot before deployment.
+
+The [Purdue API](https://docs.rcac.purdue.edu/services/genai/api/) uses Bearer
+authentication at `https://genai.rcac.purdue.edu/api/chat/completions`.
+The adapter targets vLLM models using `response_format` JSON schema; Ollama
+models require a different `format` payload and are not supported by this adapter.
 
 Exported environment variables take precedence. Edit
 [`../prompts/home_status.txt`](../prompts/home_status.txt) to change the system
@@ -52,11 +68,24 @@ an old file. Inference failure preserves both the sensor snapshot and previous
 successful inference, and returns a nonzero exit code. Check inference status and
 `input_fetched_at` before displaying a saved response as current.
 
-Requests use the OpenRouter chat completions endpoint, low reasoning effort,
-a 45-second total inference deadline, and a 2048-token per-request completion cap
-(including reasoning tokens). There are no application retries. Empty, truncated, or malformed
-responses are failures. The systemd unit allows 120 seconds for collection, inference,
+Requests use low reasoning effort, a 45-second total inference deadline, and a
+2048-token per-request completion cap (including reasoning tokens).
+After MCP discovery, Purdue receives at most 20 seconds, capped at half the
+remaining inference time. That deadline covers both its initial and post-tool
+requests; time spent executing a tool also consumes the budget. OpenRouter uses
+the remaining overall budget. Increasing `--llm-timeout` does not raise Purdue's
+20-second cap. The systemd unit allows 120 seconds for collection, inference,
 and parallel dashboard/MQTT publication; reinstall the unit and reload systemd after updating an existing setup.
+
+HTTP/connection errors, timeouts, empty or truncated responses, invalid JSON,
+schema failures and invalid proposed tool calls switch the cycle to OpenRouter.
+Once switched, all subsequent model requests in that cycle use OpenRouter.
+There are no same-provider retries. Both-provider failure preserves the last
+successful inference and skips summary publication. Cancellation propagates.
+Collection, MCP execution and local persistence failures do not retry the
+pipeline. In particular, an uncertain actuator timeout is journaled and never
+retried. If a completed action's follow-up model request fails, OpenRouter receives
+the existing conversation and tool result with further tool calls disabled.
 
 Install `ai/requirements.txt`; PyYAML parses the HA context inventory.
 
@@ -64,7 +93,7 @@ Install `ai/requirements.txt`; PyYAML parses the HA context inventory.
 
 The prompt requests JSON, and the API request enforces the JSON Schema generated
 from `ai/agent/response.py`. The pipeline validates the response before saving it.
-`inference.json` now has envelope `schema_version: 5`, retains the original JSON
+`inference.json` now has envelope `schema_version: 6`, retains the original JSON
 string in `content`, and exposes its parsed fields in `recommendation`:
 
 - `summary`: short overview, at most 255 characters.
@@ -76,7 +105,12 @@ The model returns only these two fields. Relevant missing data, unavailable
 controls, and failed tool calls are described briefly in the summaries. Executed
 calls are recorded separately by the pipeline in `actions`, alongside timestamps
 and request usage. Invalid JSON, extra or missing fields,
-or incorrect field types mark inference as failed and preserve the last valid file.
+or incorrect field types trigger fallback; if the fallback also fails,
+inference fails and preserves the last valid file.
+The envelope's `provider` and `requested_model` identify the final responder.
+`requests` records each attempt's provider, requested model, available response ID
+and usage, and failure category (without API error bodies or credentials).
+The final response's usage remains separate from the per-attempt usage.
 Older responses with `changes`/`missing_information` or without `room_summaries`
 cannot be loaded with the updated structured loader; run a new cycle.
 All summaries share a single final model
@@ -156,7 +190,7 @@ dashboard/MQTT publication (10), and stop status (2).
 
 This is an automatic publication step, not an additional LLM tool. Runtime
 `actuators.json` includes `llm_tools`, the exact callable definitions supplied to
-OpenRouter, alongside `advertised_tools`, the wider MCP server tool list.
+the model providers, alongside `advertised_tools`, the wider MCP server tool list.
 
 ## MQTT display summaries
 

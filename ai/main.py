@@ -21,7 +21,7 @@ def main():
     parser.add_argument("--url", default=os.getenv("HA_MCP_URL") or f"{base}/api/mcp")
     parser.add_argument("--timeout", type=float, default=60)
     parser.add_argument("--output-dir", type=Path, default=state_home / "intellithings/mcp")
-    parser.add_argument("--collect-only", action="store_true", help="Skip OpenRouter inference")
+    parser.add_argument("--collect-only", action="store_true", help="Skip LLM inference")
     parser.add_argument("--prompt-file", type=Path,
                         default=Path(__file__).resolve().parent / "prompts/home_status.txt")
     parser.add_argument("--llm-timeout", type=float, default=45)

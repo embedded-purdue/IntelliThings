@@ -24,7 +24,8 @@ in a cloud agent), and is built on **open protocols end to end** — MQTT, Home 
 
 The runnable AI pipeline is in [`ai/main.py`](ai/main.py). It uses Home Assistant
 Container and a separate Mosquitto container on the project Pi, fetches
-Assist-exposed context through MCP, and calls OpenRouter directly. It saves JSON
+Assist-exposed context through MCP, and calls Purdue GenAI Studio first with
+OpenRouter as the fallback. It saves JSON
 recommendations, optionally executes a configured virtual turn-on action, and
 updates `input_text.ai_summary_overall`. A systemd timer runs it every five minutes.
 

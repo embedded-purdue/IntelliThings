@@ -79,8 +79,13 @@ class Controller:
     def save_actions(self):
         write_json(self.output_dir / "actions.json", {"updated_at": timestamp(), "actions": self.actions})
 
-    async def execute(self, call):
+    def validate(self, call):
+        """Validate a proposed action without executing or journaling it."""
+        if not isinstance(call, dict) or not isinstance(call.get("id"), str) or not call["id"]:
+            raise ValueError("Tool call requires an ID")
         function = call.get("function", {})
+        if not isinstance(function, dict):
+            raise ValueError("Invalid tool function")
         args = json.loads(function.get("arguments", "{}"))
         if function.get("name") != TURN_ON or not self.tools:
             raise ValueError("Tool is not permitted")
@@ -92,6 +97,10 @@ class Controller:
             raise ValueError("Actuator is not configured and visible in MCP context")
         if self.actions:
             raise ValueError("Only one actuator call is allowed per cycle")
+        return args
+
+    async def execute(self, call):
+        args = self.validate(call)
         record = {"tool": TURN_ON, "arguments": args, "started_at": timestamp(), "status": "pending"}
         self.actions.append(record)
         self.save_actions()  # Persist intent before performing a side effect.
