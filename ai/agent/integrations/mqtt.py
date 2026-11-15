@@ -41,11 +41,11 @@ def display_payload(summary, generated_at):
 def load_nodes():
     nodes = json.loads(CONFIG.read_text(encoding="utf-8"))
     if (not isinstance(nodes, dict)
-            or any(not re.fullmatch(r"[A-Za-z0-9_-]+", node)
-                   or room not in ("kitchen", "bedroom", "living_room")
+            or any(not isinstance(node, str) or not re.fullmatch(r"[A-Za-z0-9_-]+", node)
+                   or not isinstance(room, str) or not re.fullmatch(r"[a-z][a-z0-9_]*", room)
                    for node, room in nodes.items())):
         raise ValueError("display_nodes.json must map node IDs (without slashes or wildcards) "
-                         "to kitchen, bedroom, or living_room")
+                         "to room keys (lowercase letters, digits, and underscores)")
     return nodes
 
 
@@ -81,9 +81,13 @@ async def publish_summaries(base_url, token, recommendation, generated_at, timeo
     # messages use the emulator byte limits.
     messages = [{"topic": SUMMARY_TOPIC, "truncated": False, "payload": json.dumps(
         {"text": recommendation.summary, "ts": generated_at}, ensure_ascii=False)}]
-    rooms = recommendation.room_summaries.model_dump()
+    rooms = recommendation.room_summaries
+    for room, summary in rooms.items():
+        payload, truncated = display_payload(summary, generated_at)
+        messages.append({"topic": f"intellithings/ai/rooms/{room}/summary",
+                         "payload": payload, "room": room, "truncated": truncated})
     for node, room in load_nodes().items():
-        payload, truncated = display_payload(rooms[room], generated_at)
+        payload, truncated = display_payload(rooms.get(room, "Sensor data unavailable"), generated_at)
         messages.append({"topic": f"intellithings/{node}/display", "payload": payload,
                          "room": room, "truncated": truncated})
     return {**await _publish_messages(base_url, token, messages, timeout), "generated_at": generated_at}

@@ -43,7 +43,7 @@ class PayloadTests(unittest.TestCase):
             config = Path(directory) / 'nodes.json'
             with patch.object(mqtt, 'CONFIG', config):
                 for nodes in [['emu-kitchen'], {'node/#': 'kitchen'}, {'+': 'kitchen'},
-                              {'': 'kitchen'}, {'node': True}, {'node': 'garage'}]:
+                              {'': 'kitchen'}, {'node': True}, {'node': 'bad/room'}]:
                     config.write_text(json.dumps(nodes))
                     with self.assertRaises(ValueError):
                         mqtt.load_nodes()
@@ -61,6 +61,9 @@ class PublicationTests(unittest.IsolatedAsyncioTestCase):
             'intellithings/bad/display': ROOM_SUMMARIES['bedroom'],
             'intellithings/slow/display': ROOM_SUMMARIES['living_room'],
         }
+
+        expected.update({f'intellithings/ai/rooms/{room}/summary': text
+                         for room, text in ROOM_SUMMARIES.items()})
 
         async def handler(request):
             self.assertEqual(request.url.path, '/api/services/mqtt/publish')
@@ -84,8 +87,8 @@ class PublicationTests(unittest.IsolatedAsyncioTestCase):
             result = await mqtt.publish_summaries('http://ha', 'secret', recommendation, STAMP, timeout=0.05)
         self.assertEqual({item['topic'] for item in seen}, set(expected))
         self.assertFalse(result['ok'])
-        self.assertEqual([item['ok'] for item in result['topics']], [True, True, False, False])
-        self.assertIn('TimeoutError', result['topics'][3]['error'])
+        self.assertEqual([item['ok'] for item in result['topics']], [True, True, True, True, True, False, False])
+        self.assertIn('TimeoutError', result['topics'][-1]['error'])
         self.assertNotIn('secret', json.dumps(result))
 
     async def test_empty_nodes_still_publishes_full_overall_summary(self):
@@ -94,8 +97,8 @@ class PublicationTests(unittest.IsolatedAsyncioTestCase):
                  200, request=httpx.Request('POST', 'http://ha/api/services/mqtt/publish')))) as post:
             recommendation = Recommendation(summary='🌡' * 255, room_summaries=ROOM_SUMMARIES)
             result = await mqtt.publish_summaries('http://ha', 'secret', recommendation, STAMP)
-        post.assert_awaited_once()
-        body = post.call_args.kwargs['json']
+        self.assertEqual(post.await_count, 1 + len(ROOM_SUMMARIES))
+        body = post.call_args_list[0].kwargs['json']
         self.assertEqual(body['topic'], 'intellithings/ai/summary')
         self.assertEqual(json.loads(body['payload'])['text'], recommendation.summary)
         self.assertTrue(result['ok'])

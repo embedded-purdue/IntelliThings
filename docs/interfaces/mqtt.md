@@ -115,6 +115,23 @@ subscribe to these yet.**
 > **Open discussion:** should the nodes subscribe to `intellithings/ai/inference_status` and
 > show the display's "thinking" line? If so, which text should it show?
 
+## AI room summaries and inference status
+
+The AI pipeline publishes the following at QoS 1 with retention:
+
+| Topic | Payload |
+|---|---|
+| `intellithings/ai/summary` | `{"text":"Overall assessment","ts":"<ISO8601>"}` |
+| `intellithings/ai/rooms/<room_key>/summary` | `{"text":"Room assessment","ts":"<ISO8601>"}` |
+| `intellithings/ai/inference_status` | `{"state":"start thinking","ts":"<ISO8601>"}` or `stop thinking` |
+
+Room keys come from the areas in fresh HA context, normalized to lowercase with
+underscores (for example `Second Bedroom` becomes `second_bedroom`). Subscribe to
+`intellithings/ai/rooms/+/summary` for every room. Room text is at most 60 characters;
+overall text is at most 255. Configured displays receive copies of their room's
+summary. Consumers should check `ts`: a failed cycle leaves retained summaries
+unchanged. See [HA entity setup](../../ai/deployment/home_assistant/README.md).
+
 ## Reserved: `intellithings/emulator/#`
 
 Used only by the emulator ESP32's control channel (see `ai/emulator/README.md`). Real nodes

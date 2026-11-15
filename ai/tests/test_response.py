@@ -28,7 +28,7 @@ class ResponseTests(unittest.IsolatedAsyncioTestCase):
             path.write_text(json.dumps({"content": json.dumps(fixture())}))
             response = load_response(path)
             self.assertEqual(response.summary, fixture()["summary"])
-            self.assertEqual(response.room_summaries.model_dump(), ROOM_SUMMARIES)
+            self.assertEqual(response.room_summaries, ROOM_SUMMARIES)
             self.assertEqual(response.model_dump(), fixture())
 
     def test_rejects_missing_summary_wrong_types_extra_fields_and_non_json(self):
@@ -50,14 +50,17 @@ class ResponseTests(unittest.IsolatedAsyncioTestCase):
         del missing_rooms['room_summaries']
         missing_room = fixture()
         del missing_room['room_summaries']['bedroom']
-        invalid = [missing_rooms, missing_room]
+        invalid = [missing_rooms]
         for text in ['', '   ', 'x' * 61, None, 42]:
             value = fixture()
             value['room_summaries']['kitchen'] = text
             invalid.append(value)
         unknown = fixture()
         unknown['room_summaries']['garage'] = 'No data available'
-        invalid.append(unknown)
+        with self.assertRaises(ValueError):
+            parse_response(json.dumps(unknown), ROOM_SUMMARIES)
+        with self.assertRaises(ValueError):
+            parse_response(json.dumps(missing_room), ROOM_SUMMARIES)
         for value in invalid:
             with self.assertRaises(ValidationError):
                 parse_response(json.dumps(value))

@@ -114,7 +114,8 @@ meaning; check status and timestamps before treating a saved result as current.
 The existing emulator registration script uses the aggregate
 `intellithings/emulator/state` topic. Its behavior is documented under
 [broker setup](deployment/mosquitto/README.md#emulator-readings-in-home-assistant).
-Room summaries use each node's `/display` topic; overall summary and thinking
+Room summaries use `intellithings/ai/rooms/<room_key>/summary`, with copies to
+configured nodes' `/display` topics; overall summary and thinking
 status use `intellithings/ai/summary` and `intellithings/ai/inference_status`.
 
 Future Lambda, HAOS, and chat-bot work is described in the
