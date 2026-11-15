@@ -1,0 +1,16 @@
+# Copy to sdkconfig.local (gitignored) and fill in. Then delete sdkconfig and rebuild,
+# because defaults don't overwrite values already in an existing sdkconfig.
+# NEVER commit sdkconfig.local or sdkconfig.
+
+CONFIG_DM_WIFI_SSID="your-ssid"
+CONFIG_DM_WIFI_PASSWORD="your-wifi-password"
+
+CONFIG_DM_MQTT_HOST="192.168.1.2"
+CONFIG_DM_MQTT_PORT=1883
+CONFIG_DM_MQTT_USERNAME=""
+CONFIG_DM_MQTT_PASSWORD=""
+
+# Optional overrides (defaults shown)
+# CONFIG_DM_HOSTNAME="intellithings-demo"
+# CONFIG_DM_BUTTON_GPIO=3
+# CONFIG_DM_ADMIN_PIN="1234"
